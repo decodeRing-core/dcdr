@@ -1,6 +1,8 @@
+use decodering_core::error::DbError;
+use decodering_core::repository::MetaRepository;
 use sqlx::{Sqlite, Transaction};
 
-use crate::{DbError, repository::MetaRepository};
+use crate::error::map_sqlx;
 
 pub struct SqliteMetaRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
@@ -11,7 +13,8 @@ impl<'a> MetaRepository for SqliteMetaRepository<'a> {
         let row: Option<(String,)> = sqlx::query_as("SELECT value FROM meta WHERE key = ?")
             .bind(key)
             .fetch_optional(&mut **self.tx)
-            .await?;
+            .await
+            .map_err(map_sqlx)?;
         Ok(row.map(|(v,)| v))
     }
 
@@ -23,7 +26,8 @@ impl<'a> MetaRepository for SqliteMetaRepository<'a> {
         .bind(key)
         .bind(value)
         .execute(&mut **self.tx)
-        .await?;
+        .await
+        .map_err(map_sqlx)?;
         Ok(())
     }
 }

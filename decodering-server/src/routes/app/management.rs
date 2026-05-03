@@ -1,6 +1,6 @@
 use actix_web::dev::HttpServiceFactory;
 use actix_web::web;
-use decodering_db::Database;
+use decodering_core::tx::Database;
 
 use crate::handlers::app::management::create_app;
 use crate::handlers::app::management::create_app_user;

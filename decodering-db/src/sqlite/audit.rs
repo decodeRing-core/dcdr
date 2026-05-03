@@ -1,9 +1,10 @@
+use decodering_core::error::DbError;
+use decodering_core::repository::AuditEntry;
+use decodering_core::repository::AuditRepository;
 use sqlx::Sqlite;
 use sqlx::Transaction;
 
-use crate::error::DbError;
-use crate::repository::AuditEntry;
-use crate::repository::AuditRepository;
+use crate::error::map_sqlx;
 
 pub struct SqliteAuditRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
@@ -47,7 +48,8 @@ impl<'a> AuditRepository for SqliteAuditRepository<'a> {
         .bind(params.revertible)
         .bind(params.undoes)
         .fetch_one(&mut **self.tx)
-        .await?;
+        .await
+        .map_err(map_sqlx)?;
         Ok(id)
     }
 }

@@ -1,7 +1,56 @@
 use std::error::Error;
 use std::fmt;
 
-use decodering_db::DbError;
+#[derive(Debug)]
+pub enum DbError {
+    NotFound,
+    UniqueViolation { constraint: Option<String> },
+    ForeignKeyViolation { constraint: Option<String> },
+    CheckViolation { constraint: Option<String> },
+    SerializationFailure,
+    Connection(String),
+    Schema(String),
+    Serde(String),
+    Other(String),
+}
+
+impl fmt::Display for DbError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DbError::NotFound => write!(f, "not found"),
+            DbError::UniqueViolation {
+                constraint: Some(c),
+            } => {
+                write!(f, "unique constraint violated: {}", c)
+            }
+            DbError::UniqueViolation { constraint: None } => {
+                write!(f, "unique constraint violated")
+            }
+            DbError::ForeignKeyViolation {
+                constraint: Some(c),
+            } => {
+                write!(f, "foreign key constraint violated: {}", c)
+            }
+            DbError::ForeignKeyViolation { constraint: None } => {
+                write!(f, "foreign key constraint violated")
+            }
+            DbError::CheckViolation {
+                constraint: Some(c),
+            } => {
+                write!(f, "check constraint violated: {}", c)
+            }
+            DbError::CheckViolation { constraint: None } => {
+                write!(f, "check constraint violated")
+            }
+            DbError::SerializationFailure => write!(f, "serialization failure; retry"),
+            DbError::Connection(msg) => write!(f, "connection error: {}", msg),
+            DbError::Schema(msg) => write!(f, "schema error: {}", msg),
+            DbError::Serde(msg) => write!(f, "serialization error: {}", msg),
+            DbError::Other(msg) => write!(f, "database error: {}", msg),
+        }
+    }
+}
+impl Error for DbError {}
 
 /// Reason a policy check denied an action.
 #[derive(Debug, Clone)]

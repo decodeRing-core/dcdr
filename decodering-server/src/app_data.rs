@@ -2,7 +2,7 @@ use std::{path::Path, sync::OnceLock};
 
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
-use decodering_db::Database;
+use decodering_core::tx::Database;
 use decodering_db::postgres::PostgresDatabase;
 use decodering_db::sqlite::SqliteDatabase;
 use decodering_raft::NodeId;

@@ -1,9 +1,10 @@
+use decodering_core::error::DbError;
+use decodering_core::repository::UserEntry;
+use decodering_core::repository::UserRepository;
 use sqlx::Sqlite;
 use sqlx::Transaction;
 
-use crate::error::DbError;
-use crate::repository::UserEntry;
-use crate::repository::UserRepository;
+use crate::error::map_sqlx;
 
 pub struct SqliteUserRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
@@ -21,7 +22,8 @@ impl<'a> UserRepository for SqliteUserRepository<'a> {
         .bind(params.is_admin)
         .bind(params.created_at)
         .fetch_one(&mut **self.tx)
-        .await?;
+        .await
+        .map_err(map_sqlx)?;
         Ok(id)
     }
 }

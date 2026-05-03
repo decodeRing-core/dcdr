@@ -1,10 +1,12 @@
+use decodering_core::error::DbError;
+use decodering_core::repository::Shamir;
+use decodering_core::repository::ShamirEntry;
+use decodering_core::repository::ShamirRepository;
 use sqlx::Postgres;
 use sqlx::Transaction;
 
-use crate::error::DbError;
-use crate::repository::Shamir;
-use crate::repository::ShamirEntry;
-use crate::repository::ShamirRepository;
+use crate::error::map_sqlx;
+use crate::repository::ShamirRow;
 
 pub struct PostgresShamirRepository<'a, 'c> {
     pub tx: &'a mut Transaction<'c, Postgres>,
@@ -12,12 +14,13 @@ pub struct PostgresShamirRepository<'a, 'c> {
 
 impl<'a, 'c> ShamirRepository for PostgresShamirRepository<'a, 'c> {
     async fn get_first(&mut self) -> Result<Option<Shamir>, DbError> {
-        let shamir = sqlx::query_as::<_, Shamir>(
+        let shamir = sqlx::query_as::<_, ShamirRow>(
             "SELECT id, total_shares, threshold, validation_hash, created_at FROM shamir_configuration ORDER BY created_at DESC LIMIT 1",
         )
         .fetch_optional(&mut **self.tx)
-        .await?;
-        Ok(shamir)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(shamir.map(Into::into))
     }
 
     async fn insert(&mut self, params: &ShamirEntry) -> Result<i64, DbError> {
@@ -29,7 +32,8 @@ impl<'a, 'c> ShamirRepository for PostgresShamirRepository<'a, 'c> {
         .bind(&params.validation_hash)
         .bind(params.created_at)
         .fetch_one(&mut **self.tx) // or &pool
-        .await?;
+        .await
+        .map_err(map_sqlx)?;
         Ok(id)
     }
 }

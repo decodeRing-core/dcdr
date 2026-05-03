@@ -1,9 +1,10 @@
+use decodering_core::error::DbError;
+use decodering_core::repository::UserEntry;
+use decodering_core::repository::UserRepository;
 use sqlx::Postgres;
 use sqlx::Transaction;
 
-use crate::error::DbError;
-use crate::repository::UserEntry;
-use crate::repository::UserRepository;
+use crate::error::map_sqlx;
 
 pub struct PostgresUserRepository<'a, 'c> {
     pub tx: &'a mut Transaction<'c, Postgres>,
@@ -21,7 +22,8 @@ impl<'a, 'c> UserRepository for PostgresUserRepository<'a, 'c> {
         .bind(params.is_admin)
         .bind(params.created_at)
         .fetch_one(&mut **self.tx)
-        .await?;
+        .await
+        .map_err(map_sqlx)?;
         Ok(id)
     }
 }

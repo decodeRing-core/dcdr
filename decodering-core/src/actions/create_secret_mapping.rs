@@ -1,11 +1,11 @@
-use decodering_db::Tx;
-use decodering_db::repository::{SecretMappingEntry, SecretMappingRespository};
 use serde::{Deserialize, Serialize};
 
 use crate::action::Action;
 use crate::audit::{ActionKind, ActionOutput, Actor, AuditDescriptor, Target};
 use crate::error::ExecutionError;
+use crate::repository::{SecretMappingEntry, SecretMappingRespository};
 use crate::response::{AppResponse, CreateSecretMappingResponse};
+use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateSecretMapping {

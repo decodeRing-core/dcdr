@@ -1,6 +1,6 @@
 use actix_web::Scope;
 use actix_web::web;
-use decodering_db::Database;
+use decodering_core::tx::Database;
 
 use crate::handlers::raft::management::add_learner_raft;
 use crate::handlers::raft::management::change_membership_raft;

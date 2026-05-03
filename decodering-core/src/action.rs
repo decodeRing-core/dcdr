@@ -1,7 +1,6 @@
-use decodering_db::{DbError, Tx};
-
 use crate::audit::{AuditCapture, AuditDescriptor};
-use crate::error::{DenyReason, ExecutionError};
+use crate::error::{DbError, DenyReason, ExecutionError};
+use crate::tx::Tx;
 
 pub trait Action: Send + Sync {
     type Output: Send + AuditCapture;

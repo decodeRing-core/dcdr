@@ -5,4 +5,5 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
+decodering-core.workspace = true
 sqlx.workspace = true

@@ -1,5 +1,5 @@
 use actix_web::web;
-use decodering_db::Database;
+use decodering_core::tx::Database;
 
 use crate::handlers::osl::api::{api_get_secret, api_put_secret};
 

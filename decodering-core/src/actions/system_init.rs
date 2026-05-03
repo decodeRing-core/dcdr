@@ -1,10 +1,3 @@
-use decodering_db::Tx;
-use decodering_db::repository::ApiKeysEntry;
-use decodering_db::repository::ApiKeysRepository;
-use decodering_db::repository::ShamirEntry;
-use decodering_db::repository::ShamirRepository;
-use decodering_db::repository::UserEntry;
-use decodering_db::repository::UserRepository;
 use serde::{Deserialize, Serialize};
 
 use crate::action::Action;
@@ -14,12 +7,16 @@ use crate::actions::create_user::CreateUser;
 use crate::audit::ActionKind;
 use crate::audit::{ActionOutput, Actor, AuditDescriptor};
 use crate::error::ExecutionError;
+use crate::repository::{
+    ApiKeysEntry, ApiKeysRepository, ShamirEntry, ShamirRepository, UserEntry, UserRepository,
+};
 use crate::request::AppRequest;
 use crate::response::AppResponse;
 use crate::response::CreateApiKeyResponse;
 use crate::response::CreateShamirConfigurationResponse;
 use crate::response::CreateUserResponse;
 use crate::response::SystemInitResponse;
+use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct SystemInit {

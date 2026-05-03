@@ -1,8 +1,10 @@
-use decodering_db::domain::AuditOutcome;
-use decodering_db::repository::AuditEntry;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{DenyReason, ExecutionError};
+use crate::{
+    domain::AuditOutcome,
+    error::{DenyReason, ExecutionError},
+    repository::AuditEntry,
+};
 
 pub enum Actor {
     User { user_id: i64 },

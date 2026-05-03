@@ -3,10 +3,10 @@ use actix_web::{Responder, web};
 use decodering_core::actions::create_secret_mapping::CreateSecretMapping;
 use decodering_core::now_ts;
 use decodering_core::plugin::orchestrator::Orchestrator;
+use decodering_core::repository::SecretMappingRespository;
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
-use decodering_db::repository::SecretMappingRespository;
-use decodering_db::{Database, Tx};
+use decodering_core::tx::{Database, Tx};
 
 use crate::app_data::AppData;
 use crate::handlers::osl::payload::GetSecretRequestData;

@@ -1,9 +1,11 @@
+use decodering_core::error::DbError;
+use decodering_core::tx::{Database, RaftTx, Tx};
 use sqlx::{Sqlite, Transaction};
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 use std::str::FromStr;
 
-use crate::error::DbError;
+use crate::error::map_sqlx;
 use crate::sqlite::api_key::SqliteApiKeysRepository;
 use crate::sqlite::app::SqliteAppRepository;
 use crate::sqlite::audit::SqliteAuditRepository;
@@ -13,8 +15,6 @@ use crate::sqlite::schema::SCHEMA;
 use crate::sqlite::secret_mapping::SqliteSecretMappingRepository;
 use crate::sqlite::shamir::SqliteShamirRepository;
 use crate::sqlite::user::SqliteUserRepository;
-use crate::tx::RaftTx;
-use crate::{Database, Tx};
 
 mod api_key;
 mod app;
@@ -89,12 +89,12 @@ impl Tx for SqliteTx {
     }
 
     async fn commit(self) -> Result<(), DbError> {
-        self.tx.commit().await?;
+        self.tx.commit().await.map_err(map_sqlx)?;
         Ok(())
     }
 
     async fn rollback(self) -> Result<(), DbError> {
-        self.tx.rollback().await?;
+        self.tx.rollback().await.map_err(map_sqlx)?;
         Ok(())
     }
 }
@@ -117,7 +117,8 @@ pub struct SqliteDatabase {
 
 impl SqliteDatabase {
     pub async fn connect(url: &str) -> Result<Self, DbError> {
-        let opts = SqliteConnectOptions::from_str(url)?
+        let opts = SqliteConnectOptions::from_str(url)
+            .map_err(map_sqlx)?
             .create_if_missing(true)
             .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
             .foreign_keys(true);
@@ -125,9 +126,10 @@ impl SqliteDatabase {
         let pool = SqlitePoolOptions::new()
             .max_connections(8)
             .connect_with(opts)
-            .await?;
+            .await
+            .map_err(map_sqlx)?;
 
-        sqlx::query(SCHEMA).execute(&pool).await?;
+        sqlx::query(SCHEMA).execute(&pool).await.map_err(map_sqlx)?;
 
         Ok(Self { pool })
     }
@@ -140,7 +142,7 @@ impl Database for SqliteDatabase {
         Self: 'a;
 
     async fn begin(&self) -> Result<Self::Tx<'_>, DbError> {
-        let tx = self.pool.begin().await?;
+        let tx = self.pool.begin().await.map_err(map_sqlx)?;
         Ok(SqliteTx { tx })
     }
 }

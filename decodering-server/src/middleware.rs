@@ -5,7 +5,7 @@ use actix_web::body::{EitherBody, MessageBody};
 use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready};
 use actix_web::{Error, HttpMessage};
 use actix_web::{Responder, web};
-use decodering_db::Database;
+use decodering_core::tx::Database;
 use futures_util::future::LocalBoxFuture;
 use tracing::trace;
 use tracing::{Instrument, Level, field, span};

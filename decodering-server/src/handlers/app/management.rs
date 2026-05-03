@@ -2,7 +2,7 @@ use actix_web::Responder;
 use actix_web::web::{Data, Json};
 use decodering_core::actions::create_app::CreateApp;
 use decodering_core::response::AppResponse;
-use decodering_db::Database;
+use decodering_core::tx::Database;
 use uuid::Uuid;
 
 use crate::app_data::AppData;

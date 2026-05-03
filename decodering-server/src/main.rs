@@ -7,7 +7,7 @@ use actix_web::HttpServer;
 use actix_web::middleware::{Compress, Logger};
 use actix_web::web::Data;
 use decodering_core::plugin::orchestrator::Orchestrator;
-use decodering_db::Database;
+use decodering_core::tx::Database;
 use decodering_db::postgres::PostgresDatabase;
 use decodering_db::sqlite::SqliteDatabase;
 use dotenvy::dotenv;

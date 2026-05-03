@@ -1263,7 +1263,6 @@ dependencies = [
 name = "decodering-core"
 version = "0.1.0"
 dependencies = [
- "decodering-db",
  "extism",
  "serde",
  "serde_json",
@@ -1275,6 +1274,7 @@ dependencies = [
 name = "decodering-db"
 version = "0.1.0"
 dependencies = [
+ "decodering-core",
  "sqlx",
 ]
 

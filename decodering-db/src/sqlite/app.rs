@@ -1,9 +1,10 @@
+use decodering_core::error::DbError;
+use decodering_core::repository::AppEntry;
+use decodering_core::repository::AppRepository;
 use sqlx::Sqlite;
 use sqlx::Transaction;
 
-use crate::error::DbError;
-use crate::repository::AppEntry;
-use crate::repository::AppRepository;
+use crate::error::map_sqlx;
 
 pub struct SqliteAppRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
@@ -19,7 +20,8 @@ impl<'a> AppRepository for SqliteAppRepository<'a> {
         .bind(params.created_at)
         .bind(params.updated_at)
         .fetch_one(&mut **self.tx)
-        .await?;
+        .await
+        .map_err(map_sqlx)?;
         Ok(id)
     }
 }

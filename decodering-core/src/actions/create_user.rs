@@ -1,13 +1,13 @@
-use decodering_db::Tx;
-use decodering_db::repository::{UserEntry, UserRepository};
 use serde::{Deserialize, Serialize};
 
 use crate::action::Action;
 use crate::audit::{ActionKind, ActionOutput, Actor, AuditDescriptor, Target};
 use crate::error::ExecutionError;
 use crate::now_ts;
+use crate::repository::{UserEntry, UserRepository};
 use crate::request::AppRequest;
 use crate::response::{AppResponse, CreateUserResponse};
+use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateUser {

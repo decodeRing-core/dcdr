@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use actix_web::web::{Data, Json};
 use actix_web::{HttpResponse, Responder};
-use decodering_db::Database;
+use decodering_core::tx::Database;
 use decodering_raft::raft_types::AppendEntriesRequest;
 use decodering_raft::raft_types::Snapshot;
 use decodering_raft::raft_types::SnapshotMetaOf;

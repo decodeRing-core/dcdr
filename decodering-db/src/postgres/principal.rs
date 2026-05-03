@@ -1,9 +1,10 @@
+use decodering_core::error::DbError;
+use decodering_core::repository::PrincipalEntry;
+use decodering_core::repository::PrincipalRepository;
 use sqlx::Postgres;
 use sqlx::Transaction;
 
-use crate::error::DbError;
-use crate::repository::PrincipalEntry;
-use crate::repository::PrincipalRepository;
+use crate::error::map_sqlx;
 
 pub struct PostgresPrincipalRepository<'a, 'c> {
     pub tx: &'a mut Transaction<'c, Postgres>,
@@ -22,7 +23,8 @@ impl<'a, 'c> PrincipalRepository for PostgresPrincipalRepository<'a, 'c> {
         .bind(params.created_at)
         .bind(params.updated_at)
         .fetch_one(&mut **self.tx)
-        .await?;
+        .await
+        .map_err(map_sqlx)?;
         Ok(id)
     }
 }

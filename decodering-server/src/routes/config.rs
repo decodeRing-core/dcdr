@@ -1,5 +1,5 @@
 use actix_web::web;
-use decodering_db::Database;
+use decodering_core::tx::Database;
 
 use crate::middleware::LockState;
 use crate::routes::app::management::app_management_routes;

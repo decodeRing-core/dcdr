@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-decodering-db.workspace = true
 serde_yaml.workspace = true
 extism.workspace = true
 serde.workspace = true

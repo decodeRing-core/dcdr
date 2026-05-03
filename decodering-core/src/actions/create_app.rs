@@ -1,13 +1,13 @@
-use decodering_db::Tx;
-use decodering_db::repository::{AppEntry, AppRepository};
 use serde::{Deserialize, Serialize};
 
 use crate::action::Action;
 use crate::audit::{ActionKind, ActionOutput, Actor, AuditDescriptor, Target};
 use crate::error::ExecutionError;
 use crate::now_ts;
+use crate::repository::{AppEntry, AppRepository};
 use crate::request::AppRequest;
 use crate::response::{AppResponse, CreateAppResponse};
+use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateApp {

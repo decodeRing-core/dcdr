@@ -1,10 +1,12 @@
+use decodering_core::error::DbError;
+use decodering_core::repository::SecretMapping;
+use decodering_core::repository::SecretMappingEntry;
+use decodering_core::repository::SecretMappingRespository;
 use sqlx::Postgres;
 use sqlx::Transaction;
 
-use crate::error::DbError;
-use crate::repository::SecretMapping;
-use crate::repository::SecretMappingEntry;
-use crate::repository::SecretMappingRespository;
+use crate::error::map_sqlx;
+use crate::repository::SecretMappingRow;
 
 pub struct PostgresSecretMappingRepository<'a, 'c> {
     pub tx: &'a mut Transaction<'c, Postgres>,
@@ -23,7 +25,8 @@ impl<'a, 'c> SecretMappingRespository for PostgresSecretMappingRepository<'a, 'c
         .bind(params.created_at)
         .bind(params.updated_at)
         .fetch_one(&mut **self.tx)
-        .await?;
+        .await
+        .map_err(map_sqlx)?;
         Ok(id)
     }
 
@@ -32,7 +35,7 @@ impl<'a, 'c> SecretMappingRespository for PostgresSecretMappingRepository<'a, 'c
         app_id: &str,
         secret_name: &str,
     ) -> Result<Option<SecretMapping>, DbError> {
-        let secret_mapping = sqlx::query_as::<_, SecretMapping>(
+        let secret_mapping = sqlx::query_as::<_, SecretMappingRow>(
             "SELECT app_id, secret_name, backend, mount_path, tainted, created_at, updated_at
                 FROM secret_backend_mapping
                 WHERE app_id = $1 AND secret_name = $2",
@@ -40,7 +43,8 @@ impl<'a, 'c> SecretMappingRespository for PostgresSecretMappingRepository<'a, 'c
         .bind(app_id)
         .bind(secret_name)
         .fetch_optional(&mut **self.tx)
-        .await?;
-        Ok(secret_mapping)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(secret_mapping.map(Into::into))
     }
 }

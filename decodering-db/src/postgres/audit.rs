@@ -1,9 +1,10 @@
+use decodering_core::error::DbError;
+use decodering_core::repository::AuditEntry;
+use decodering_core::repository::AuditRepository;
 use sqlx::Postgres;
 use sqlx::Transaction;
 
-use crate::error::DbError;
-use crate::repository::AuditEntry;
-use crate::repository::AuditRepository;
+use crate::error::map_sqlx;
 
 pub struct PostgresAuditRepository<'a, 'c> {
     pub tx: &'a mut Transaction<'c, Postgres>,
@@ -47,7 +48,8 @@ impl<'a, 'c> AuditRepository for PostgresAuditRepository<'a, 'c> {
         .bind(params.revertible)
         .bind(params.undoes)
         .fetch_one(&mut **self.tx)
-        .await?;
+        .await
+        .map_err(map_sqlx)?;
         Ok(id)
     }
 }

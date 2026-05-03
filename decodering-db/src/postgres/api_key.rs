@@ -1,9 +1,10 @@
+use decodering_core::error::DbError;
+use decodering_core::repository::ApiKeysEntry;
+use decodering_core::repository::ApiKeysRepository;
 use sqlx::Postgres;
 use sqlx::Transaction;
 
-use crate::error::DbError;
-use crate::repository::ApiKeysEntry;
-use crate::repository::ApiKeysRepository;
+use crate::error::map_sqlx;
 
 pub struct PostgresApiKeysRepository<'a, 'c> {
     pub tx: &'a mut Transaction<'c, Postgres>,
@@ -19,7 +20,8 @@ impl<'a, 'c> ApiKeysRepository for PostgresApiKeysRepository<'a, 'c> {
         .bind(params.created_at)
         .bind(params.expires_at)
         .fetch_one(&mut **self.tx)
-        .await?;
+        .await
+        .map_err(map_sqlx)?;
         Ok(id)
     }
 }

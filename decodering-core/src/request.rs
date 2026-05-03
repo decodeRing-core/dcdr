@@ -1,6 +1,5 @@
 use std::fmt;
 
-use decodering_db::Database;
 use serde::{Deserialize, Serialize};
 
 use crate::actions::create_api_key::CreateApiKey;
@@ -12,6 +11,7 @@ use crate::actions::system_init::SystemInit;
 use crate::error::ActionError;
 use crate::response::AppResponse;
 use crate::runner::run_action_direct;
+use crate::tx::Database;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum AppRequest {

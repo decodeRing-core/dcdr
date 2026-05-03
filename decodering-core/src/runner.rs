@@ -1,10 +1,9 @@
-use decodering_db::repository::AuditRepository;
-use decodering_db::{Database, Tx};
-
 use crate::action::Action;
 use crate::audit::{audit_allowed, audit_denied, audit_errored};
 use crate::error::ActionError;
 use crate::now_ts;
+use crate::repository::AuditRepository;
+use crate::tx::{Database, Tx};
 
 pub async fn run_action_direct<D, A>(db: &D, action: A) -> Result<A::Output, ActionError>
 where

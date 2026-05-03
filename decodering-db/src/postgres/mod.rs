@@ -1,10 +1,11 @@
 use std::str::FromStr;
 
+use decodering_core::error::DbError;
+use decodering_core::tx::{Database, Tx};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{PgPool, Postgres, Transaction};
 
-use crate::Database;
-use crate::error::DbError;
+use crate::error::map_sqlx;
 use crate::postgres::api_key::PostgresApiKeysRepository;
 use crate::postgres::app::PostgresAppRepository;
 use crate::postgres::audit::PostgresAuditRepository;
@@ -12,7 +13,6 @@ use crate::postgres::principal::PostgresPrincipalRepository;
 use crate::postgres::secret_mapping::PostgresSecretMappingRepository;
 use crate::postgres::shamir::PostgresShamirRepository;
 use crate::postgres::user::PostgresUserRepository;
-use crate::tx::Tx;
 
 mod api_key;
 mod app;
@@ -85,12 +85,12 @@ impl<'c> Tx for PostgresTx<'c> {
     }
 
     async fn commit(self) -> Result<(), DbError> {
-        self.tx.commit().await?;
+        self.tx.commit().await.map_err(map_sqlx)?;
         Ok(())
     }
 
     async fn rollback(self) -> Result<(), DbError> {
-        self.tx.rollback().await?;
+        self.tx.rollback().await.map_err(map_sqlx)?;
         Ok(())
     }
 }
@@ -102,11 +102,12 @@ pub struct PostgresDatabase {
 
 impl PostgresDatabase {
     pub async fn connect(url: &str) -> Result<Self, DbError> {
-        let opts = PgConnectOptions::from_str(url)?;
+        let opts = PgConnectOptions::from_str(url).map_err(map_sqlx)?;
         let pool = PgPoolOptions::new()
             .max_connections(8)
             .connect_with(opts)
-            .await?;
+            .await
+            .map_err(map_sqlx)?;
         Ok(Self { pool })
     }
 }
@@ -118,7 +119,7 @@ impl Database for PostgresDatabase {
         Self: 'a;
 
     async fn begin(&self) -> Result<Self::Tx<'_>, DbError> {
-        let tx = self.pool.begin().await?;
+        let tx = self.pool.begin().await.map_err(map_sqlx)?;
         Ok(PostgresTx { tx })
     }
 }

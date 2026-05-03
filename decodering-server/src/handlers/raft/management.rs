@@ -1,6 +1,6 @@
 use actix_web::Responder;
 use actix_web::web::{Data, Json};
-use decodering_db::Database;
+use decodering_core::tx::Database;
 use decodering_raft::NodeId;
 use std::collections::BTreeSet;
 
