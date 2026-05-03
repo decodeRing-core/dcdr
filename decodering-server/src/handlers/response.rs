@@ -1,0 +1,191 @@
+use actix_web::{HttpRequest, HttpResponse, Responder, body::BoxBody, http::StatusCode};
+use serde::Serialize;
+
+const OSL_VERSION: &str = "1.0.0";
+
+#[derive(Debug, Clone)]
+pub enum ApiStatus {
+    Success(SuccessStatus),
+    Error(ErrorStatus),
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SuccessStatus {
+    SystemInitialized,
+    SystemLocked,
+    SystemUnlocked,
+    RaftInitialized,
+    RaftMetrics,
+    RaftAddLearner,
+    RaftMembership,
+    OperationCompleted,
+}
+
+#[derive(Debug, Clone)]
+pub enum ErrorStatus {
+    NotLeader,
+    NotInitialized,
+    AlreadyInitialized,
+    Plugin,
+    Internal,
+    InvalidKeys,
+    Locked,
+    UnsupportedBackend,
+}
+
+impl SuccessStatus {
+    fn message(&self) -> &'static str {
+        match self {
+            Self::SystemInitialized => "System initialized",
+            Self::SystemLocked => "System is locked",
+            Self::SystemUnlocked => "System is unlocked",
+            Self::RaftInitialized => "Raft initialized",
+            Self::RaftMetrics => "Raft node metrics",
+            Self::RaftAddLearner => "Raft learner added",
+            Self::RaftMembership => "Raft membership changes",
+            Self::OperationCompleted => "Operating completed",
+        }
+    }
+
+    fn http_status(&self) -> StatusCode {
+        match self {
+            Self::SystemInitialized => StatusCode::OK,
+            Self::SystemLocked => StatusCode::FORBIDDEN,
+            Self::SystemUnlocked => StatusCode::OK,
+            Self::RaftInitialized => StatusCode::OK,
+            Self::RaftMetrics => StatusCode::OK,
+            Self::RaftAddLearner => StatusCode::OK,
+            Self::RaftMembership => StatusCode::OK,
+            Self::OperationCompleted => StatusCode::OK,
+        }
+    }
+}
+
+impl ErrorStatus {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::NotLeader => "not-leader",
+            Self::NotInitialized => "node-not-initialized",
+            Self::AlreadyInitialized => "system-already-initialized",
+            Self::Plugin => "plugin-error",
+            Self::Internal => "internal-error",
+            Self::InvalidKeys => "invalid-keys",
+            Self::Locked => "locked",
+            Self::UnsupportedBackend => "unsupported-backend",
+        }
+    }
+
+    fn message(&self) -> &'static str {
+        match self {
+            Self::NotLeader => "Node is not the leader.",
+            Self::NotInitialized => "Node is not initialized.",
+            Self::AlreadyInitialized => "System already initialized.",
+            Self::Plugin => "Plugin error.",
+            Self::Internal => "Internal error.",
+            Self::InvalidKeys => "Invalid keys.",
+            Self::Locked => "Node is locked",
+            Self::UnsupportedBackend => "Unsupported backend",
+        }
+    }
+
+    fn http_status(&self) -> StatusCode {
+        match self {
+            Self::NotLeader => StatusCode::SERVICE_UNAVAILABLE,
+            Self::NotInitialized => StatusCode::SERVICE_UNAVAILABLE,
+            Self::AlreadyInitialized => StatusCode::BAD_REQUEST,
+            Self::Plugin => StatusCode::BAD_REQUEST,
+            Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::InvalidKeys => StatusCode::FORBIDDEN,
+            Self::Locked => StatusCode::FORBIDDEN,
+            Self::UnsupportedBackend => StatusCode::SERVICE_UNAVAILABLE,
+        }
+    }
+}
+
+impl From<SuccessStatus> for ApiStatus {
+    fn from(s: SuccessStatus) -> Self {
+        Self::Success(s)
+    }
+}
+impl From<ErrorStatus> for ApiStatus {
+    fn from(e: ErrorStatus) -> Self {
+        Self::Error(e)
+    }
+}
+
+#[derive(Serialize)]
+pub struct ApiResponse<T: Serialize> {
+    #[serde(rename = "osl-version")]
+    osl_version: &'static str,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    status: Option<SuccessStatus>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<&'static str>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data: Option<T>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<ApiErrorBody>,
+
+    #[serde(skip)]
+    http_status: StatusCode,
+}
+
+#[derive(Serialize)]
+pub struct ApiErrorBody {
+    code: &'static str,
+    message: &'static str,
+}
+
+impl<T: Serialize> ApiResponse<T> {
+    pub fn new(status: ApiStatus, data: Option<T>) -> Self {
+        match status {
+            ApiStatus::Success(s) => Self {
+                osl_version: OSL_VERSION,
+                message: Some(s.message()),
+                http_status: s.http_status(),
+                status: Some(s),
+                data,
+                error: None,
+            },
+            ApiStatus::Error(e) => Self {
+                osl_version: OSL_VERSION,
+                status: None,
+                message: None,
+                data: None,
+                http_status: e.http_status(),
+                error: Some(ApiErrorBody {
+                    code: e.code(),
+                    message: e.message(),
+                }),
+            },
+        }
+    }
+
+    pub fn error(status: ErrorStatus) -> Self {
+        Self::new(ApiStatus::Error(status), None)
+    }
+    pub fn empty(status: ApiStatus) -> Self {
+        Self::new(status, None)
+    }
+}
+
+impl<T: Serialize> ApiResponse<T> {}
+
+impl<T: Serialize> Responder for ApiResponse<T> {
+    type Body = BoxBody;
+
+    fn respond_to(self, _req: &HttpRequest) -> HttpResponse<Self::Body> {
+        let http_status = self.http_status;
+        match serde_json::to_string(&self) {
+            Ok(body) => HttpResponse::build(http_status)
+                .content_type("application/json")
+                .body(body),
+            Err(e) => HttpResponse::InternalServerError().body(format!("serialization error: {e}")),
+        }
+    }
+}
