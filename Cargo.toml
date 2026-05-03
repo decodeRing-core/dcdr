@@ -1,0 +1,60 @@
+[workspace]
+resolver = "2"
+members = [
+    "decodering-core",
+    "decodering-cli",
+    "decodering-server",
+    "decodering-raft",
+    "decodering-db",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+decodering-core = { path = "decodering-core" }
+decodering-raft = { path = "decodering-raft" }
+decodering-db = { path = "decodering-db" }
+
+serde_with = { version = "3.18.0", features = ["base64", "macros"] }
+# Targeting a specific rusqlite version to match the same libsqlite3-sys version used by sqlx
+# Using backup API to install a new snapshot. Not supported by sqlx 0.8.x.
+rusqlite = { version = "0.32.1", features = ["bundled", "backup"] }
+
+serde = "1.0.228"
+serde_json = "1.0.149"
+tokio = { version = "1.52.1", features = ["full"] }
+extism = "1.21.0"
+serde_yaml = "0.9"
+dotenvy = "0.15.7"
+actix-web = "4.13.0"
+tracing = "0.1.44"
+tracing-appender = "0.2.5"
+tracing-subscriber = { version = "0.3.23", features = [
+    "json",
+    "registry",
+    "env-filter",
+    "std",
+] }
+actix-cors = "0.7.1"
+futures-util = "0.3.32"
+openraft = { version = "0.10.0-alpha.18", features = ["serde", "type-alias"] }
+rocksdb = "0.24.0"
+futures = "0.3.32"
+rand = { version = "0.10.1", features = ["thread_rng"] }
+byteorder = "1.5.0"
+reqwest = { version = "0.13.3", features = ["json"] }
+clap = "4.6.1"
+sqlx = { version = "0.8.6", features = [
+    "runtime-tokio",
+    "sqlite",
+    "macros",
+    "postgres",
+] }
+blahaj = "0.6"
+sha2 = "0.11.0"
+base64 = "0.22.1"
+zeroize = "1.8.2"
+uuid = { version = "1", features = ["v7"] }

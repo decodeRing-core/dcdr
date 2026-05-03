@@ -1,1 +1,1 @@
-Rust project
+DecodeRing Rust Implementation
