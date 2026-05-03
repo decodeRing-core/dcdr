@@ -18,7 +18,7 @@ decodering-core = { path = "decodering-core" }
 decodering-raft = { path = "decodering-raft" }
 decodering-db = { path = "decodering-db" }
 
-serde_with = { version = "3.18.0", features = ["base64", "macros"] }
+serde_with = { version = "3.19.0", features = ["base64", "macros"] }
 # Targeting a specific rusqlite version to match the same libsqlite3-sys version used by sqlx
 # Using backup API to install a new snapshot. Not supported by sqlx 0.8.x.
 rusqlite = { version = "0.32.1", features = ["bundled", "backup"] }
