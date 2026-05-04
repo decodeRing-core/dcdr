@@ -32,6 +32,13 @@ pub(crate) async fn api_put_secret<D: Database + 'static>(
         _ => {}
     }
 
+    // Do we have an app_id? Is the token valid and is the user admin ?
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::Internal.into());
+    };
+
     let backend = core.get_backend(&req.store.backend_ref);
     let Ok(backend) = backend else {
         tracing::error!("Backend not found");
@@ -107,7 +114,11 @@ pub(crate) async fn api_get_secret<D: Database + 'static>(
     let secret_mapping_data = match secret_mapping {
         Ok(Some(x)) => x,
         Ok(None) => {
-            tracing::error!(err=%secret_mapping.unwrap_err(), "No secret mapping found for {}/{}", req.app_id, req.secret_name);
+            tracing::error!(
+                "No secret mapping found for {}/{}",
+                req.app_id,
+                req.secret_name
+            );
             return ApiResponse::error(ErrorStatus::SecretNotFound.into());
         }
         Err(e) => {

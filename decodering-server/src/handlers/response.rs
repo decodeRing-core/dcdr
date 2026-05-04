@@ -83,7 +83,7 @@ impl ErrorStatus {
             Self::Plugin => "Plugin error.",
             Self::Internal => "Internal error.",
             Self::InvalidKeys => "Invalid keys.",
-            Self::Locked => "Node is locked",
+            Self::Locked => "Node locked",
             Self::UnsupportedBackend => "Unsupported backend",
             Self::SecretNotFound => "Secret not found",
         }
