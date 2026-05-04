@@ -38,9 +38,12 @@ pub(crate) async fn api_put_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::UnsupportedBackend);
     };
 
-    if let Err(e) = backend.put(&req.store.store_path, &req.data) {
-        tracing::debug!(error=?e, "Plugin error");
-        return ApiResponse::error(ErrorStatus::Plugin.into());
+    let secret_version = match backend.put(&req.store.store_path, &req.data) {
+        Ok(version) => version,
+        Err(e) => {
+            tracing::debug!(error=?e, "Plugin error");
+            return ApiResponse::error(ErrorStatus::Plugin.into());
+        }
     };
 
     let timestamp = now_ts();
@@ -56,7 +59,9 @@ pub(crate) async fn api_put_secret<D: Database + 'static>(
     let request = AppRequest::CreateSecretMapping(secret_mapping);
     match app.submit(request).await {
         Ok(resp) => match resp {
-            AppResponse::CreateSecretMapping(a) => ApiPutSecretResponse::new("1.0.0".to_string()),
+            AppResponse::CreateSecretMapping(resp) => {
+                return ApiPutSecretResponse::new(resp.secret_name, secret_version.to_string());
+            }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app");
                 return ApiResponse::error(ErrorStatus::Internal.into());
@@ -99,12 +104,24 @@ pub(crate) async fn api_get_secret<D: Database + 'static>(
         .get_by_app_id_secret_name(&req.app_id, &req.secret_name)
         .await;
 
-    let backend = core.get_backend("openbao-rs");
+    let secret_mapping_data = match secret_mapping {
+        Ok(Some(x)) => x,
+        Ok(None) => {
+            tracing::error!(err=%secret_mapping.unwrap_err(), "No secret mapping found for {}/{}", req.app_id, req.secret_name);
+            return ApiResponse::error(ErrorStatus::SecretNotFound.into());
+        }
+        Err(e) => {
+            tracing::error!(%e, "Database error");
+            return ApiResponse::error(ErrorStatus::Internal.into());
+        }
+    };
+
+    let backend = core.get_backend(&secret_mapping_data.backend);
     let Ok(backend) = backend else {
-        tracing::error!("Backend not found");
+        tracing::error!("Backend not found {}", secret_mapping_data.backend);
         return ApiResponse::error(ErrorStatus::UnsupportedBackend);
     };
-    let out = backend.get(&req.secret_name, Some(req.version));
+    let out = backend.get(&req.secret_name, Some(req.version.to_string()));
     let Ok(out) = out else {
         let e = out.unwrap_err();
         tracing::debug!(error=?e, "Plugin error");

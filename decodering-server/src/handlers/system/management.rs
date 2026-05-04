@@ -147,7 +147,7 @@ pub(crate) async fn system_unlock<D: Database + 'static>(
 
 pub(crate) async fn system_status<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
     if app.master_key.get().is_none() {
-        return ApiResponse::<()>::empty(ApiStatus::Success(SuccessStatus::SystemLocked));
+        return ApiResponse::<()>::empty(ErrorStatus::Locked.into());
     }
-    return ApiResponse::<()>::empty(ApiStatus::Success(SuccessStatus::SystemUnlocked));
+    return ApiResponse::<()>::empty(SuccessStatus::SystemUnlocked.into());
 }

@@ -13,7 +13,6 @@ pub enum ApiStatus {
 #[serde(rename_all = "kebab-case")]
 pub enum SuccessStatus {
     SystemInitialized,
-    SystemLocked,
     SystemUnlocked,
     RaftInitialized,
     RaftMetrics,
@@ -32,13 +31,13 @@ pub enum ErrorStatus {
     InvalidKeys,
     Locked,
     UnsupportedBackend,
+    SecretNotFound,
 }
 
 impl SuccessStatus {
     fn message(&self) -> &'static str {
         match self {
             Self::SystemInitialized => "System initialized",
-            Self::SystemLocked => "System is locked",
             Self::SystemUnlocked => "System is unlocked",
             Self::RaftInitialized => "Raft initialized",
             Self::RaftMetrics => "Raft node metrics",
@@ -51,7 +50,6 @@ impl SuccessStatus {
     fn http_status(&self) -> StatusCode {
         match self {
             Self::SystemInitialized => StatusCode::OK,
-            Self::SystemLocked => StatusCode::FORBIDDEN,
             Self::SystemUnlocked => StatusCode::OK,
             Self::RaftInitialized => StatusCode::OK,
             Self::RaftMetrics => StatusCode::OK,
@@ -73,6 +71,7 @@ impl ErrorStatus {
             Self::InvalidKeys => "invalid-keys",
             Self::Locked => "locked",
             Self::UnsupportedBackend => "unsupported-backend",
+            Self::SecretNotFound => "secret-not-found",
         }
     }
 
@@ -86,19 +85,21 @@ impl ErrorStatus {
             Self::InvalidKeys => "Invalid keys.",
             Self::Locked => "Node is locked",
             Self::UnsupportedBackend => "Unsupported backend",
+            Self::SecretNotFound => "Secret not found",
         }
     }
 
     fn http_status(&self) -> StatusCode {
         match self {
-            Self::NotLeader => StatusCode::SERVICE_UNAVAILABLE,
+            Self::NotLeader => StatusCode::MISDIRECTED_REQUEST,
             Self::NotInitialized => StatusCode::SERVICE_UNAVAILABLE,
             Self::AlreadyInitialized => StatusCode::BAD_REQUEST,
             Self::Plugin => StatusCode::BAD_REQUEST,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
             Self::InvalidKeys => StatusCode::FORBIDDEN,
             Self::Locked => StatusCode::FORBIDDEN,
-            Self::UnsupportedBackend => StatusCode::SERVICE_UNAVAILABLE,
+            Self::UnsupportedBackend => StatusCode::NOT_IMPLEMENTED,
+            Self::SecretNotFound => StatusCode::NOT_FOUND,
         }
     }
 }

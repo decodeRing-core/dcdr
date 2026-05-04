@@ -10,7 +10,7 @@ use super::secret_backend::{ReadResponse, SecretBackend};
 #[derive(Serialize)]
 struct ReadInput<'a> {
     secret_name: &'a str,
-    version: Option<u64>,
+    version: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -21,7 +21,7 @@ struct WriteInput<'a> {
 
 #[derive(serde::Deserialize)]
 struct WriteOutput {
-    version: u64,
+    version: String,
 }
 
 pub struct WasmSecretBackend {
@@ -40,7 +40,7 @@ impl WasmSecretBackend {
 }
 
 impl SecretBackend for WasmSecretBackend {
-    fn get(&self, secret_name: &str, version: Option<u64>) -> Result<ReadResponse, PluginError> {
+    fn get(&self, secret_name: &str, version: Option<String>) -> Result<ReadResponse, PluginError> {
         let mut plugin = self.instantiate()?;
         let input = ReadInput {
             secret_name,
@@ -55,7 +55,7 @@ impl SecretBackend for WasmSecretBackend {
             })
     }
 
-    fn put(&self, path: &str, data: &Value) -> Result<u64, PluginError> {
+    fn put(&self, path: &str, data: &Value) -> Result<String, PluginError> {
         let mut plugin = self.instantiate()?;
         let input = WriteInput { path, data };
         plugin
