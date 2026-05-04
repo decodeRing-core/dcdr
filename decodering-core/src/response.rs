@@ -2,6 +2,8 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::domain::{PrincipalKind, PrincipalStatus};
+
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateAppResponse {
     pub app_id: String,
@@ -54,6 +56,18 @@ pub struct SystemInitResponse {
     pub api_key: CreateApiKeyResponse,
 }
 
+#[derive(Serialize, Debug, Deserialize)]
+pub struct CreatePrincipalResponse {
+    pub principal_id: String,
+    pub name: String,
+    pub app_id: String,
+    pub kind: PrincipalKind,
+    pub status: PrincipalStatus,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub deleted_at: Option<i64>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum AppResponse {
     CreateApp(CreateAppResponse),
@@ -61,6 +75,7 @@ pub enum AppResponse {
     CreateApiKey(CreateApiKeyResponse),
     CreateSecretMapping(CreateSecretMappingResponse),
     CreateShamirConfiguration(CreateShamirConfigurationResponse),
+    CreatePrincipal(CreatePrincipalResponse),
     SystemInit(SystemInitResponse),
     Noop,
     Error(String),
@@ -104,6 +119,14 @@ impl fmt::Display for AppResponse {
                     create_shamir_configuration.total_shares, create_shamir_configuration.threshold
                 )
             }
+            AppResponse::CreatePrincipal(create_principal) => {
+                write!(
+                    f,
+                    "CreatePrincipal(principal_id={})",
+                    create_principal.principal_id
+                )
+            }
+
             AppResponse::Noop => write!(f, "Noop"),
             AppResponse::Error(e) => write!(f, "Error({e})"),
             AppResponse::SystemInit(_) => write!(f, "SystemInit()",),

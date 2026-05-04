@@ -13,8 +13,13 @@ use crate::handlers::response::{ApiResponse, ErrorStatus};
 
 pub(crate) async fn create_app_user<D: Database + 'static>(
     _app: Data<AppData<D>>,
-    _req: Json<CreateAppUserData>,
+    req: Json<CreateAppUserData>,
+    auth: AuthMiddleware<D>,
 ) -> impl Responder {
+    if !auth.user.is_admin {
+        return ApiResponse::error(ErrorStatus::Unauthorized.into());
+    }
+
     ApiResponse::<()>::error(ErrorStatus::Internal.into())
 }
 

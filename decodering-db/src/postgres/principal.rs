@@ -11,17 +11,18 @@ pub struct PostgresPrincipalRepository<'a, 'c> {
 }
 
 impl<'a, 'c> PrincipalRepository for PostgresPrincipalRepository<'a, 'c> {
-    async fn insert(&mut self, params: &PrincipalEntry) -> Result<i64, DbError> {
+    async fn insert(&mut self, params: &PrincipalEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
-            "INSERT INTO principals (name, app_id, kind, status, created_at, updated_at) \
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+            "INSERT INTO principals (principal_id, name, app_id, kind, status, created_at, updated_at, deleted_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING principal_id",
         )
+        .bind(&params.principal_id)
         .bind(&params.name)
         .bind(&params.app_id)
         .bind(params.kind.as_str())
         .bind(params.status.as_str())
         .bind(params.created_at)
         .bind(params.updated_at)
+        .bind(params.deleted_at)
         .fetch_one(&mut **self.tx)
         .await
         .map_err(map_sqlx)?;

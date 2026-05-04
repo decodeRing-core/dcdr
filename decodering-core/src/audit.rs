@@ -19,6 +19,7 @@ pub enum Target {
     ApiKey(i64),
     SecretMapping(String, String),
     ShamirConfiguration(i64),
+    Principal(String),
     AuditEntry(i64),
 }
 
@@ -31,6 +32,7 @@ impl Target {
             Self::SecretMapping(_, _) => "secret_mapping",
             Self::ShamirConfiguration(_) => "shamir_configuration",
             Self::AuditEntry(_) => "audit_entry",
+            Self::Principal(_) => "principal",
         }
     }
 
@@ -42,6 +44,7 @@ impl Target {
             Self::SecretMapping(app_id, name) => format!("{}:{}", app_id, name),
             Self::ShamirConfiguration(id) => id.to_string(),
             Self::AuditEntry(id) => id.to_string(),
+            Self::Principal(id) => id.to_string(),
         }
     }
 }

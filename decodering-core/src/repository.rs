@@ -5,19 +5,21 @@ use crate::error::DbError;
 
 #[derive(Debug, Clone)]
 pub struct PrincipalEntry {
+    pub principal_id: String,
     pub name: String,
     pub app_id: String,
     pub kind: PrincipalKind,
     pub status: PrincipalStatus,
     pub created_at: i64,
     pub updated_at: i64,
+    pub deleted_at: Option<i64>,
 }
 
 pub trait PrincipalRepository: Send {
     fn insert(
         &mut self,
         principal: &PrincipalEntry,
-    ) -> impl Future<Output = Result<i64, DbError>> + Send;
+    ) -> impl Future<Output = Result<String, DbError>> + Send;
 }
 
 pub trait MetaRepository: Send {

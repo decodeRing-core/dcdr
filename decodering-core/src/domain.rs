@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug)]
 pub struct UnknownPrincipalStatus(pub String);
 
@@ -18,7 +20,7 @@ impl std::fmt::Display for UnknownPrincipalKind {
 
 impl std::error::Error for UnknownPrincipalKind {}
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PrincipalKind {
     Human,
     Machine,
@@ -46,7 +48,7 @@ impl PrincipalKind {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PrincipalStatus {
     Active,
     Disabled,

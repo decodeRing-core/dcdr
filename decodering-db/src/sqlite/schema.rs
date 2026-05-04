@@ -14,7 +14,7 @@ pub const SCHEMA: &str = r#"
         created_at INTEGER NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS api_keys (
+    CREATE TABLE IF NOT EXISTS api_key (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         api_key    TEXT NOT NULL UNIQUE,
@@ -32,7 +32,7 @@ pub const SCHEMA: &str = r#"
         created_at        INTEGER NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS applications (
+    CREATE TABLE IF NOT EXISTS application (
         app_id TEXT PRIMARY KEY,
         app_name TEXT NOT NULL UNIQUE,
         created_at INTEGER NOT NULL,
