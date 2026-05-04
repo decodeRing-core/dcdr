@@ -1,4 +1,8 @@
-use actix_web::{HttpRequest, HttpResponse, Responder, body::BoxBody, http::StatusCode};
+use std::fmt;
+
+use actix_web::body::BoxBody;
+use actix_web::http::StatusCode;
+use actix_web::{HttpRequest, HttpResponse, Responder, ResponseError};
 use serde::Serialize;
 
 const OSL_VERSION: &str = "1.0.0";
@@ -19,19 +23,6 @@ pub enum SuccessStatus {
     RaftAddLearner,
     RaftMembership,
     OperationCompleted,
-}
-
-#[derive(Debug, Clone)]
-pub enum ErrorStatus {
-    NotLeader,
-    NotInitialized,
-    AlreadyInitialized,
-    Plugin,
-    Internal,
-    InvalidKeys,
-    Locked,
-    UnsupportedBackend,
-    SecretNotFound,
 }
 
 impl SuccessStatus {
@@ -60,6 +51,20 @@ impl SuccessStatus {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum ErrorStatus {
+    NotLeader,
+    NotInitialized,
+    AlreadyInitialized,
+    Plugin,
+    Internal,
+    InvalidKeys,
+    Locked,
+    UnsupportedBackend,
+    SecretNotFound,
+    Unauthorized,
+}
+
 impl ErrorStatus {
     fn code(&self) -> &'static str {
         match self {
@@ -72,6 +77,7 @@ impl ErrorStatus {
             Self::Locked => "locked",
             Self::UnsupportedBackend => "unsupported-backend",
             Self::SecretNotFound => "secret-not-found",
+            Self::Unauthorized => "unauthorized",
         }
     }
 
@@ -86,6 +92,7 @@ impl ErrorStatus {
             Self::Locked => "Node locked",
             Self::UnsupportedBackend => "Unsupported backend",
             Self::SecretNotFound => "Secret not found",
+            Self::Unauthorized => "Unauthorized access",
         }
     }
 
@@ -100,6 +107,7 @@ impl ErrorStatus {
             Self::Locked => StatusCode::FORBIDDEN,
             Self::UnsupportedBackend => StatusCode::NOT_IMPLEMENTED,
             Self::SecretNotFound => StatusCode::NOT_FOUND,
+            Self::Unauthorized => StatusCode::FORBIDDEN,
         }
     }
 }
@@ -115,9 +123,33 @@ impl From<ErrorStatus> for ApiStatus {
     }
 }
 
+impl fmt::Display for ErrorStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.code(), self.message())
+    }
+}
+
+impl std::error::Error for ErrorStatus {}
+
+impl ResponseError for ErrorStatus {
+    fn status_code(&self) -> StatusCode {
+        self.http_status()
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        let body = ApiResponse::<()>::error(self.clone());
+        let http_status = body.http_status;
+        match serde_json::to_string(&body) {
+            Ok(json) => HttpResponse::build(http_status)
+                .content_type("application/json")
+                .body(json),
+            Err(e) => HttpResponse::InternalServerError().body(format!("serialization error: {e}")),
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct ApiResponse<T: Serialize> {
-    #[serde(rename = "osl-version")]
     osl_version: &'static str,
 
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -1,61 +1,73 @@
-use std::future::{Ready, ready};
+use std::future::Ready;
+use std::future::ready;
 use std::marker::PhantomData;
 
+use actix_web::Responder;
 use actix_web::body::{EitherBody, MessageBody};
-use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready};
+use actix_web::dev::Service;
+use actix_web::dev::ServiceRequest;
+use actix_web::dev::ServiceResponse;
+use actix_web::dev::Transform;
+use actix_web::dev::forward_ready;
+use actix_web::http::header::{HeaderName, HeaderValue};
+use actix_web::web;
 use actix_web::{Error, HttpMessage};
-use actix_web::{Responder, web};
 use decodering_core::tx::Database;
 use futures_util::future::LocalBoxFuture;
-use tracing::trace;
-use tracing::{Instrument, Level, field, span};
+use std::rc::Rc;
+use tracing::Instrument;
+use tracing_actix_web::RequestId;
 
 use crate::app_data::AppData;
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
-pub(crate) struct TracingHelper;
+const X_REQUEST_ID: HeaderName = HeaderName::from_static("x-request-id");
 
-impl<S, B> Transform<S, ServiceRequest> for TracingHelper
+pub struct PropagateRequestId;
+
+impl<S, B> Transform<S, ServiceRequest> for PropagateRequestId
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
-    S::Future: 'static,
-    B: 'static,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    B: MessageBody + 'static,
 {
     type Response = ServiceResponse<B>;
     type Error = Error;
+    type Transform = PropagateRequestIdMw<S>;
     type InitError = ();
-    type Transform = TracingHelperMiddleware<S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ready(Ok(TracingHelperMiddleware { service }))
+        ready(Ok(PropagateRequestIdMw {
+            service: Rc::new(service),
+        }))
     }
 }
 
-pub(crate) struct TracingHelperMiddleware<S> {
-    service: S,
+pub struct PropagateRequestIdMw<S> {
+    service: Rc<S>,
 }
 
-impl<S, B> Service<ServiceRequest> for TracingHelperMiddleware<S>
+impl<S, B> Service<ServiceRequest> for PropagateRequestIdMw<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
-    S::Future: 'static,
-    B: 'static,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    B: MessageBody + 'static,
 {
     type Response = ServiceResponse<B>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    forward_ready!(service);
+    actix_web::dev::forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let span = span!(Level::TRACE, "request", user_id = field::Empty);
-        let _guard = span.enter();
-        let _ = req.extensions_mut().insert(span.clone());
-        trace!("Uri: {}", req.path());
-        let fut = self.service.call(req).in_current_span();
+        let req_id = req.extensions().get::<RequestId>().copied();
+        let svc = self.service.clone();
         Box::pin(async move {
-            let res = fut.await?;
+            let mut res = svc.call(req).await?;
+            if let Some(id) = req_id {
+                if let Ok(val) = HeaderValue::from_str(&id.to_string()) {
+                    res.headers_mut().insert(X_REQUEST_ID, val);
+                }
+            }
             Ok(res)
         })
     }

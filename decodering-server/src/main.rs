@@ -4,24 +4,26 @@
 
 use actix_cors::Cors;
 use actix_web::HttpServer;
-use actix_web::middleware::{Compress, Logger};
+use actix_web::middleware::Compress;
 use actix_web::web::Data;
 use decodering_core::plugin::orchestrator::Orchestrator;
 use decodering_core::tx::Database;
 use decodering_db::postgres::PostgresDatabase;
 use decodering_db::sqlite::SqliteDatabase;
 use dotenvy::dotenv;
+use tracing_actix_web::TracingLogger;
 
 use crate::app_data::AppData;
 use crate::config::{StorageMode, get_config};
 use crate::logger::init_tracing;
-use crate::middleware::TracingHelper;
+use crate::middleware::PropagateRequestId;
 use crate::routes::config::config_app;
 use clap::Parser;
 
 mod app_data;
 mod config;
 mod error;
+mod extractor;
 mod handlers;
 mod logger;
 mod middleware;
@@ -96,10 +98,11 @@ where
             .app_data(app_data.clone())
             .app_data(orchestrator_data.clone())
             .wrap(cors)
-            .configure(config_app::<D>) // config_app also generic
+            .configure(config_app::<D>)
             .wrap(Compress::default())
-            .wrap(Logger::default())
-            .wrap(TracingHelper)
+            //.wrap(Logger::default())
+            .wrap(PropagateRequestId)
+            .wrap(TracingLogger::default())
     })
     .bind(addr)?
     .run()

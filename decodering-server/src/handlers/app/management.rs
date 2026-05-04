@@ -6,6 +6,7 @@ use decodering_core::tx::Database;
 use uuid::Uuid;
 
 use crate::app_data::AppData;
+use crate::extractor::AuthMiddleware;
 use crate::handlers::app::payload::{CreateAppData, CreateAppUserData};
 use crate::handlers::app::response::ApiCreateAppResponse;
 use crate::handlers::response::{ApiResponse, ErrorStatus};
@@ -20,11 +21,15 @@ pub(crate) async fn create_app_user<D: Database + 'static>(
 pub(crate) async fn create_app<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<CreateAppData>,
+    auth: AuthMiddleware<D>,
 ) -> impl Responder {
+    if !auth.user.is_admin {
+        return ApiResponse::error(ErrorStatus::Unauthorized.into());
+    }
     let request = CreateApp::request(Uuid::now_v7().to_string(), req.0.app_name);
     match app.submit(request).await {
         Ok(resp) => match resp {
-            AppResponse::CreateApp(a) => ApiCreateAppResponse::new(a.app_name),
+            AppResponse::CreateApp(a) => ApiCreateAppResponse::new(a.app_id, a.app_name),
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app");
                 return ApiResponse::error(ErrorStatus::Internal.into());

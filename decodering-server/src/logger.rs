@@ -54,7 +54,7 @@ pub fn init_tracing(config: &Config, addr: &str) -> TracingGuards {
 
             let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
             let layer = fmt::layer()
-                .compact()
+                //.compact()
                 .with_line_number(true)
                 .with_file(true)
                 .with_ansi(false)
@@ -72,7 +72,7 @@ pub fn init_tracing(config: &Config, addr: &str) -> TracingGuards {
     ) {
         let (non_blocking, guard) = tracing_appender::non_blocking(std::io::stdout());
         let layer = fmt::layer()
-            .compact()
+            //.compact()
             .with_line_number(true)
             .with_file(true)
             .with_writer(non_blocking)

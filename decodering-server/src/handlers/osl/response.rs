@@ -25,13 +25,33 @@ impl ApiPutSecretResponse {
 }
 
 #[derive(Serialize)]
-pub(crate) struct ApiGetSecretResponse(Value);
+pub(crate) struct ApiGetSecretResponse {
+    #[serde(flatten)]
+    pub(crate) data: Value,
+    pub(crate) metadata: ApiGetSecretMetadataResponse,
+}
+
+#[derive(Serialize)]
+pub(crate) struct ApiGetSecretMetadataResponse {
+    pub(crate) resolved_backend_ref: String,
+    pub(crate) provider_version_id: String,
+}
 
 impl ApiGetSecretResponse {
-    pub(crate) fn new(data: Value) -> ApiResponse<ApiGetSecretResponse> {
+    pub(crate) fn new(
+        data: Value,
+        resolved_backend_ref: String,
+        provider_version_id: String,
+    ) -> ApiResponse<ApiGetSecretResponse> {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
-            Some(ApiGetSecretResponse(data)),
+            Some(ApiGetSecretResponse {
+                data,
+                metadata: ApiGetSecretMetadataResponse {
+                    resolved_backend_ref,
+                    provider_version_id,
+                },
+            }),
         )
     }
 }

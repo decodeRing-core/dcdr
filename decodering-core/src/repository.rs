@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::domain::{AuditOutcome, PrincipalKind, PrincipalStatus};
 use crate::error::DbError;
 
@@ -85,6 +87,16 @@ pub trait ApiKeysRepository: Send {
     ) -> impl Future<Output = Result<i64, DbError>> + Send;
 }
 
+#[derive(Debug, Serialize)]
+pub struct User {
+    pub id: i64,
+    pub username: String,
+    pub email: String,
+    pub password_hash: String,
+    pub is_admin: bool,
+    pub created_at: i64,
+}
+
 pub struct UserEntry {
     pub username: String,
     pub email: String,
@@ -95,6 +107,17 @@ pub struct UserEntry {
 
 pub trait UserRepository: Send {
     fn insert(&mut self, params: &UserEntry) -> impl Future<Output = Result<i64, DbError>> + Send;
+    fn get_by_api_key(
+        &mut self,
+        api_key: &str,
+    ) -> impl Future<Output = Result<Option<User>, DbError>> + Send;
+}
+
+pub struct App {
+    pub app_id: String,
+    pub app_name: String,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 pub struct AppEntry {
@@ -107,11 +130,14 @@ pub struct AppEntry {
 pub trait AppRepository: Send {
     fn insert(&mut self, params: &AppEntry)
     -> impl Future<Output = Result<String, DbError>> + Send;
+    fn get_by_app_id(
+        &mut self,
+        app_id: &str,
+    ) -> impl Future<Output = Result<Option<App>, DbError>> + Send;
 }
 
 #[derive(Debug, Clone)]
 pub struct SecretMapping {
-    pub id: i64,
     pub app_id: String,
     pub secret_name: String,
     pub backend: String,
@@ -135,7 +161,7 @@ pub trait SecretMappingRespository: Send {
     fn insert(
         &mut self,
         params: &SecretMappingEntry,
-    ) -> impl Future<Output = Result<i64, DbError>> + Send;
+    ) -> impl Future<Output = Result<String, DbError>> + Send;
     fn get_by_app_id_secret_name(
         &mut self,
         app_id: &str,

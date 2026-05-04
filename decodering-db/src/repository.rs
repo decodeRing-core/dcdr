@@ -1,8 +1,7 @@
-use decodering_core::repository::{SecretMapping, Shamir};
+use decodering_core::repository::{App, SecretMapping, Shamir, User};
 
 #[derive(sqlx::FromRow)]
 pub struct SecretMappingRow {
-    id: i64,
     app_id: String,
     secret_name: String,
     backend: String,
@@ -15,7 +14,6 @@ pub struct SecretMappingRow {
 impl From<SecretMappingRow> for SecretMapping {
     fn from(r: SecretMappingRow) -> Self {
         Self {
-            id: r.id,
             app_id: r.app_id,
             secret_name: r.secret_name,
             backend: r.backend,
@@ -44,6 +42,48 @@ impl From<ShamirRow> for Shamir {
             threshold: r.threshold,
             validation_hash: r.validation_hash,
             created_at: r.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct UserRow {
+    id: i64,
+    username: String,
+    email: String,
+    password_hash: String,
+    is_admin: bool,
+    created_at: i64,
+}
+
+impl From<UserRow> for User {
+    fn from(r: UserRow) -> Self {
+        Self {
+            id: r.id,
+            username: r.username,
+            email: r.email,
+            password_hash: r.password_hash,
+            is_admin: r.is_admin,
+            created_at: r.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct AppRow {
+    app_id: String,
+    app_name: String,
+    created_at: i64,
+    updated_at: i64,
+}
+
+impl From<AppRow> for App {
+    fn from(a: AppRow) -> Self {
+        Self {
+            app_id: a.app_id,
+            app_name: a.app_name,
+            created_at: a.created_at,
+            updated_at: a.updated_at,
         }
     }
 }

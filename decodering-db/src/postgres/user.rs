@@ -1,10 +1,12 @@
 use decodering_core::error::DbError;
+use decodering_core::repository::User;
 use decodering_core::repository::UserEntry;
 use decodering_core::repository::UserRepository;
 use sqlx::Postgres;
 use sqlx::Transaction;
 
 use crate::error::map_sqlx;
+use crate::repository::UserRow;
 
 pub struct PostgresUserRepository<'a, 'c> {
     pub tx: &'a mut Transaction<'c, Postgres>,
@@ -25,5 +27,20 @@ impl<'a, 'c> UserRepository for PostgresUserRepository<'a, 'c> {
         .await
         .map_err(map_sqlx)?;
         Ok(id)
+    }
+
+    async fn get_by_api_key(&mut self, api_key: &str) -> Result<Option<User>, DbError> {
+        let user: Option<UserRow> = sqlx::query_as::<_, UserRow>(
+            "SELECT u.id, u.username, u.email, u.password_hash, u.is_admin, u.created_at
+            FROM users u
+            INNER JOIN api_keys k ON k.user_id = u.id
+            WHERE k.api_key = $1
+              AND (k.expires_at IS NULL OR k.expires_at > EXTRACT(EPOCH FROM NOW())::BIGINT))",
+        )
+        .bind(api_key)
+        .fetch_optional(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(user.map(Into::into))
     }
 }

@@ -1,6 +1,6 @@
 use crate::app_data::AppData;
 use crate::handlers::app::payload::UnlockData;
-use crate::handlers::response::{ApiResponse, ApiStatus, ErrorStatus, SuccessStatus};
+use crate::handlers::response::{ApiResponse, ErrorStatus, SuccessStatus};
 use crate::handlers::system::payloads::InitSystemRequestData;
 use crate::handlers::system::response::ApiInitSystemResponse;
 use crate::shamir::{initialize_shamir, unlock};
@@ -105,6 +105,10 @@ pub(crate) async fn system_unlock<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<UnlockData>,
 ) -> impl Responder {
+    if app.master_key.get().is_some() {
+        tracing::info!("Node already unlocked");
+        return ApiResponse::empty(SuccessStatus::SystemUnlocked.into());
+    }
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to DB");
@@ -138,7 +142,10 @@ pub(crate) async fn system_unlock<D: Database + 'static>(
         let out = app.master_key.set(Zeroizing::new(master_key));
         match out {
             Ok(_) => return ApiResponse::empty(SuccessStatus::SystemUnlocked.into()),
-            Err(_) => return ApiResponse::error(ErrorStatus::InvalidKeys.into()),
+            Err(e) => {
+                tracing::error!(err=?e, "Unlock error");
+                return ApiResponse::error(ErrorStatus::Internal.into());
+            }
         }
     };
     tracing::error!(error=%out.unwrap_err(), "Failed to unlock node");

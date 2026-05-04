@@ -17,7 +17,7 @@ pub enum Target {
     App(String),
     User(i64),
     ApiKey(i64),
-    SecretMapping(i64, String),
+    SecretMapping(String, String),
     ShamirConfiguration(i64),
     AuditEntry(i64),
 }

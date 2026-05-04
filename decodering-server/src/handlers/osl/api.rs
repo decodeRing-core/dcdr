@@ -3,12 +3,13 @@ use actix_web::{Responder, web};
 use decodering_core::actions::create_secret_mapping::CreateSecretMapping;
 use decodering_core::now_ts;
 use decodering_core::plugin::orchestrator::Orchestrator;
-use decodering_core::repository::SecretMappingRespository;
+use decodering_core::repository::{AppRepository, SecretMappingRespository};
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
 use decodering_core::tx::{Database, Tx};
 
 use crate::app_data::AppData;
+use crate::extractor::AuthMiddleware;
 use crate::handlers::osl::payload::GetSecretRequestData;
 use crate::handlers::osl::payload::PutSecretRequestData;
 use crate::handlers::osl::response::{ApiGetSecretResponse, ApiPutSecretResponse};
@@ -18,6 +19,7 @@ pub(crate) async fn api_put_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<PutSecretRequestData>,
+    auth: AuthMiddleware<D>,
 ) -> impl Responder {
     match &app.raft {
         Some(raft_bits) => {
@@ -32,11 +34,26 @@ pub(crate) async fn api_put_secret<D: Database + 'static>(
         _ => {}
     }
 
-    // Do we have an app_id? Is the token valid and is the user admin ?
+    if !auth.user.is_admin {
+        return ApiResponse::error(ErrorStatus::Unauthorized.into());
+    }
+
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
         return ApiResponse::error(ErrorStatus::Internal.into());
+    };
+
+    let application = match db.app().get_by_app_id(&req.app_id).await {
+        Ok(Some(app)) => app,
+        Ok(None) => {
+            tracing::error!("Application not found {}", req.app_id);
+            return ApiResponse::error(ErrorStatus::Internal.into());
+        }
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::Internal.into());
+        }
     };
 
     let backend = core.get_backend(&req.store.backend_ref);
@@ -55,7 +72,7 @@ pub(crate) async fn api_put_secret<D: Database + 'static>(
 
     let timestamp = now_ts();
     let secret_mapping = CreateSecretMapping {
-        app_id: req.app_id.clone(),
+        app_id: application.app_id,
         secret_name: req.secret_name.clone(),
         backend: req.store.backend_ref.clone(),
         mount_path: req.store.store_path.clone(),
@@ -115,7 +132,7 @@ pub(crate) async fn api_get_secret<D: Database + 'static>(
         Ok(Some(x)) => x,
         Ok(None) => {
             tracing::error!(
-                "No secret mapping found for {}/{}",
+                "No secret mapping found for {} {}",
                 req.app_id,
                 req.secret_name
             );
@@ -132,12 +149,15 @@ pub(crate) async fn api_get_secret<D: Database + 'static>(
         tracing::error!("Backend not found {}", secret_mapping_data.backend);
         return ApiResponse::error(ErrorStatus::UnsupportedBackend);
     };
-    let out = backend.get(&req.secret_name, Some(req.version.to_string()));
+    let out = backend.get(
+        &secret_mapping_data.mount_path,
+        Some(req.version.to_string()),
+    );
     let Ok(out) = out else {
         let e = out.unwrap_err();
         tracing::debug!(error=?e, "Plugin error");
         return ApiResponse::error(ErrorStatus::Plugin.into());
     };
 
-    return ApiGetSecretResponse::new(out.data);
+    return ApiGetSecretResponse::new(out.data, secret_mapping_data.backend, out.version);
 }

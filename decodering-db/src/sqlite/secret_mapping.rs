@@ -13,9 +13,16 @@ pub struct SqliteSecretMappingRepository<'a> {
 }
 
 impl<'a> SecretMappingRespository for SqliteSecretMappingRepository<'a> {
-    async fn insert(&mut self, params: &SecretMappingEntry) -> Result<i64, DbError> {
+    async fn insert(&mut self, params: &SecretMappingEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
-            "INSERT INTO secret_backend_mapping (app_id, secret_name, backend, mount_path, tainted, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
+            "INSERT INTO secret_backend_mapping (app_id, secret_name, backend, mount_path, tainted, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (app_id, secret_name) DO UPDATE SET
+                backend = EXCLUDED.backend,
+                mount_path = EXCLUDED.mount_path,
+                tainted = EXCLUDED.tainted,
+                updated_at = EXCLUDED.updated_at
+            RETURNING app_id",
         )
         .bind(&params.app_id)
         .bind(&params.secret_name)
