@@ -18,6 +18,34 @@ pub struct CreateSecretMapping {
     pub updated_at: i64,
 }
 
+impl From<CreateSecretMapping> for SecretMappingEntry {
+    fn from(c: CreateSecretMapping) -> Self {
+        Self {
+            app_id: c.app_id,
+            secret_name: c.secret_name,
+            backend: c.backend,
+            mount_path: c.mount_path,
+            tainted: c.tainted,
+            created_at: c.created_at,
+            updated_at: c.updated_at,
+        }
+    }
+}
+
+impl From<SecretMappingEntry> for CreateSecretMappingResponse {
+    fn from(e: SecretMappingEntry) -> Self {
+        Self {
+            app_id: e.app_id,
+            secret_name: e.secret_name,
+            backend: e.backend,
+            mount_path: e.mount_path,
+            tainted: e.tainted,
+            created_at: e.created_at,
+            updated_at: e.updated_at,
+        }
+    }
+}
+
 impl Action for CreateSecretMapping {
     type Output = ActionOutput<AppResponse>;
 
@@ -32,32 +60,17 @@ impl Action for CreateSecretMapping {
     }
 
     async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
-        let entry = SecretMappingEntry {
-            app_id: self.app_id.clone(),
-            secret_name: self.secret_name.clone(),
-            backend: self.backend.clone(),
-            mount_path: self.mount_path.clone(),
-            tainted: self.tainted,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-        };
+        let entry = self.into();
         let id = tx.secret_mapping().insert(&entry).await?;
-        let response = CreateSecretMappingResponse {
-            app_id: self.app_id,
-            secret_name: self.secret_name,
-            backend: self.backend,
-            mount_path: self.mount_path,
-            tainted: self.tainted,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-        };
+        let response: CreateSecretMappingResponse = entry.into();
+        let secret_name = response.secret_name.clone();
         let after = serde_json::json!(response);
         let app_response = AppResponse::CreateSecretMapping(response);
         Ok(ActionOutput {
             response: app_response,
             before_state: None,
             after_state: Some(after),
-            target: Some(Target::SecretMapping(id, entry.secret_name)),
+            target: Some(Target::SecretMapping(id, secret_name)),
         })
     }
 }

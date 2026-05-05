@@ -2,7 +2,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::{PrincipalKind, PrincipalStatus};
+use crate::domain::{PrincipalCredentialKind, PrincipalKind, PrincipalStatus};
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateAppResponse {
@@ -14,10 +14,9 @@ pub struct CreateAppResponse {
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateUserResponse {
-    pub id: i64,
     pub username: String,
     pub email: String,
-    pub is_admin: u8,
+    pub is_admin: bool,
     pub created_at: i64,
 }
 
@@ -34,17 +33,14 @@ pub struct CreateSecretMappingResponse {
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateShamirConfigurationResponse {
-    pub id: i64,
     pub total_shares: i16,
     pub threshold: i16,
-    pub validation_hash: Vec<u8>,
     pub timestamp: i64,
 }
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateApiKeyResponse {
     pub user_id: i64,
-    pub api_key: String,
     pub created_at: i64,
     pub expires_at: Option<i64>,
 }
@@ -72,9 +68,8 @@ pub struct CreatePrincipalResponse {
 pub struct CreatePrincipalCredentialResponse {
     pub credential_id: String,
     pub principal_id: String,
-    pub kind: PrincipalKind,
+    pub kind: PrincipalCredentialKind,
     pub lookup_key: String,
-    pub secret_material: String,
     pub status: PrincipalStatus,
     pub expires_at: Option<i64>,
     pub last_used_at: Option<i64>,
@@ -85,12 +80,17 @@ pub struct CreatePrincipalCredentialResponse {
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreatePrincipalTokenResponse {
     pub token_id: String,
-    pub token_hash: String,
     pub principal_id: String,
     pub credential_id: Option<String>,
     pub issued_at: i64,
     pub expires_at: i64,
     pub revoked_at: Option<i64>,
+}
+
+#[derive(Serialize, Debug, Deserialize)]
+pub struct CreateAppUserResponse {
+    pub principal: CreatePrincipalResponse,
+    pub principal_credential: CreatePrincipalCredentialResponse,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -104,6 +104,7 @@ pub enum AppResponse {
     CreatePrincipalCredential(CreatePrincipalCredentialResponse),
     CreatePrincipalToken(CreatePrincipalTokenResponse),
     SystemInit(SystemInitResponse),
+    CreateAppUser(CreateAppUserResponse),
     Noop,
     Error(String),
 }
@@ -168,6 +169,7 @@ impl fmt::Display for AppResponse {
                     create_principal_credential_response.principal_id
                 )
             }
+            AppResponse::CreateAppUser(_) => write!(f, "CreateAppUser()"),
             AppResponse::Noop => write!(f, "Noop"),
             AppResponse::Error(e) => write!(f, "Error({e})"),
             AppResponse::SystemInit(_) => write!(f, "SystemInit()"),

@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::actions::create_api_key::CreateApiKey;
 use crate::actions::create_app::CreateApp;
+use crate::actions::create_app_user::CreateAppUser;
+use crate::actions::create_principal::CreatePrincipal;
+use crate::actions::create_principal_credential::CreatePrincipalCredential;
 use crate::actions::create_secret_mapping::CreateSecretMapping;
 use crate::actions::create_shamir_configuration::CreateShamirConfiguration;
 use crate::actions::create_user::CreateUser;
@@ -20,6 +23,9 @@ pub enum AppRequest {
     CreateUser(CreateUser),
     CreateSecretMapping(CreateSecretMapping),
     CreateShamirConfiguration(CreateShamirConfiguration),
+    CreatePrincipal(CreatePrincipal),
+    CreatePrincipalCredential(CreatePrincipalCredential),
+    CreateAppUser(CreateAppUser),
     SystemInit(SystemInit),
 }
 
@@ -64,6 +70,24 @@ impl fmt::Display for AppRequest {
             AppRequest::SystemInit(_) => {
                 write!(f, "SystemInit()")
             }
+            AppRequest::CreateAppUser(_) => {
+                write!(f, "CreateAppUser()")
+            }
+            AppRequest::CreatePrincipal(create_principal) => {
+                write!(
+                    f,
+                    "CreatePrincipal(name={}, app_id={})",
+                    create_principal.name, create_principal.app_id
+                )
+            }
+            AppRequest::CreatePrincipalCredential(create_principal_credential) => {
+                write!(
+                    f,
+                    "CreatePrincipalCredential(credential_id={}, principal_id={})",
+                    create_principal_credential.credential_id,
+                    create_principal_credential.principal_id
+                )
+            }
         }
     }
 }
@@ -83,6 +107,9 @@ impl AppRequest {
             AppRequest::CreateApp(create_app) => {
                 Ok(run_action_direct(db, create_app).await?.response)
             }
+            AppRequest::CreateAppUser(create_app_user) => {
+                Ok(run_action_direct(db, create_app_user).await?.response)
+            }
             AppRequest::CreateShamirConfiguration(create_shamir_configuration) => {
                 Ok(run_action_direct(db, create_shamir_configuration)
                     .await?
@@ -93,6 +120,14 @@ impl AppRequest {
             }
             AppRequest::SystemInit(system_init) => {
                 Ok(run_action_direct(db, system_init).await?.response)
+            }
+            AppRequest::CreatePrincipal(create_principal) => {
+                Ok(run_action_direct(db, create_principal).await?.response)
+            }
+            AppRequest::CreatePrincipalCredential(create_principal_credential) => {
+                Ok(run_action_direct(db, create_principal_credential)
+                    .await?
+                    .response)
             }
         }
     }

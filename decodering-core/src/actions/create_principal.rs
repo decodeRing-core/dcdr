@@ -21,6 +21,36 @@ pub struct CreatePrincipal {
     pub deleted_at: Option<i64>,
 }
 
+impl From<CreatePrincipal> for PrincipalEntry {
+    fn from(c: CreatePrincipal) -> Self {
+        Self {
+            principal_id: c.principal_id,
+            name: c.name,
+            app_id: c.app_id,
+            kind: c.kind,
+            status: c.status,
+            created_at: c.created_at,
+            updated_at: c.updated_at,
+            deleted_at: c.deleted_at,
+        }
+    }
+}
+
+impl From<PrincipalEntry> for CreatePrincipalResponse {
+    fn from(e: PrincipalEntry) -> Self {
+        Self {
+            principal_id: e.principal_id,
+            name: e.name,
+            app_id: e.app_id,
+            kind: e.kind,
+            status: e.status,
+            created_at: e.created_at,
+            updated_at: e.updated_at,
+            deleted_at: e.deleted_at,
+        }
+    }
+}
+
 impl Action for CreatePrincipal {
     type Output = ActionOutput<AppResponse>;
 
@@ -35,27 +65,9 @@ impl Action for CreatePrincipal {
     }
 
     async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
-        let principal_entry = PrincipalEntry {
-            principal_id: self.principal_id,
-            name: self.name,
-            app_id: self.app_id,
-            kind: self.kind,
-            status: self.status,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-            deleted_at: self.deleted_at,
-        };
+        let principal_entry: PrincipalEntry = self.into();
         let principal_id = tx.principal().insert(&principal_entry).await?;
-        let principal_response = CreatePrincipalResponse {
-            principal_id: principal_id.clone(),
-            name: principal_entry.name,
-            app_id: principal_entry.app_id,
-            kind: principal_entry.kind,
-            status: principal_entry.status,
-            created_at: principal_entry.created_at,
-            updated_at: principal_entry.updated_at,
-            deleted_at: principal_entry.deleted_at,
-        };
+        let principal_response: CreatePrincipalResponse = principal_entry.into();
         let after = serde_json::json!(principal_response);
         let app_response = AppResponse::CreatePrincipal(principal_response);
         Ok(ActionOutput {

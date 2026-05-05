@@ -17,6 +17,28 @@ pub struct CreateApp {
     pub updated_at: i64,
 }
 
+impl From<CreateApp> for AppEntry {
+    fn from(c: CreateApp) -> Self {
+        Self {
+            app_id: c.app_id,
+            app_name: c.app_name,
+            created_at: c.created_at,
+            updated_at: c.updated_at,
+        }
+    }
+}
+
+impl From<AppEntry> for CreateAppResponse {
+    fn from(e: AppEntry) -> Self {
+        Self {
+            app_id: e.app_id,
+            app_name: e.app_name,
+            created_at: e.created_at,
+            updated_at: e.updated_at,
+        }
+    }
+}
+
 impl CreateApp {
     pub fn request(app_id: String, app_name: String) -> AppRequest {
         let app = CreateApp {
@@ -43,19 +65,9 @@ impl Action for CreateApp {
     }
 
     async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
-        let entry = AppEntry {
-            app_id: self.app_id.clone(),
-            app_name: self.app_name.clone(),
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-        };
+        let entry = self.into();
         let id = tx.app().insert(&entry).await?;
-        let response = CreateAppResponse {
-            app_id: self.app_id,
-            app_name: self.app_name,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-        };
+        let response = entry.into();
         let after = serde_json::json!(response);
         let app_response = AppResponse::CreateApp(response);
         Ok(ActionOutput {

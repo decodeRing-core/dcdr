@@ -19,6 +19,33 @@ pub struct CreatePrincipalToken {
     pub revoked_at: Option<i64>,
 }
 
+impl From<CreatePrincipalToken> for PrincipalTokenEntry {
+    fn from(c: CreatePrincipalToken) -> Self {
+        Self {
+            token_id: c.token_id,
+            token_hash: c.token_hash,
+            principal_id: c.principal_id,
+            credential_id: c.credential_id,
+            issued_at: c.issued_at,
+            expires_at: c.expires_at,
+            revoked_at: c.revoked_at,
+        }
+    }
+}
+
+impl From<PrincipalTokenEntry> for CreatePrincipalTokenResponse {
+    fn from(e: PrincipalTokenEntry) -> Self {
+        Self {
+            token_id: e.token_id,
+            principal_id: e.principal_id,
+            credential_id: e.credential_id,
+            issued_at: e.issued_at,
+            expires_at: e.expires_at,
+            revoked_at: e.revoked_at,
+        }
+    }
+}
+
 impl Action for CreatePrincipalToken {
     type Output = ActionOutput<AppResponse>;
 
@@ -33,25 +60,9 @@ impl Action for CreatePrincipalToken {
     }
 
     async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
-        let principal_token_entry = PrincipalTokenEntry {
-            token_id: self.token_id,
-            token_hash: self.token_hash,
-            principal_id: self.principal_id,
-            credential_id: self.credential_id,
-            issued_at: self.issued_at,
-            expires_at: self.expires_at,
-            revoked_at: self.revoked_at,
-        };
+        let principal_token_entry = self.into();
         let token_id = tx.principal_token().insert(&principal_token_entry).await?;
-        let principal_token_response = CreatePrincipalTokenResponse {
-            token_id: token_id.clone(),
-            token_hash: principal_token_entry.token_hash,
-            principal_id: principal_token_entry.principal_id,
-            credential_id: principal_token_entry.credential_id,
-            issued_at: principal_token_entry.issued_at,
-            expires_at: principal_token_entry.expires_at,
-            revoked_at: principal_token_entry.revoked_at,
-        };
+        let principal_token_response = principal_token_entry.into();
         let after = serde_json::json!(principal_token_response);
         let app_response = AppResponse::CreatePrincipalToken(principal_token_response);
         Ok(ActionOutput {

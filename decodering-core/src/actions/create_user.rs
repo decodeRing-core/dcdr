@@ -18,6 +18,29 @@ pub struct CreateUser {
     pub created_at: i64,
 }
 
+impl From<CreateUser> for UserEntry {
+    fn from(c: CreateUser) -> Self {
+        Self {
+            username: c.username,
+            email: c.email,
+            password_hash: c.password_hash,
+            is_admin: c.is_admin == 1,
+            created_at: c.created_at,
+        }
+    }
+}
+
+impl From<UserEntry> for CreateUserResponse {
+    fn from(e: UserEntry) -> Self {
+        Self {
+            username: e.username,
+            email: e.email,
+            is_admin: e.is_admin,
+            created_at: e.created_at,
+        }
+    }
+}
+
 impl CreateUser {
     pub fn new(username: &str, email: &str, password_hash: &str, is_admin: u8) -> CreateUser {
         CreateUser {
@@ -48,21 +71,9 @@ impl Action for CreateUser {
     }
 
     async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
-        let entry = UserEntry {
-            username: self.username.clone(),
-            email: self.email.clone(),
-            password_hash: self.password_hash.clone(),
-            is_admin: self.is_admin == 1,
-            created_at: self.created_at,
-        };
+        let entry = self.into();
         let id = tx.user().insert(&entry).await?;
-        let response = CreateUserResponse {
-            id: id,
-            username: self.username,
-            email: self.email,
-            is_admin: self.is_admin,
-            created_at: self.created_at,
-        };
+        let response = entry.into();
         let after = serde_json::json!(response);
         let app_response = AppResponse::CreateUser(response);
         Ok(ActionOutput {

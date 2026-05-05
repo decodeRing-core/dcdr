@@ -4,7 +4,7 @@ use crate::action::Action;
 use crate::audit::{ActionKind, ActionOutput, Actor, AuditDescriptor, Target};
 use crate::error::ExecutionError;
 use crate::now_ts;
-use crate::repository::{ApiKeysEntry, ApiKeysRepository};
+use crate::repository::{ApiKeyEntry, ApiKeyRepository};
 use crate::request::AppRequest;
 use crate::response::{AppResponse, CreateApiKeyResponse};
 use crate::tx::Tx;
@@ -15,6 +15,27 @@ pub struct CreateApiKey {
     pub api_key: String,
     pub created_at: i64,
     pub expires_at: Option<i64>,
+}
+
+impl From<CreateApiKey> for ApiKeyEntry {
+    fn from(c: CreateApiKey) -> Self {
+        Self {
+            user_id: c.user_id,
+            api_key: c.api_key,
+            created_at: c.created_at,
+            expires_at: c.expires_at,
+        }
+    }
+}
+
+impl From<ApiKeyEntry> for CreateApiKeyResponse {
+    fn from(e: ApiKeyEntry) -> Self {
+        Self {
+            user_id: e.user_id,
+            created_at: e.created_at,
+            expires_at: e.expires_at,
+        }
+    }
 }
 
 impl CreateApiKey {
@@ -58,19 +79,9 @@ impl Action for CreateApiKey {
     }
 
     async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
-        let entry = ApiKeysEntry {
-            user_id: self.user_id,
-            api_key: self.api_key.clone(),
-            created_at: self.created_at,
-            expires_at: self.expires_at,
-        };
+        let entry = self.into();
         let id = tx.api_key().insert(&entry).await?;
-        let response = CreateApiKeyResponse {
-            user_id: self.user_id,
-            api_key: self.api_key,
-            created_at: self.created_at,
-            expires_at: self.expires_at,
-        };
+        let response = entry.into();
         let after = serde_json::json!(response);
         let app_response = AppResponse::CreateApiKey(response);
         Ok(ActionOutput {

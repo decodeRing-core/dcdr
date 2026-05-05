@@ -1,5 +1,5 @@
 use crate::error::DbError;
-use crate::repository::ApiKeysRepository;
+use crate::repository::ApiKeyRepository;
 use crate::repository::AppRepository;
 use crate::repository::AuditRepository;
 use crate::repository::MetaRepository;
@@ -20,7 +20,7 @@ pub trait Tx: Send {
     type ShamirRepo<'a>: ShamirRepository
     where
         Self: 'a;
-    type ApiKeysRepo<'a>: ApiKeysRepository
+    type ApiKeysRepo<'a>: ApiKeyRepository
     where
         Self: 'a;
     type UserRepo<'a>: UserRepository

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::action::Action;
 use crate::audit::{ActionKind, Target};
 use crate::audit::{ActionOutput, Actor, AuditDescriptor};
-use crate::domain::{PrincipalKind, PrincipalStatus};
+use crate::domain::{PrincipalCredentialKind, PrincipalStatus};
 use crate::error::ExecutionError;
 use crate::repository::{PrincipalCredentialEntry, PrincipalCredentialRepository};
 use crate::response::{AppResponse, CreatePrincipalCredentialResponse};
@@ -13,7 +13,7 @@ use crate::tx::Tx;
 pub struct CreatePrincipalCredential {
     pub credential_id: String,
     pub principal_id: String,
-    pub kind: PrincipalKind,
+    pub kind: PrincipalCredentialKind,
     pub lookup_key: String,
     pub secret_material: String,
     pub status: PrincipalStatus,
@@ -21,6 +21,39 @@ pub struct CreatePrincipalCredential {
     pub last_used_at: Option<i64>,
     pub created_at: i64,
     pub revoked_at: Option<i64>,
+}
+
+impl From<CreatePrincipalCredential> for PrincipalCredentialEntry {
+    fn from(c: CreatePrincipalCredential) -> Self {
+        Self {
+            credential_id: c.credential_id,
+            principal_id: c.principal_id,
+            kind: c.kind,
+            lookup_key: c.lookup_key,
+            secret_material: c.secret_material,
+            status: c.status,
+            expires_at: c.expires_at,
+            last_used_at: c.last_used_at,
+            created_at: c.created_at,
+            revoked_at: c.revoked_at,
+        }
+    }
+}
+
+impl From<PrincipalCredentialEntry> for CreatePrincipalCredentialResponse {
+    fn from(e: PrincipalCredentialEntry) -> Self {
+        Self {
+            credential_id: e.credential_id,
+            principal_id: e.principal_id,
+            kind: e.kind,
+            lookup_key: e.lookup_key,
+            status: e.status,
+            expires_at: e.expires_at,
+            last_used_at: e.last_used_at,
+            created_at: e.created_at,
+            revoked_at: e.revoked_at,
+        }
+    }
 }
 
 impl Action for CreatePrincipalCredential {
@@ -37,34 +70,12 @@ impl Action for CreatePrincipalCredential {
     }
 
     async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
-        let principal_credential_entry = PrincipalCredentialEntry {
-            credential_id: self.credential_id,
-            principal_id: self.principal_id,
-            kind: self.kind,
-            lookup_key: self.lookup_key,
-            secret_material: self.secret_material,
-            status: self.status,
-            expires_at: self.expires_at,
-            last_used_at: self.last_used_at,
-            created_at: self.created_at,
-            revoked_at: self.revoked_at,
-        };
+        let principal_credential_entry = self.into();
         let credential_id = tx
             .principal_credential()
             .insert(&principal_credential_entry)
             .await?;
-        let principal_credential_response = CreatePrincipalCredentialResponse {
-            credential_id: credential_id.clone(),
-            principal_id: principal_credential_entry.principal_id,
-            kind: principal_credential_entry.kind,
-            lookup_key: principal_credential_entry.lookup_key,
-            secret_material: principal_credential_entry.secret_material,
-            status: principal_credential_entry.status,
-            expires_at: principal_credential_entry.expires_at,
-            last_used_at: principal_credential_entry.last_used_at,
-            created_at: principal_credential_entry.created_at,
-            revoked_at: principal_credential_entry.revoked_at,
-        };
+        let principal_credential_response = principal_credential_entry.into();
         let after = serde_json::json!(principal_credential_response);
         let app_response = AppResponse::CreatePrincipalCredential(principal_credential_response);
         Ok(ActionOutput {

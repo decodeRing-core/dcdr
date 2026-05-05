@@ -18,6 +18,15 @@ impl std::fmt::Display for UnknownPrincipalKind {
     }
 }
 
+#[derive(Debug)]
+pub struct UnknownPrincipalCredentialKind(pub String);
+
+impl std::fmt::Display for UnknownPrincipalCredentialKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "unknown principal credential kind: {}", self.0)
+    }
+}
+
 impl std::error::Error for UnknownPrincipalKind {}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,6 +81,34 @@ impl PrincipalStatus {
             PrincipalStatus::Active => "active",
             PrincipalStatus::Disabled => "disabled",
             PrincipalStatus::Deleted => "deleted",
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PrincipalCredentialKind {
+    ApiKey,
+    VirtualTrustedPlatformModule,
+    AwsIdentity,
+}
+
+impl PrincipalCredentialKind {
+    pub fn from_str(s: &str) -> Result<Self, UnknownPrincipalCredentialKind> {
+        Ok(match s {
+            "api_key" => PrincipalCredentialKind::ApiKey,
+            "vtpm" => PrincipalCredentialKind::VirtualTrustedPlatformModule,
+            "aws_iam" => PrincipalCredentialKind::AwsIdentity,
+            other => return Err(UnknownPrincipalCredentialKind(other.to_owned())),
+        })
+    }
+}
+
+impl PrincipalCredentialKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            PrincipalCredentialKind::ApiKey => "api_key",
+            PrincipalCredentialKind::VirtualTrustedPlatformModule => "vtpm",
+            PrincipalCredentialKind::AwsIdentity => "aws_iam",
         }
     }
 }

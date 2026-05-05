@@ -1,6 +1,6 @@
 use decodering_core::error::DbError;
-use decodering_core::repository::ApiKeysEntry;
-use decodering_core::repository::ApiKeysRepository;
+use decodering_core::repository::ApiKeyEntry;
+use decodering_core::repository::ApiKeyRepository;
 use sqlx::Postgres;
 use sqlx::Transaction;
 
@@ -10,8 +10,8 @@ pub struct PostgresApiKeysRepository<'a> {
     pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a> ApiKeysRepository for PostgresApiKeysRepository<'a> {
-    async fn insert(&mut self, params: &ApiKeysEntry) -> Result<i64, DbError> {
+impl<'a> ApiKeyRepository for PostgresApiKeysRepository<'a> {
+    async fn insert(&mut self, params: &ApiKeyEntry) -> Result<i64, DbError> {
         let id = sqlx::query_scalar(
             "INSERT INTO api_keys (user_id, api_key, created_at, expires_at) VALUES ($1, $2, $3, $4) RETURNING id",
         )

@@ -14,7 +14,7 @@ pub const SCHEMA: &str = r#"
         created_at INTEGER NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS api_key (
+    CREATE TABLE IF NOT EXISTS api_keys (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         api_key    TEXT NOT NULL UNIQUE,
@@ -32,7 +32,7 @@ pub const SCHEMA: &str = r#"
         created_at        INTEGER NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS application (
+    CREATE TABLE IF NOT EXISTS applications (
         app_id TEXT PRIMARY KEY,
         app_name TEXT NOT NULL UNIQUE,
         created_at INTEGER NOT NULL,
@@ -72,18 +72,14 @@ pub const SCHEMA: &str = r#"
         principal_id    TEXT NOT NULL REFERENCES principals(principal_id) ON DELETE CASCADE,
         kind            TEXT NOT NULL,           -- 'vtpm' | 'aws_iam' | 'api_key' | ...
         -- The lookup key: what the auth flow searches by.
-        --   password  -> NULL (looked up by principal name + app)
         --   api_key   -> hash of the key (NEVER store the raw key)
         --   vtpm      -> hex(sha256(EK public key))
         --   aws_iam   -> the role ARN
-        --   oidc      -> issuer + subject (use a JSON object in metadata, lookup_key = "iss|sub")
         lookup_key      TEXT NOT NULL,           -- EK hash, role ARN, hashed API key, etc.
         -- The verification material:
-        --   password  -> {"hash": "$argon2id$...", "algo": "argon2id"}
         --   api_key   -> {} (lookup_key holds the hash; no further data needed)
         --   vtpm      -> {"ek_pubkey_pem": "...", "ak_cert_required": true}
         --   aws_iam   -> {"account_id": "123456789", "role_name": "payments-service"}
-        --   oidc      -> {"issuer": "...", "subject": "...", "audience": "..."}
         secret_material TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(secret_material)),
         status          TEXT NOT NULL DEFAULT 'active',
         expires_at      INTEGER,

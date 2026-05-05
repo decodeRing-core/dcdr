@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::domain::{AuditOutcome, PrincipalKind, PrincipalStatus};
+use crate::domain::{AuditOutcome, PrincipalCredentialKind, PrincipalKind, PrincipalStatus};
 use crate::error::DbError;
 
 #[derive(Debug, Clone)]
@@ -25,7 +25,7 @@ pub trait PrincipalTokenRepository: Send {
 pub struct PrincipalCredentialEntry {
     pub credential_id: String,
     pub principal_id: String,
-    pub kind: PrincipalKind,
+    pub kind: PrincipalCredentialKind,
     pub lookup_key: String,
     pub secret_material: String,
     pub status: PrincipalStatus,
@@ -114,18 +114,16 @@ pub trait ShamirRepository: Send {
     -> impl Future<Output = Result<i64, DbError>> + Send;
 }
 
-pub struct ApiKeysEntry {
+pub struct ApiKeyEntry {
     pub user_id: i64,
     pub api_key: String,
     pub created_at: i64,
     pub expires_at: Option<i64>,
 }
 
-pub trait ApiKeysRepository: Send {
-    fn insert(
-        &mut self,
-        params: &ApiKeysEntry,
-    ) -> impl Future<Output = Result<i64, DbError>> + Send;
+pub trait ApiKeyRepository: Send {
+    fn insert(&mut self, params: &ApiKeyEntry)
+    -> impl Future<Output = Result<i64, DbError>> + Send;
 }
 
 #[derive(Debug, Serialize)]

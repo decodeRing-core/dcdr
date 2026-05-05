@@ -63,6 +63,7 @@ pub enum ErrorStatus {
     UnsupportedBackend,
     SecretNotFound,
     Unauthorized,
+    Unimplemented,
 }
 
 impl ErrorStatus {
@@ -78,6 +79,7 @@ impl ErrorStatus {
             Self::UnsupportedBackend => "unsupported-backend",
             Self::SecretNotFound => "secret-not-found",
             Self::Unauthorized => "unauthorized",
+            Self::Unimplemented => "not-implemented",
         }
     }
 
@@ -93,6 +95,7 @@ impl ErrorStatus {
             Self::UnsupportedBackend => "Unsupported backend",
             Self::SecretNotFound => "Secret not found",
             Self::Unauthorized => "Unauthorized access",
+            Self::Unimplemented => "Not implemented",
         }
     }
 
@@ -108,6 +111,7 @@ impl ErrorStatus {
             Self::UnsupportedBackend => StatusCode::NOT_IMPLEMENTED,
             Self::SecretNotFound => StatusCode::NOT_FOUND,
             Self::Unauthorized => StatusCode::FORBIDDEN,
+            Self::Unimplemented => StatusCode::NOT_IMPLEMENTED,
         }
     }
 }

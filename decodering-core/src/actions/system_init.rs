@@ -7,14 +7,9 @@ use crate::actions::create_user::CreateUser;
 use crate::audit::ActionKind;
 use crate::audit::{ActionOutput, Actor, AuditDescriptor};
 use crate::error::ExecutionError;
-use crate::repository::{
-    ApiKeysEntry, ApiKeysRepository, ShamirEntry, ShamirRepository, UserEntry, UserRepository,
-};
+use crate::repository::{ApiKeyEntry, ApiKeyRepository, ShamirRepository, UserRepository};
 use crate::request::AppRequest;
 use crate::response::AppResponse;
-use crate::response::CreateApiKeyResponse;
-use crate::response::CreateShamirConfigurationResponse;
-use crate::response::CreateUserResponse;
 use crate::response::SystemInitResponse;
 use crate::tx::Tx;
 
@@ -54,50 +49,18 @@ impl Action for SystemInit {
     }
 
     async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
-        let shamir_entry = ShamirEntry {
-            total_shares: self.shamir.total_shares,
-            threshold: self.shamir.threshold,
-            validation_hash: self.shamir.validation_hash,
-            created_at: self.shamir.timestamp,
-        };
-        let shamir_id = tx.shamir().insert(&shamir_entry).await?;
-        let shamir_response = CreateShamirConfigurationResponse {
-            id: shamir_id,
-            total_shares: shamir_entry.total_shares,
-            threshold: shamir_entry.threshold,
-            validation_hash: shamir_entry.validation_hash,
-            timestamp: shamir_entry.created_at,
-        };
+        let shamir_entry = self.shamir.into();
+        let _ = tx.shamir().insert(&shamir_entry).await?;
+        let shamir_response = shamir_entry.into();
 
-        let user_entry = UserEntry {
-            username: self.user.username,
-            email: self.user.email,
-            password_hash: self.user.password_hash,
-            is_admin: self.user.is_admin == 1,
-            created_at: self.user.created_at,
-        };
+        let user_entry = self.user.into();
         let user_id = tx.user().insert(&user_entry).await?;
-        let user_response = CreateUserResponse {
-            id: user_id,
-            username: user_entry.username,
-            email: user_entry.email,
-            is_admin: self.user.is_admin,
-            created_at: user_entry.created_at,
-        };
+        let user_response = user_entry.into();
 
-        let api_key_entry = ApiKeysEntry {
-            user_id,
-            api_key: self.api_key.api_key,
-            created_at: self.api_key.created_at,
-            expires_at: self.api_key.expires_at,
-        };
+        let mut api_key_entry: ApiKeyEntry = self.api_key.into();
+        api_key_entry.user_id = user_id;
         let _ = tx.api_key().insert(&api_key_entry).await?;
-        let api_key_response = CreateApiKeyResponse {
-            user_id,
-            api_key: api_key_entry.api_key,
-            created_at: api_key_entry.created_at,
-            expires_at: api_key_entry.expires_at,
-        };
+        let api_key_response = api_key_entry.into();
 
         let response = SystemInitResponse {
             shamir: shamir_response,

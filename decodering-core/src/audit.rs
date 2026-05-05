@@ -66,6 +66,7 @@ pub enum ActionKind {
     SecretMappingCreate,
     SecretMappingGet,
     ShamirConfigurationCreate,
+    CreateAppUser,
     SystemInit,
 }
 
@@ -82,6 +83,7 @@ impl ActionKind {
             ActionKind::SecretMappingGet => "secret_mapping.get",
             ActionKind::PrincipalCredentialCreate => "principal_credential.create",
             ActionKind::PrincipalTokenCreate => "principal_token.create",
+            ActionKind::CreateAppUser => "app_user.create",
         }
     }
 }

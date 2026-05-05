@@ -66,24 +66,21 @@ pub(crate) async fn system_init<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::AlreadyInitialized.into());
     };
 
-    let token = Alphanumeric.sample_string(&mut rand::rng(), 26);
+    let token = format!("pk_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
     let shamir =
         CreateShamirConfiguration::new(total_shares as i16, threshold as i16, shamir_init.hash);
     let user = CreateUser::new("root", "root@localhost", "", 1);
-    let api_key = CreateApiKey::init(token, None);
+    let api_key = CreateApiKey::init(token.clone(), None);
     let request_initialize = SystemInit::request(shamir, user, api_key);
     match app.submit(request_initialize).await {
         Ok(resp) => match resp {
-            AppResponse::SystemInit(resp) => {
+            AppResponse::SystemInit(_) => {
                 let shards: Vec<String> = shamir_init
                     .shards
                     .iter()
                     .map(|sh| STANDARD.encode(Vec::from(sh)))
                     .collect();
-                return ApiInitSystemResponse::initialized(
-                    shards,
-                    Some(resp.api_key.api_key.clone()),
-                );
+                return ApiInitSystemResponse::initialized(shards, Some(token));
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to initialize system");

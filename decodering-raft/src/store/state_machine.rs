@@ -8,7 +8,7 @@ use crate::TypeConfig;
 use crate::raft_types::*;
 use crate::rocksdb_log_store::RocksLogStore;
 use decodering_core::action::Action;
-use decodering_core::audit::AuditDescriptor;
+use decodering_core::audit::{ActionOutput, AuditDescriptor};
 use decodering_core::audit::{audit_allowed, audit_denied};
 use decodering_core::error::DenyReason;
 use decodering_core::repository::{AuditRepository, MetaRepository};
@@ -75,38 +75,54 @@ where
                 let _ = tx.meta().set("last_membership", &mb).await;
                 AppResponse::Noop
             }
-            EntryPayload::Normal(req) => match req {
-                AppRequest::CreateApiKey(create_api_key) => {
-                    run_action_raft(&mut tx, log_id.index, create_api_key)
-                        .await?
-                        .response
-                }
-                AppRequest::CreateUser(create_user) => {
-                    run_action_raft(&mut tx, log_id.index, create_user)
-                        .await?
-                        .response
-                }
-                AppRequest::CreateApp(create_app) => {
-                    run_action_raft(&mut tx, log_id.index, create_app)
-                        .await?
-                        .response
-                }
-                AppRequest::CreateShamirConfiguration(create_shamir_configuration) => {
-                    run_action_raft(&mut tx, log_id.index, create_shamir_configuration)
-                        .await?
-                        .response
-                }
-                AppRequest::CreateSecretMapping(create_secret_mapping) => {
-                    run_action_raft(&mut tx, log_id.index, create_secret_mapping)
-                        .await?
-                        .response
-                }
-                AppRequest::SystemInit(system_init) => {
-                    run_action_raft(&mut tx, log_id.index, system_init)
-                        .await?
-                        .response
-                }
-            },
+            EntryPayload::Normal(req) => run_raft(&mut tx, log_id.index, req).await?.response,
+            // EntryPayload::Normal(req) => match req {
+            //     AppRequest::CreateApiKey(create_api_key) => {
+            //         run_action_raft(&mut tx, log_id.index, create_api_key)
+            //             .await?
+            //             .response
+            //     }
+            //     AppRequest::CreateUser(create_user) => {
+            //         run_action_raft(&mut tx, log_id.index, create_user)
+            //             .await?
+            //             .response
+            //     }
+            //     AppRequest::CreateApp(create_app) => {
+            //         run_action_raft(&mut tx, log_id.index, create_app)
+            //             .await?
+            //             .response
+            //     }
+            //     AppRequest::CreateShamirConfiguration(create_shamir_configuration) => {
+            //         run_action_raft(&mut tx, log_id.index, create_shamir_configuration)
+            //             .await?
+            //             .response
+            //     }
+            //     AppRequest::CreateSecretMapping(create_secret_mapping) => {
+            //         run_action_raft(&mut tx, log_id.index, create_secret_mapping)
+            //             .await?
+            //             .response
+            //     }
+            //     AppRequest::SystemInit(system_init) => {
+            //         run_action_raft(&mut tx, log_id.index, system_init)
+            //             .await?
+            //             .response
+            //     }
+            //     AppRequest::CreatePrincipal(create_principal) => {
+            //         run_action_raft(&mut tx, log_id.index, create_principal)
+            //             .await?
+            //             .response
+            //     }
+            //     AppRequest::CreatePrincipalCredential(create_principal_credential) => {
+            //         run_action_raft(&mut tx, log_id.index, create_principal_credential)
+            //             .await?
+            //             .response
+            //     }
+            //     AppRequest::CreateAppUser(create_app_user) => {
+            //         run_action_raft(&mut tx, log_id.index, create_app_user)
+            //             .await?
+            //             .response
+            //     }
+            // },
         };
 
         // Persist last_applied atomically with the mutation.
@@ -430,6 +446,27 @@ pub fn now_ts() -> i64 {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs() as i64
+}
+
+pub async fn run_raft<U>(
+    tx: &mut U,
+    index: u64,
+    action: AppRequest,
+) -> Result<ActionOutput<AppResponse>, io::Error>
+where
+    U: Tx,
+{
+    match action {
+        AppRequest::CreateApiKey(x) => run_action_raft(tx, index, x).await,
+        AppRequest::CreateUser(x) => run_action_raft(tx, index, x).await,
+        AppRequest::CreateApp(x) => run_action_raft(tx, index, x).await,
+        AppRequest::CreateShamirConfiguration(x) => run_action_raft(tx, index, x).await,
+        AppRequest::CreateSecretMapping(x) => run_action_raft(tx, index, x).await,
+        AppRequest::SystemInit(x) => run_action_raft(tx, index, x).await,
+        AppRequest::CreatePrincipal(x) => run_action_raft(tx, index, x).await,
+        AppRequest::CreatePrincipalCredential(x) => run_action_raft(tx, index, x).await,
+        AppRequest::CreateAppUser(x) => run_action_raft(tx, index, x).await,
+    }
 }
 
 pub async fn run_action_raft<U, A>(

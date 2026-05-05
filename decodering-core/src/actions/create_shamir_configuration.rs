@@ -17,6 +17,27 @@ pub struct CreateShamirConfiguration {
     pub timestamp: i64,
 }
 
+impl From<CreateShamirConfiguration> for ShamirEntry {
+    fn from(c: CreateShamirConfiguration) -> Self {
+        Self {
+            total_shares: c.total_shares,
+            threshold: c.threshold,
+            validation_hash: c.validation_hash,
+            created_at: c.timestamp,
+        }
+    }
+}
+
+impl From<ShamirEntry> for CreateShamirConfigurationResponse {
+    fn from(e: ShamirEntry) -> Self {
+        Self {
+            total_shares: e.total_shares,
+            threshold: e.threshold,
+            timestamp: e.created_at,
+        }
+    }
+}
+
 impl CreateShamirConfiguration {
     pub fn new(
         total_shares: i16,
@@ -51,20 +72,9 @@ impl Action for CreateShamirConfiguration {
     }
 
     async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
-        let entry = ShamirEntry {
-            total_shares: self.total_shares,
-            threshold: self.threshold,
-            validation_hash: self.validation_hash,
-            created_at: self.timestamp,
-        };
+        let entry = self.into();
         let id = tx.shamir().insert(&entry).await?;
-        let response = CreateShamirConfigurationResponse {
-            id,
-            total_shares: entry.total_shares,
-            threshold: entry.threshold,
-            validation_hash: entry.validation_hash,
-            timestamp: entry.created_at,
-        };
+        let response = entry.into();
         let after = serde_json::json!(response);
         let app_response = AppResponse::CreateShamirConfiguration(response);
         Ok(ActionOutput {
