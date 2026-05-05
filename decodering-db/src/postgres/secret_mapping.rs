@@ -8,11 +8,11 @@ use sqlx::Transaction;
 use crate::error::map_sqlx;
 use crate::repository::SecretMappingRow;
 
-pub struct PostgresSecretMappingRepository<'a, 'c> {
-    pub tx: &'a mut Transaction<'c, Postgres>,
+pub struct PostgresSecretMappingRepository<'a> {
+    pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a, 'c> SecretMappingRespository for PostgresSecretMappingRepository<'a, 'c> {
+impl<'a> SecretMappingRespository for PostgresSecretMappingRepository<'a> {
     async fn insert(&mut self, params: &SecretMappingEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
             "

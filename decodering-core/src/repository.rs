@@ -4,6 +4,45 @@ use crate::domain::{AuditOutcome, PrincipalKind, PrincipalStatus};
 use crate::error::DbError;
 
 #[derive(Debug, Clone)]
+pub struct PrincipalTokenEntry {
+    pub token_id: String,
+    pub token_hash: String,
+    pub principal_id: String,
+    pub credential_id: Option<String>,
+    pub issued_at: i64,
+    pub expires_at: i64,
+    pub revoked_at: Option<i64>,
+}
+
+pub trait PrincipalTokenRepository: Send {
+    fn insert(
+        &mut self,
+        principal_credential: &PrincipalTokenEntry,
+    ) -> impl Future<Output = Result<String, DbError>> + Send;
+}
+
+#[derive(Debug, Clone)]
+pub struct PrincipalCredentialEntry {
+    pub credential_id: String,
+    pub principal_id: String,
+    pub kind: PrincipalKind,
+    pub lookup_key: String,
+    pub secret_material: String,
+    pub status: PrincipalStatus,
+    pub expires_at: Option<i64>,
+    pub last_used_at: Option<i64>,
+    pub created_at: i64,
+    pub revoked_at: Option<i64>,
+}
+
+pub trait PrincipalCredentialRepository: Send {
+    fn insert(
+        &mut self,
+        principal_credential: &PrincipalCredentialEntry,
+    ) -> impl Future<Output = Result<String, DbError>> + Send;
+}
+
+#[derive(Debug, Clone)]
 pub struct PrincipalEntry {
     pub principal_id: String,
     pub name: String,

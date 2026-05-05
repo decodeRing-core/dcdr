@@ -6,14 +6,14 @@ use sqlx::Transaction;
 
 use crate::error::map_sqlx;
 
-pub struct PostgresPrincipalRepository<'a, 'c> {
-    pub tx: &'a mut Transaction<'c, Postgres>,
+pub struct PostgresPrincipalRepository<'a> {
+    pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a, 'c> PrincipalRepository for PostgresPrincipalRepository<'a, 'c> {
+impl<'a> PrincipalRepository for PostgresPrincipalRepository<'a> {
     async fn insert(&mut self, params: &PrincipalEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
-            "INSERT INTO principals (principal_id, name, app_id, kind, status, created_at, updated_at, deleted_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING principal_id",
+            "INSERT INTO principals (principal_id, name, app_id, kind, status, created_at, updated_at, deleted_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING principal_id",
         )
         .bind(&params.principal_id)
         .bind(&params.name)

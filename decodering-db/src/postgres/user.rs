@@ -8,11 +8,11 @@ use sqlx::Transaction;
 use crate::error::map_sqlx;
 use crate::repository::UserRow;
 
-pub struct PostgresUserRepository<'a, 'c> {
-    pub tx: &'a mut Transaction<'c, Postgres>,
+pub struct PostgresUserRepository<'a> {
+    pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a, 'c> UserRepository for PostgresUserRepository<'a, 'c> {
+impl<'a> UserRepository for PostgresUserRepository<'a> {
     async fn insert(&mut self, params: &UserEntry) -> Result<i64, DbError> {
         println!("here");
         let id = sqlx::query_scalar(

@@ -3,7 +3,9 @@ use crate::repository::ApiKeysRepository;
 use crate::repository::AppRepository;
 use crate::repository::AuditRepository;
 use crate::repository::MetaRepository;
+use crate::repository::PrincipalCredentialRepository;
 use crate::repository::PrincipalRepository;
+use crate::repository::PrincipalTokenRepository;
 use crate::repository::SecretMappingRespository;
 use crate::repository::ShamirRepository;
 use crate::repository::UserRepository;
@@ -30,7 +32,15 @@ pub trait Tx: Send {
     type SecretMappingRepo<'a>: SecretMappingRespository
     where
         Self: 'a;
+    type PrincipalCredentialRepo<'a>: PrincipalCredentialRepository
+    where
+        Self: 'a;
+    type PrincipalTokenRepo<'a>: PrincipalTokenRepository
+    where
+        Self: 'a;
 
+    fn principal_token(&mut self) -> Self::PrincipalTokenRepo<'_>;
+    fn principal_credential(&mut self) -> Self::PrincipalCredentialRepo<'_>;
     fn principal(&mut self) -> Self::PrincipalRepo<'_>;
     fn audit(&mut self) -> Self::AuditRepo<'_>;
     fn shamir(&mut self) -> Self::ShamirRepo<'_>;
@@ -38,7 +48,6 @@ pub trait Tx: Send {
     fn user(&mut self) -> Self::UserRepo<'_>;
     fn secret_mapping(&mut self) -> Self::SecretMappingRepo<'_>;
     fn app(&mut self) -> Self::AppRepo<'_>;
-    //fn meta(&mut self) -> Self::MetaRepo<'_>;
 
     fn commit(self) -> impl Future<Output = Result<(), DbError>> + Send;
     fn rollback(self) -> impl Future<Output = Result<(), DbError>> + Send;

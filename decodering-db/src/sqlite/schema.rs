@@ -97,7 +97,7 @@ pub const SCHEMA: &str = r#"
     -- A principal can have many active tokens.
     CREATE TABLE IF NOT EXISTS principal_tokens (
         token_id      TEXT PRIMARY KEY,
-        token_hash    TEXT NOT NULL UNIQUE,      -- never store raw tokens
+        token_hash    TEXT NOT NULL UNIQUE,
         principal_id  TEXT NOT NULL REFERENCES principals(principal_id) ON DELETE CASCADE,
         credential_id TEXT REFERENCES principal_credentials(credential_id) ON DELETE SET NULL,
         issued_at     INTEGER NOT NULL,

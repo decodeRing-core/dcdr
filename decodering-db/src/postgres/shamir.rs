@@ -8,11 +8,11 @@ use sqlx::Transaction;
 use crate::error::map_sqlx;
 use crate::repository::ShamirRow;
 
-pub struct PostgresShamirRepository<'a, 'c> {
-    pub tx: &'a mut Transaction<'c, Postgres>,
+pub struct PostgresShamirRepository<'a> {
+    pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a, 'c> ShamirRepository for PostgresShamirRepository<'a, 'c> {
+impl<'a> ShamirRepository for PostgresShamirRepository<'a> {
     async fn get_first(&mut self) -> Result<Option<Shamir>, DbError> {
         let shamir = sqlx::query_as::<_, ShamirRow>(
             "SELECT id, total_shares, threshold, validation_hash, created_at FROM shamir_configuration ORDER BY created_at DESC LIMIT 1",

@@ -20,6 +20,8 @@ pub enum Target {
     SecretMapping(String, String),
     ShamirConfiguration(i64),
     Principal(String),
+    PrincipalCredential(String),
+    PrincipalToken(String),
     AuditEntry(i64),
 }
 
@@ -33,6 +35,8 @@ impl Target {
             Self::ShamirConfiguration(_) => "shamir_configuration",
             Self::AuditEntry(_) => "audit_entry",
             Self::Principal(_) => "principal",
+            Self::PrincipalCredential(_) => "principal_credential",
+            Self::PrincipalToken(_) => "principal_token",
         }
     }
 
@@ -45,6 +49,8 @@ impl Target {
             Self::ShamirConfiguration(id) => id.to_string(),
             Self::AuditEntry(id) => id.to_string(),
             Self::Principal(id) => id.to_string(),
+            Self::PrincipalCredential(id) => id.to_string(),
+            Self::PrincipalToken(id) => id.to_string(),
         }
     }
 }
@@ -55,6 +61,8 @@ pub enum ActionKind {
     UserCreate,
     ApiKeyCreate,
     PrincipalCreate,
+    PrincipalCredentialCreate,
+    PrincipalTokenCreate,
     SecretMappingCreate,
     SecretMappingGet,
     ShamirConfigurationCreate,
@@ -72,6 +80,8 @@ impl ActionKind {
             ActionKind::ShamirConfigurationCreate => "shamir_configuration.create",
             ActionKind::SystemInit => "system.init",
             ActionKind::SecretMappingGet => "secret_mapping.get",
+            ActionKind::PrincipalCredentialCreate => "principal_credential.create",
+            ActionKind::PrincipalTokenCreate => "principal_token.create",
         }
     }
 }

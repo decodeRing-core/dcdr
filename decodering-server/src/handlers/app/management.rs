@@ -12,12 +12,24 @@ use crate::handlers::app::response::ApiCreateAppResponse;
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
 pub(crate) async fn create_app_user<D: Database + 'static>(
-    _app: Data<AppData<D>>,
+    app: Data<AppData<D>>,
     req: Json<CreateAppUserData>,
     auth: AuthMiddleware<D>,
 ) -> impl Responder {
     if !auth.user.is_admin {
         return ApiResponse::error(ErrorStatus::Unauthorized.into());
+    }
+    match &app.raft {
+        Some(raft_bits) => {
+            let is_initialized = raft_bits.raft.is_initialized().await;
+            if !matches!(is_initialized, Ok(true)) {
+                return ApiResponse::error(ErrorStatus::NotInitialized.into());
+            }
+            if !raft_bits.raft.is_leader() {
+                return ApiResponse::error(ErrorStatus::NotLeader.into());
+            }
+        }
+        _ => {}
     }
 
     ApiResponse::<()>::error(ErrorStatus::Internal.into())

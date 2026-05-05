@@ -56,6 +56,17 @@ pub(crate) async fn api_put_secret<D: Database + 'static>(
         }
     };
 
+    if req.options.create_only {
+        if let Ok(Some(_)) = db
+            .secret_mapping()
+            .get_by_app_id_secret_name(&req.app_id, &req.secret_name)
+            .await
+        {
+            tracing::error!(app_id = %req.app_id, secret_name = %req.secret_name, "Secret already exists for app id");
+            return ApiResponse::error(ErrorStatus::Internal.into());
+        };
+    }
+
     let backend = core.get_backend(&req.store.backend_ref);
     let Ok(backend) = backend else {
         tracing::error!("Backend not found");

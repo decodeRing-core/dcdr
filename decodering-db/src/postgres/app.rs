@@ -8,11 +8,11 @@ use sqlx::Transaction;
 use crate::error::map_sqlx;
 use crate::repository::AppRow;
 
-pub struct PostgresAppRepository<'a, 'c> {
-    pub tx: &'a mut Transaction<'c, Postgres>,
+pub struct PostgresAppRepository<'a> {
+    pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a, 'c> AppRepository for PostgresAppRepository<'a, 'c> {
+impl<'a> AppRepository for PostgresAppRepository<'a> {
     async fn insert(&mut self, params: &AppEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
             "INSERT INTO applications (app_id, app_name, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING app_id",

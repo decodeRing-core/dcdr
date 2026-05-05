@@ -6,11 +6,11 @@ use sqlx::Transaction;
 
 use crate::error::map_sqlx;
 
-pub struct PostgresApiKeysRepository<'a, 'c> {
-    pub tx: &'a mut Transaction<'c, Postgres>,
+pub struct PostgresApiKeysRepository<'a> {
+    pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a, 'c> ApiKeysRepository for PostgresApiKeysRepository<'a, 'c> {
+impl<'a> ApiKeysRepository for PostgresApiKeysRepository<'a> {
     async fn insert(&mut self, params: &ApiKeysEntry) -> Result<i64, DbError> {
         let id = sqlx::query_scalar(
             "INSERT INTO api_keys (user_id, api_key, created_at, expires_at) VALUES ($1, $2, $3, $4) RETURNING id",

@@ -11,6 +11,8 @@ use crate::sqlite::app::SqliteAppRepository;
 use crate::sqlite::audit::SqliteAuditRepository;
 use crate::sqlite::meta::SqliteMetaRepository;
 use crate::sqlite::principal::SqlitePrincipalRepository;
+use crate::sqlite::principal_credential::SqlitePrincipalCredentialRepository;
+use crate::sqlite::principal_token::SqlitePrincipalTokenRepository;
 use crate::sqlite::schema::SCHEMA;
 use crate::sqlite::secret_mapping::SqliteSecretMappingRepository;
 use crate::sqlite::shamir::SqliteShamirRepository;
@@ -21,6 +23,8 @@ mod app;
 mod audit;
 mod meta;
 mod principal;
+mod principal_credential;
+mod principal_token;
 mod schema;
 mod secret_mapping;
 mod shamir;
@@ -59,6 +63,22 @@ impl Tx for SqliteTx {
         = SqliteSecretMappingRepository<'a>
     where
         Self: 'a;
+    type PrincipalCredentialRepo<'a>
+        = SqlitePrincipalCredentialRepository<'a>
+    where
+        Self: 'a;
+    type PrincipalTokenRepo<'a>
+        = SqlitePrincipalTokenRepository<'a>
+    where
+        Self: 'a;
+
+    fn principal_token(&mut self) -> SqlitePrincipalTokenRepository<'_> {
+        SqlitePrincipalTokenRepository { tx: &mut self.tx }
+    }
+
+    fn principal_credential(&mut self) -> SqlitePrincipalCredentialRepository<'_> {
+        SqlitePrincipalCredentialRepository { tx: &mut self.tx }
+    }
 
     fn principal(&mut self) -> SqlitePrincipalRepository<'_> {
         SqlitePrincipalRepository { tx: &mut self.tx }

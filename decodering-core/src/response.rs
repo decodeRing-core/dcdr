@@ -68,6 +68,31 @@ pub struct CreatePrincipalResponse {
     pub deleted_at: Option<i64>,
 }
 
+#[derive(Serialize, Debug, Deserialize)]
+pub struct CreatePrincipalCredentialResponse {
+    pub credential_id: String,
+    pub principal_id: String,
+    pub kind: PrincipalKind,
+    pub lookup_key: String,
+    pub secret_material: String,
+    pub status: PrincipalStatus,
+    pub expires_at: Option<i64>,
+    pub last_used_at: Option<i64>,
+    pub created_at: i64,
+    pub revoked_at: Option<i64>,
+}
+
+#[derive(Serialize, Debug, Deserialize)]
+pub struct CreatePrincipalTokenResponse {
+    pub token_id: String,
+    pub token_hash: String,
+    pub principal_id: String,
+    pub credential_id: Option<String>,
+    pub issued_at: i64,
+    pub expires_at: i64,
+    pub revoked_at: Option<i64>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum AppResponse {
     CreateApp(CreateAppResponse),
@@ -76,6 +101,8 @@ pub enum AppResponse {
     CreateSecretMapping(CreateSecretMappingResponse),
     CreateShamirConfiguration(CreateShamirConfigurationResponse),
     CreatePrincipal(CreatePrincipalResponse),
+    CreatePrincipalCredential(CreatePrincipalCredentialResponse),
+    CreatePrincipalToken(CreatePrincipalTokenResponse),
     SystemInit(SystemInitResponse),
     Noop,
     Error(String),
@@ -126,10 +153,24 @@ impl fmt::Display for AppResponse {
                     create_principal.principal_id
                 )
             }
-
+            AppResponse::CreatePrincipalToken(create_principal_token) => {
+                write!(
+                    f,
+                    "CreatePrincipalToken(principal_id={})",
+                    create_principal_token.principal_id
+                )
+            }
+            AppResponse::CreatePrincipalCredential(create_principal_credential_response) => {
+                write!(
+                    f,
+                    "CreatePrincipalCredential(credential_id={}, principal_id={})",
+                    create_principal_credential_response.credential_id,
+                    create_principal_credential_response.principal_id
+                )
+            }
             AppResponse::Noop => write!(f, "Noop"),
             AppResponse::Error(e) => write!(f, "Error({e})"),
-            AppResponse::SystemInit(_) => write!(f, "SystemInit()",),
+            AppResponse::SystemInit(_) => write!(f, "SystemInit()"),
         }
     }
 }
