@@ -34,7 +34,7 @@ impl<'a> UserRepository for PostgresUserRepository<'a> {
             "SELECT u.id, u.username, u.email, u.password_hash, u.is_admin, u.created_at
             FROM users u
             INNER JOIN api_keys k ON k.user_id = u.id
-            WHERE k.api_key_hash = $1
+            WHERE k.key_hash = $1
               AND (k.expires_at IS NULL OR k.expires_at > EXTRACT(EPOCH FROM NOW())::BIGINT))",
         )
         .bind(api_key_hash)

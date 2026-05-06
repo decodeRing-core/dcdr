@@ -74,10 +74,11 @@ pub(crate) async fn create_app_user<D: Database + 'static>(
         deleted_at: None,
     };
 
-    let lookup_key = match req.0.credential_kind {
+    let (token, lookup_key) = match req.0.credential_kind {
         PrincipalCredentialKind::ApiKey => {
             let token = format!("pk_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
-            sha256_hex(token.as_bytes())
+            let lookup_key = sha256_hex(token.as_bytes());
+            (token, lookup_key)
         }
         _ => {
             return ApiResponse::error(ErrorStatus::Unimplemented.into());
@@ -107,9 +108,7 @@ pub(crate) async fn create_app_user<D: Database + 'static>(
     let request = CreateAppUser::request(auth.user.id, principal, principal_credential);
     match app.submit(request).await {
         Ok(resp) => match resp {
-            AppResponse::CreateAppUser(r) => {
-                ApiCreateAppUserResponse::new(r.principal_credential.lookup_key)
-            }
+            AppResponse::CreateAppUser(_) => ApiCreateAppUserResponse::new(token),
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app");
                 return ApiResponse::error(ErrorStatus::Internal.into());
@@ -164,14 +163,19 @@ pub(crate) async fn auth_app_user<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::Internal.into());
     };
 
+    let key_hash = sha256_hex(req.key.as_bytes());
     let principal = match db
         .principal()
-        .get_by_app_id_and_key(&req.app_id, &req.key, PrincipalStatus::Active)
+        .get_by_app_id_and_key(&req.app_id, &key_hash, PrincipalStatus::Active)
         .await
     {
         Ok(Some(app)) => app,
         Ok(None) => {
-            tracing::error!("Application not found {}", req.app_id);
+            tracing::error!(
+                "Principal not found {} with lookup key {}",
+                req.app_id,
+                key_hash
+            );
             return ApiResponse::error(ErrorStatus::Internal.into());
         }
         Err(e) => {
