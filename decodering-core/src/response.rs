@@ -99,6 +99,7 @@ pub enum AppResponse {
     CreateUser(CreateUserResponse),
     CreateApiKey(CreateApiKeyResponse),
     CreateSecretMapping(CreateSecretMappingResponse),
+    DeleteSecretMapping(bool),
     CreateShamirConfiguration(CreateShamirConfigurationResponse),
     CreatePrincipal(CreatePrincipalResponse),
     CreatePrincipalCredential(CreatePrincipalCredentialResponse),
@@ -173,6 +174,7 @@ impl fmt::Display for AppResponse {
             AppResponse::Noop => write!(f, "Noop"),
             AppResponse::Error(e) => write!(f, "Error({e})"),
             AppResponse::SystemInit(_) => write!(f, "SystemInit()"),
+            AppResponse::DeleteSecretMapping(r) => write!(f, "DeleteSecretMapping(deleted={})", r),
         }
     }
 }

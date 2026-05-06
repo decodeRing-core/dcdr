@@ -27,3 +27,15 @@ pub(crate) struct GetSecretRequestData {
     pub secret_name: String,
     pub version: u64,
 }
+
+#[derive(Deserialize, Debug)]
+pub(crate) struct DeleteSecretRequestData {
+    pub app_id: String,
+    pub secret_name: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub(crate) struct ListSecretRequestData {
+    pub app_id: String,
+    pub after_secret: Option<String>,
+}

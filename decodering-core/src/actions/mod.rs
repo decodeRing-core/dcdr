@@ -7,4 +7,5 @@ pub mod create_principal_token;
 pub mod create_secret_mapping;
 pub mod create_shamir_configuration;
 pub mod create_user;
+pub mod delete_secret_mapping;
 pub mod system_init;

@@ -175,7 +175,7 @@ pub trait AppRepository: Send {
     ) -> impl Future<Output = Result<Option<App>, DbError>> + Send;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SecretMapping {
     pub app_id: String,
     pub secret_name: String,
@@ -201,9 +201,22 @@ pub trait SecretMappingRespository: Send {
         &mut self,
         params: &SecretMappingEntry,
     ) -> impl Future<Output = Result<String, DbError>> + Send;
+    fn delete(
+        &mut self,
+        secret_name: &str,
+        app_id: &str,
+    ) -> impl Future<Output = Result<u64, DbError>> + Send;
+
     fn get_by_app_id_secret_name(
         &mut self,
         app_id: &str,
         secret_name: &str,
     ) -> impl Future<Output = Result<Option<SecretMapping>, DbError>> + Send;
+
+    fn get_by_app_id_after(
+        &mut self,
+        app_id: &str,
+        after_secret_name: Option<&str>,
+        limit: i64,
+    ) -> impl Future<Output = Result<Vec<SecretMapping>, DbError>> + Send;
 }

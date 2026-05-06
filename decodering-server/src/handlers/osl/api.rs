@@ -10,9 +10,11 @@ use decodering_core::tx::{Database, Tx};
 
 use crate::app_data::AppData;
 use crate::extractor::AuthMiddleware;
-use crate::handlers::osl::payload::GetSecretRequestData;
-use crate::handlers::osl::payload::PutSecretRequestData;
-use crate::handlers::osl::response::{ApiGetSecretResponse, ApiPutSecretResponse};
+use crate::handlers::osl::payload::{DeleteSecretRequestData, PutSecretRequestData};
+use crate::handlers::osl::payload::{GetSecretRequestData, ListSecretRequestData};
+use crate::handlers::osl::response::{
+    ApiDestroySecretResponse, ApiGetSecretResponse, ApiListSecretResponse, ApiPutSecretResponse,
+};
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
 pub(crate) async fn api_put_secret<D: Database + 'static>(
@@ -117,6 +119,7 @@ pub(crate) async fn api_get_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<GetSecretRequestData>,
+    auth: AuthMiddleware<D>,
 ) -> impl Responder {
     match &app.raft {
         Some(raft_bits) => {
@@ -126,6 +129,10 @@ pub(crate) async fn api_get_secret<D: Database + 'static>(
             }
         }
         _ => {}
+    }
+
+    if !auth.user.is_admin {
+        return ApiResponse::error(ErrorStatus::Unauthorized.into());
     }
 
     let db = app.db.begin().await;
@@ -171,4 +178,107 @@ pub(crate) async fn api_get_secret<D: Database + 'static>(
     };
 
     return ApiGetSecretResponse::new(out.data, secret_mapping_data.backend, out.version);
+}
+
+pub(crate) async fn api_delete_secret<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    core: Data<Orchestrator>,
+    req: web::Json<DeleteSecretRequestData>,
+    auth: AuthMiddleware<D>,
+) -> impl Responder {
+    match &app.raft {
+        Some(raft_bits) => {
+            let is_initialized = raft_bits.raft.is_initialized().await;
+            if !matches!(is_initialized, Ok(true)) {
+                return ApiResponse::error(ErrorStatus::NotInitialized.into());
+            }
+        }
+        _ => {}
+    }
+
+    if !auth.user.is_admin {
+        return ApiResponse::error(ErrorStatus::Unauthorized.into());
+    }
+
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::Internal.into());
+    };
+
+    let secret_mapping = db
+        .secret_mapping()
+        .get_by_app_id_secret_name(&req.app_id, &req.secret_name)
+        .await;
+
+    let secret_mapping_data = match secret_mapping {
+        Ok(Some(x)) => x,
+        Ok(None) => {
+            tracing::error!(
+                "No secret mapping found for {} {}",
+                req.app_id,
+                req.secret_name
+            );
+            return ApiResponse::error(ErrorStatus::SecretNotFound.into());
+        }
+        Err(e) => {
+            tracing::error!(%e, "Database error");
+            return ApiResponse::error(ErrorStatus::Internal.into());
+        }
+    };
+
+    let backend = core.get_backend(&secret_mapping_data.backend);
+    let Ok(backend) = backend else {
+        tracing::error!("Backend not found {}", secret_mapping_data.backend);
+        return ApiResponse::error(ErrorStatus::UnsupportedBackend);
+    };
+    let out = backend.destroy(&secret_mapping_data.mount_path);
+    let Ok(out) = out else {
+        let e = out.unwrap_err();
+        tracing::debug!(error=?e, "Plugin error");
+        return ApiResponse::error(ErrorStatus::Plugin.into());
+    };
+
+    return ApiDestroySecretResponse::new(out);
+}
+
+pub(crate) async fn api_list_secret<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    req: web::Json<ListSecretRequestData>,
+    auth: AuthMiddleware<D>,
+) -> impl Responder {
+    match &app.raft {
+        Some(raft_bits) => {
+            let is_initialized = raft_bits.raft.is_initialized().await;
+            if !matches!(is_initialized, Ok(true)) {
+                return ApiResponse::error(ErrorStatus::NotInitialized.into());
+            }
+        }
+        _ => {}
+    }
+
+    if !auth.user.is_admin {
+        return ApiResponse::error(ErrorStatus::Unauthorized.into());
+    }
+
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::Internal.into());
+    };
+
+    let secret_mapping = db
+        .secret_mapping()
+        .get_by_app_id_after(&req.app_id, req.after_secret.as_deref(), 100)
+        .await;
+
+    let secret_mapping_data = match secret_mapping {
+        Ok(x) => x,
+        Err(e) => {
+            tracing::error!(%e, "Database error");
+            return ApiResponse::error(ErrorStatus::Internal.into());
+        }
+    };
+
+    return ApiListSecretResponse::new(secret_mapping_data);
 }

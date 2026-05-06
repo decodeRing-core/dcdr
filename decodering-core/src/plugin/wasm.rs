@@ -24,6 +24,11 @@ struct WriteOutput {
     version: String,
 }
 
+#[derive(Serialize)]
+struct DeleteInput<'a> {
+    path: &'a str,
+}
+
 pub struct WasmSecretBackend {
     manifest: Manifest,
 }
@@ -63,6 +68,18 @@ impl SecretBackend for WasmSecretBackend {
             .map(|out| out.0.version)
             .map_err(|e| PluginError::Call {
                 function: "put_secret".into(),
+                message: e.to_string(),
+            })
+    }
+
+    fn destroy(&self, path: &str) -> Result<bool, PluginError> {
+        let mut plugin = self.instantiate()?;
+        let input = DeleteInput { path };
+        plugin
+            .call::<Json<DeleteInput>, Json<bool>>("destroy_secret", Json(input))
+            .map(|out| out.0)
+            .map_err(|e| PluginError::Call {
+                function: "destroy_secret".into(),
                 message: e.to_string(),
             })
     }

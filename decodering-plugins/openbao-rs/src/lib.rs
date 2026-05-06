@@ -1,6 +1,6 @@
 use extism_pdk::*;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[derive(Deserialize)]
 struct ReadSecretInput {
@@ -23,6 +23,48 @@ pub struct WriteSecretOutput {
 pub struct ReadSecretResponse {
     pub version: String,
     pub data: Value,
+}
+
+#[derive(Deserialize)]
+pub struct DeleteSecretInput {
+    pub path: String,
+}
+
+#[derive(Serialize)]
+pub struct DeleteSecretOutput {
+    pub deleted: bool,
+}
+
+#[plugin_fn]
+pub fn destroy_secret(Json(input): Json<DeleteSecretInput>) -> FnResult<Json<DeleteSecretOutput>> {
+    let addr = config::get("vault_addr")?
+        .ok_or_else(|| WithReturnCode::from(Error::msg("missing vault_addr config")))?;
+    let token = config::get("vault_token")?
+        .ok_or_else(|| WithReturnCode::from(Error::msg("missing vault_token config")))?;
+    let mount = config::get("kv_mount")?.unwrap_or_else(|| "secret".to_string());
+
+    let url = format!(
+        "{}/v1/{}/metadata/{}",
+        addr.trim_end_matches('/'),
+        mount,
+        input.path
+    );
+
+    let req = HttpRequest::new(&url)
+        .with_method("DELETE")
+        .with_header("X-Vault-Token", token);
+
+    let res = http::request::<()>(&req, None)?;
+
+    if res.status_code() >= 300 {
+        return Err(WithReturnCode::from(Error::msg(format!(
+            "openbao returned {}: {}",
+            res.status_code(),
+            String::from_utf8_lossy(&res.body())
+        ))));
+    }
+
+    Ok(Json(DeleteSecretOutput { deleted: true }))
 }
 
 #[plugin_fn]

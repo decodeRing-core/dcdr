@@ -1,3 +1,4 @@
+use decodering_core::repository::SecretMapping;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -32,7 +33,7 @@ pub(crate) struct ApiGetSecretResponse {
 }
 
 #[derive(Serialize)]
-pub(crate) struct ApiGetSecretMetadataResponse {
+struct ApiGetSecretMetadataResponse {
     pub(crate) resolved_backend_ref: String,
     pub(crate) provider_version_id: String,
 }
@@ -52,6 +53,53 @@ impl ApiGetSecretResponse {
                     provider_version_id,
                 },
             }),
+        )
+    }
+}
+
+#[derive(Serialize)]
+pub(crate) struct ApiDestroySecretResponse {
+    pub(crate) destroyed: bool,
+}
+
+impl ApiDestroySecretResponse {
+    pub(crate) fn new(destroyed: bool) -> ApiResponse<ApiDestroySecretResponse> {
+        ApiResponse::new(
+            ApiStatus::Success(SuccessStatus::OperationCompleted),
+            Some(ApiDestroySecretResponse { destroyed }),
+        )
+    }
+}
+
+#[derive(Serialize)]
+pub(crate) struct ApiListSecretResponse(Vec<ListSecretResponse>);
+
+#[derive(Serialize)]
+struct ListSecretResponse {
+    pub(crate) secret_name: String,
+    pub(crate) backend: String,
+    pub(crate) mount_path: String,
+    pub(crate) tainted: bool,
+}
+
+impl From<SecretMapping> for ListSecretResponse {
+    fn from(value: SecretMapping) -> Self {
+        Self {
+            secret_name: value.secret_name,
+            backend: value.backend,
+            mount_path: value.mount_path,
+            tainted: value.tainted == 1,
+        }
+    }
+}
+
+impl ApiListSecretResponse {
+    pub(crate) fn new(secrets: Vec<SecretMapping>) -> ApiResponse<ApiListSecretResponse> {
+        ApiResponse::new(
+            ApiStatus::Success(SuccessStatus::OperationCompleted),
+            Some(ApiListSecretResponse(
+                secrets.into_iter().map(|f| f.into()).collect(),
+            )),
         )
     }
 }

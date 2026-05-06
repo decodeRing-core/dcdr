@@ -11,4 +11,5 @@ pub struct ReadResponse {
 pub trait SecretBackend: Send + Sync {
     fn get(&self, secret_name: &str, version: Option<String>) -> Result<ReadResponse, PluginError>;
     fn put(&self, path: &str, data: &Value) -> Result<String, PluginError>;
+    fn destroy(&self, path: &str) -> Result<bool, PluginError>;
 }
