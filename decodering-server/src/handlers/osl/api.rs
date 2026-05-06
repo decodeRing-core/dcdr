@@ -62,7 +62,7 @@ pub(crate) async fn api_put_secret<D: Database + 'static>(
     if req.options.create_only {
         if let Ok(Some(_)) = db
             .secret_mapping()
-            .get_by_app_id_secret_name(&req.app_id, &req.secret_name)
+            .get_by_app_id_and_secret_name(&req.app_id, &req.secret_name)
             .await
         {
             tracing::error!(app_id = %req.app_id, secret_name = %req.secret_name, "Secret already exists for app id");
@@ -144,7 +144,7 @@ pub(crate) async fn api_get_secret<D: Database + 'static>(
 
     let secret_mapping = db
         .secret_mapping()
-        .get_by_app_id_secret_name(&req.app_id, &req.secret_name)
+        .get_by_app_id_and_secret_name(&req.app_id, &req.secret_name)
         .await;
 
     let secret_mapping_data = match secret_mapping {
@@ -209,7 +209,7 @@ pub(crate) async fn api_delete_secret<D: Database + 'static>(
 
     let secret_mapping = db
         .secret_mapping()
-        .get_by_app_id_secret_name(&req.app_id, &req.secret_name)
+        .get_by_app_id_and_secret_name(&req.app_id, &req.secret_name)
         .await;
 
     let secret_mapping_data = match secret_mapping {

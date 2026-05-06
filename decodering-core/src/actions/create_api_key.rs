@@ -12,18 +12,24 @@ use crate::tx::Tx;
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateApiKey {
     pub user_id: i64,
-    pub api_key: String,
+    pub api_key_hash: String,
+    pub api_key_prefix: String,
     pub created_at: i64,
     pub expires_at: Option<i64>,
+    pub revoked_at: Option<i64>,
+    pub last_used_at: Option<i64>,
 }
 
 impl From<CreateApiKey> for ApiKeyEntry {
     fn from(c: CreateApiKey) -> Self {
         Self {
             user_id: c.user_id,
-            api_key: c.api_key,
+            api_key_hash: c.api_key_hash,
+            api_key_prefix: c.api_key_prefix,
             created_at: c.created_at,
             expires_at: c.expires_at,
+            revoked_at: c.revoked_at,
+            last_used_at: c.last_used_at,
         }
     }
 }
@@ -39,26 +45,42 @@ impl From<ApiKeyEntry> for CreateApiKeyResponse {
 }
 
 impl CreateApiKey {
-    pub fn new(user_id: i64, api_key: String, expires_at: Option<i64>) -> Self {
+    pub fn new(
+        user_id: i64,
+        api_key_hash: String,
+        api_key_prefix: String,
+        expires_at: Option<i64>,
+    ) -> Self {
         Self {
             user_id,
-            api_key,
             created_at: now_ts(),
             expires_at,
+            api_key_hash,
+            api_key_prefix,
+            revoked_at: None,
+            last_used_at: None,
         }
     }
 
-    pub fn init(api_key: String, expires_at: Option<i64>) -> Self {
+    pub fn init(api_key_hash: String, api_key_prefix: String, expires_at: Option<i64>) -> Self {
         Self {
             user_id: 0, // This is set by the initialize_app action
-            api_key,
             created_at: now_ts(),
             expires_at,
+            api_key_hash,
+            api_key_prefix,
+            revoked_at: None,
+            last_used_at: None,
         }
     }
 
-    pub fn request(user_id: i64, api_key: String, expires_at: Option<i64>) -> AppRequest {
-        let api_key = CreateApiKey::new(user_id, api_key, expires_at);
+    pub fn request(
+        user_id: i64,
+        api_key_hash: String,
+        api_key_prefix: String,
+        expires_at: Option<i64>,
+    ) -> AppRequest {
+        let api_key = CreateApiKey::new(user_id, api_key_hash, api_key_prefix, expires_at);
         AppRequest::CreateApiKey(api_key)
     }
 }

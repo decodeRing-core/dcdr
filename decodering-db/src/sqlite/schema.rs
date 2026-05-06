@@ -15,14 +15,17 @@ pub const SCHEMA: &str = r#"
     );
 
     CREATE TABLE IF NOT EXISTS api_keys (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        api_key    TEXT NOT NULL UNIQUE,
-        created_at INTEGER NOT NULL,
-        expires_at INTEGER
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        key_hash      TEXT NOT NULL UNIQUE,        -- sha256 hex of the raw key
+        key_prefix    TEXT NOT NULL,               -- first 8 chars of raw key, for UX
+        created_at    INTEGER NOT NULL,
+        expires_at    INTEGER,
+        revoked_at    INTEGER,
+        last_used_at  INTEGER
     );
 
-    CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);
+    CREATE INDEX IF NOT EXISTS idx_api_key_user_id ON api_key(user_id);
 
     CREATE TABLE IF NOT EXISTS shamir_configuration (
         id                INTEGER PRIMARY KEY AUTOINCREMENT,

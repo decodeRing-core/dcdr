@@ -52,7 +52,7 @@ impl<'a> SecretMappingRespository for SqliteSecretMappingRepository<'a> {
         Ok(rows_affected)
     }
 
-    async fn get_by_app_id_secret_name(
+    async fn get_by_app_id_and_secret_name(
         &mut self,
         app_id: &str,
         secret_name: &str,

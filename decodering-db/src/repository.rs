@@ -1,4 +1,5 @@
-use decodering_core::repository::{App, SecretMapping, Shamir, User};
+use decodering_core::domain::{PrincipalKind, PrincipalStatus};
+use decodering_core::repository::{App, Principal, SecretMapping, Shamir, User};
 
 #[derive(sqlx::FromRow)]
 pub struct SecretMappingRow {
@@ -84,6 +85,33 @@ impl From<AppRow> for App {
             app_name: a.app_name,
             created_at: a.created_at,
             updated_at: a.updated_at,
+        }
+    }
+}
+#[derive(sqlx::FromRow)]
+pub struct PrincipalRow {
+    pub principal_id: String,
+    pub name: String,
+    pub app_id: String,
+    pub kind: String,
+    pub status: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub deleted_at: Option<i64>,
+}
+
+impl From<PrincipalRow> for Principal {
+    fn from(r: PrincipalRow) -> Self {
+        Self {
+            app_id: r.app_id,
+            principal_id: r.principal_id,
+            name: r.name,
+            kind: PrincipalKind::from_str(r.kind.as_str()).unwrap_or(PrincipalKind::Human),
+            status: PrincipalStatus::from_str(r.status.as_str())
+                .unwrap_or(PrincipalStatus::Disabled),
+            deleted_at: r.deleted_at,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
         }
     }
 }

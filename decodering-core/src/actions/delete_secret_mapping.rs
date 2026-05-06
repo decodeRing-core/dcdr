@@ -40,7 +40,7 @@ impl Action for DeleteSecretMapping {
     async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
         let existing = tx
             .secret_mapping()
-            .get_by_app_id_secret_name(&self.app_id, &self.secret_name)
+            .get_by_app_id_and_secret_name(&self.app_id, &self.secret_name)
             .await?;
         let rows_deleted = tx
             .secret_mapping()

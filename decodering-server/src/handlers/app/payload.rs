@@ -22,3 +22,9 @@ pub(crate) struct UnlockData {
 pub(crate) struct CreateAppData {
     pub app_name: String,
 }
+
+#[derive(Deserialize, Debug)]
+pub(crate) struct AuthUserData {
+    pub app_id: String,
+    pub key: String,
+}

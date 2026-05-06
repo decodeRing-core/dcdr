@@ -14,6 +14,7 @@ use decodering_core::actions::create_user::CreateUser;
 use decodering_core::actions::system_init::SystemInit;
 use decodering_core::repository::ShamirRepository;
 use decodering_core::response::AppResponse;
+use decodering_core::sha256_hex;
 use decodering_core::tx::{Database, Tx};
 use rand::distr::{Alphanumeric, SampleString};
 use zeroize::Zeroizing;
@@ -67,10 +68,12 @@ pub(crate) async fn system_init<D: Database + 'static>(
     };
 
     let token = format!("pk_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
+    let token_prefix: String = token.chars().take(8).collect();
+    let token_hash = sha256_hex(token.as_bytes());
     let shamir =
         CreateShamirConfiguration::new(total_shares as i16, threshold as i16, shamir_init.hash);
     let user = CreateUser::new("root", "root@localhost", "", 1);
-    let api_key = CreateApiKey::init(token.clone(), None);
+    let api_key = CreateApiKey::init(token_hash, token_prefix, None);
     let request_initialize = SystemInit::request(shamir, user, api_key);
     match app.submit(request_initialize).await {
         Ok(resp) => match resp {

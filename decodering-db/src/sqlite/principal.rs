@@ -1,10 +1,13 @@
+use decodering_core::domain::PrincipalStatus;
 use decodering_core::error::DbError;
+use decodering_core::repository::Principal;
 use decodering_core::repository::PrincipalEntry;
 use decodering_core::repository::PrincipalRepository;
 use sqlx::Sqlite;
 use sqlx::Transaction;
 
 use crate::error::map_sqlx;
+use crate::repository::PrincipalRow;
 
 pub struct SqlitePrincipalRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
@@ -27,5 +30,32 @@ impl<'a> PrincipalRepository for SqlitePrincipalRepository<'a> {
         .await
         .map_err(map_sqlx)?;
         Ok(id)
+    }
+
+    async fn get_by_app_id_and_key(
+        &mut self,
+        app_id: &str,
+        key_hash: &str,
+        status: PrincipalStatus,
+    ) -> Result<Option<Principal>, DbError> {
+        let principal: Option<PrincipalRow> = sqlx::query_as::<_, PrincipalRow>(
+            "SELECT p.principal_id, p.name, p.app_id, p.kind, p.status, p.created_at, p.updated_at, p.deleted_at
+                FROM principals p
+                INNER JOIN principal_credentials pc ON pc.principal_id = p.principal_id
+                WHERE p.app_id = ?
+                  AND pc.lookup_key = ?
+                  AND pc.status = ?
+                  AND p.status = ?
+                  AND p.deleted_at IS NULL
+                  AND (pc.expires_at IS NULL OR pc.expires_at > unixepoch())
+                  AND pc.revoked_at IS NULL",
+        )
+        .bind(app_id)
+        .bind(key_hash)
+        .bind(status.as_str())
+        .fetch_optional(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(principal.map(Into::into))
     }
 }

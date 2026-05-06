@@ -43,6 +43,18 @@ pub trait PrincipalCredentialRepository: Send {
 }
 
 #[derive(Debug, Clone)]
+pub struct Principal {
+    pub principal_id: String,
+    pub name: String,
+    pub app_id: String,
+    pub kind: PrincipalKind,
+    pub status: PrincipalStatus,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub deleted_at: Option<i64>,
+}
+
+#[derive(Debug, Clone)]
 pub struct PrincipalEntry {
     pub principal_id: String,
     pub name: String,
@@ -59,6 +71,12 @@ pub trait PrincipalRepository: Send {
         &mut self,
         principal: &PrincipalEntry,
     ) -> impl Future<Output = Result<String, DbError>> + Send;
+    fn get_by_app_id_and_key(
+        &mut self,
+        app_id: &str,
+        key: &str,
+        status: PrincipalStatus,
+    ) -> impl Future<Output = Result<Option<Principal>, DbError>> + Send;
 }
 
 pub trait MetaRepository: Send {
@@ -116,9 +134,12 @@ pub trait ShamirRepository: Send {
 
 pub struct ApiKeyEntry {
     pub user_id: i64,
-    pub api_key: String,
+    pub api_key_hash: String,
+    pub api_key_prefix: String,
     pub created_at: i64,
     pub expires_at: Option<i64>,
+    pub revoked_at: Option<i64>,
+    pub last_used_at: Option<i64>,
 }
 
 pub trait ApiKeyRepository: Send {
@@ -207,7 +228,7 @@ pub trait SecretMappingRespository: Send {
         secret_name: &str,
     ) -> impl Future<Output = Result<u64, DbError>> + Send;
 
-    fn get_by_app_id_secret_name(
+    fn get_by_app_id_and_secret_name(
         &mut self,
         app_id: &str,
         secret_name: &str,
