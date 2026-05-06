@@ -25,7 +25,7 @@ pub const SCHEMA: &str = r#"
         last_used_at  INTEGER
     );
 
-    CREATE INDEX IF NOT EXISTS idx_api_key_user_id ON api_key(user_id);
+    CREATE INDEX IF NOT EXISTS idx_api_key_user_id ON api_keys(user_id);
 
     CREATE TABLE IF NOT EXISTS shamir_configuration (
         id                INTEGER PRIMARY KEY AUTOINCREMENT,

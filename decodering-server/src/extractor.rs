@@ -9,6 +9,7 @@ use actix_web::http::header;
 use actix_web::web::Data;
 use decodering_core::repository::User;
 use decodering_core::repository::UserRepository;
+use decodering_core::sha256_hex;
 use decodering_core::tx::Database;
 use decodering_core::tx::Tx;
 use serde::Serialize;
@@ -52,7 +53,8 @@ where
                 return Err(ErrorStatus::Internal.into());
             };
 
-            let user = db.user().get_by_api_key(&access_token).await;
+            let api_key_hash = sha256_hex(access_token.as_bytes());
+            let user = db.user().get_by_api_key(&api_key_hash).await;
             match user {
                 Ok(Some(u)) => Ok(AuthMiddleware::new(u)),
                 Ok(None) => {

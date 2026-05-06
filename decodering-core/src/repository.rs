@@ -170,7 +170,7 @@ pub trait UserRepository: Send {
     fn insert(&mut self, params: &UserEntry) -> impl Future<Output = Result<i64, DbError>> + Send;
     fn get_by_api_key(
         &mut self,
-        api_key: &str,
+        api_key_hash: &str,
     ) -> impl Future<Output = Result<Option<User>, DbError>> + Send;
 }
 

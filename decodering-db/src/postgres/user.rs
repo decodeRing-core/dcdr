@@ -29,15 +29,15 @@ impl<'a> UserRepository for PostgresUserRepository<'a> {
         Ok(id)
     }
 
-    async fn get_by_api_key(&mut self, api_key: &str) -> Result<Option<User>, DbError> {
+    async fn get_by_api_key(&mut self, api_key_hash: &str) -> Result<Option<User>, DbError> {
         let user: Option<UserRow> = sqlx::query_as::<_, UserRow>(
             "SELECT u.id, u.username, u.email, u.password_hash, u.is_admin, u.created_at
             FROM users u
             INNER JOIN api_keys k ON k.user_id = u.id
-            WHERE k.api_key = $1
+            WHERE k.api_key_hash = $1
               AND (k.expires_at IS NULL OR k.expires_at > EXTRACT(EPOCH FROM NOW())::BIGINT))",
         )
-        .bind(api_key)
+        .bind(api_key_hash)
         .fetch_optional(&mut **self.tx)
         .await
         .map_err(map_sqlx)?;
