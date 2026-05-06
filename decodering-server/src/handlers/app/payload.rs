@@ -11,12 +11,6 @@ pub(crate) struct CreateAppUserData {
     pub expires_at: Option<i64>,
 }
 
-#[derive(Deserialize, Debug)]
-pub(crate) struct GetAppUserData {
-    pub app_id: String,
-    pub username: String,
-}
-
 #[serde_as]
 #[derive(Deserialize, Debug)]
 pub(crate) struct UnlockData {

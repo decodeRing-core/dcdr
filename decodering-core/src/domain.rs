@@ -30,6 +30,7 @@ impl std::fmt::Display for UnknownPrincipalCredentialKind {
 impl std::error::Error for UnknownPrincipalKind {}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum PrincipalKind {
     Human,
     Machine,
@@ -58,6 +59,7 @@ impl PrincipalKind {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum PrincipalStatus {
     Active,
     Disabled,
@@ -86,6 +88,7 @@ impl PrincipalStatus {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum PrincipalCredentialKind {
     ApiKey,
     VirtualTrustedPlatformModule,

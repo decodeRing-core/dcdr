@@ -13,7 +13,7 @@ pub struct SqlitePrincipalRepository<'a> {
 impl<'a> PrincipalRepository for SqlitePrincipalRepository<'a> {
     async fn insert(&mut self, params: &PrincipalEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
-            "INSERT INTO principals (principal_id, name, app_id, kind, status, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING principal_id",
+            "INSERT INTO principals (principal_id, name, app_id, kind, status, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING principal_id",
         )
         .bind(&params.principal_id)
         .bind(&params.name)

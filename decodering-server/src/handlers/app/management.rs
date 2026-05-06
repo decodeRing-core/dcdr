@@ -1,12 +1,13 @@
 use actix_web::Responder;
 use actix_web::web::{Data, Json};
 use decodering_core::actions::create_app::CreateApp;
+use decodering_core::actions::create_app_user::CreateAppUser;
 use decodering_core::actions::create_principal::CreatePrincipal;
 use decodering_core::actions::create_principal_credential::CreatePrincipalCredential;
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
-use decodering_core::request::AppRequest;
+use decodering_core::repository::AppRepository;
 use decodering_core::response::AppResponse;
-use decodering_core::tx::Database;
+use decodering_core::tx::{Database, Tx};
 use decodering_core::{now_ts, sha256_hex};
 use rand::distr::{Alphanumeric, SampleString};
 use uuid::Uuid;
@@ -14,7 +15,7 @@ use uuid::Uuid;
 use crate::app_data::AppData;
 use crate::extractor::AuthMiddleware;
 use crate::handlers::app::payload::{CreateAppData, CreateAppUserData};
-use crate::handlers::app::response::ApiCreateAppResponse;
+use crate::handlers::app::response::{ApiCreateAppResponse, ApiCreateAppUserResponse};
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
 pub(crate) async fn create_app_user<D: Database + 'static>(
@@ -38,19 +39,36 @@ pub(crate) async fn create_app_user<D: Database + 'static>(
         _ => {}
     }
 
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::Internal.into());
+    };
+
+    let application = match db.app().get_by_app_id(&req.app_id).await {
+        Ok(Some(app)) => app,
+        Ok(None) => {
+            tracing::error!("Application not found {}", req.app_id);
+            return ApiResponse::error(ErrorStatus::Internal.into());
+        }
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::Internal.into());
+        }
+    };
+
     let timestamp = now_ts();
     let principal_id = Uuid::now_v7().to_string();
     let principal = CreatePrincipal {
         principal_id: principal_id.clone(),
         name: req.0.name,
-        app_id: req.0.app_id,
+        app_id: application.app_id,
         kind: req.0.kind,
         status: PrincipalStatus::Active,
         created_at: timestamp,
         updated_at: timestamp,
         deleted_at: None,
     };
-    let request = AppRequest::CreatePrincipal(principal);
 
     let lookup_key = match req.0.credential_kind {
         PrincipalCredentialKind::ApiKey => {
@@ -58,14 +76,14 @@ pub(crate) async fn create_app_user<D: Database + 'static>(
             sha256_hex(token.as_bytes())
         }
         _ => {
-            return ApiResponse::<()>::error(ErrorStatus::Unimplemented.into());
+            return ApiResponse::error(ErrorStatus::Unimplemented.into());
         }
     };
 
     let secret_material = match req.0.credential_kind {
         PrincipalCredentialKind::ApiKey => "{}".to_owned(),
         _ => {
-            return ApiResponse::<()>::error(ErrorStatus::Unimplemented.into());
+            return ApiResponse::error(ErrorStatus::Unimplemented.into());
         }
     };
 
@@ -81,9 +99,27 @@ pub(crate) async fn create_app_user<D: Database + 'static>(
         created_at: timestamp,
         revoked_at: None,
     };
-    let principal_credential_request = AppRequest::CreatePrincipalCredential(principal_credential);
 
-    ApiResponse::<()>::error(ErrorStatus::Internal.into())
+    let request = CreateAppUser::request(auth.user.id, principal, principal_credential);
+    match app.submit(request).await {
+        Ok(resp) => match resp {
+            AppResponse::CreateAppUser(r) => {
+                ApiCreateAppUserResponse::new(r.principal_credential.lookup_key)
+            }
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to create app");
+                return ApiResponse::error(ErrorStatus::Internal.into());
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                return ApiResponse::error(ErrorStatus::Internal.into());
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            return ApiResponse::error(ErrorStatus::Internal.into());
+        }
+    }
 }
 
 pub(crate) async fn create_app<D: Database + 'static>(
