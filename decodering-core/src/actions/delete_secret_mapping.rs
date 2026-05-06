@@ -4,6 +4,7 @@ use crate::action::Action;
 use crate::audit::{ActionKind, ActionOutput, Actor, AuditDescriptor, Target};
 use crate::error::ExecutionError;
 use crate::repository::SecretMappingRespository;
+use crate::request::AppRequest;
 use crate::response::AppResponse;
 use crate::tx::Tx;
 
@@ -11,6 +12,16 @@ use crate::tx::Tx;
 pub struct DeleteSecretMapping {
     pub app_id: String,
     pub secret_name: String,
+}
+
+impl DeleteSecretMapping {
+    pub fn request(app_id: impl Into<String>, secret_name: impl Into<String>) -> AppRequest {
+        let delete_secret = Self {
+            app_id: app_id.into(),
+            secret_name: secret_name.into(),
+        };
+        AppRequest::DeleteSecretMapping(delete_secret)
+    }
 }
 
 impl Action for DeleteSecretMapping {
@@ -33,7 +44,7 @@ impl Action for DeleteSecretMapping {
             .await?;
         let rows_deleted = tx
             .secret_mapping()
-            .delete(&self.secret_name, &self.app_id)
+            .delete(&self.app_id, &self.secret_name)
             .await?;
         let response = rows_deleted > 0;
         let after = serde_json::json!(response);

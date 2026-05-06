@@ -1,7 +1,7 @@
 // app-core/src/plugin/wasm.rs
 use extism::convert::Json;
 use extism::{Manifest, Plugin};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::error::PluginError;
@@ -19,7 +19,7 @@ struct WriteInput<'a> {
     data: &'a Value,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct WriteOutput {
     version: String,
 }
@@ -27,6 +27,11 @@ struct WriteOutput {
 #[derive(Serialize)]
 struct DeleteInput<'a> {
     path: &'a str,
+}
+
+#[derive(Deserialize)]
+pub struct DeleteSecretOutput {
+    pub deleted: bool,
 }
 
 pub struct WasmSecretBackend {
@@ -76,8 +81,8 @@ impl SecretBackend for WasmSecretBackend {
         let mut plugin = self.instantiate()?;
         let input = DeleteInput { path };
         plugin
-            .call::<Json<DeleteInput>, Json<bool>>("destroy_secret", Json(input))
-            .map(|out| out.0)
+            .call::<Json<DeleteInput>, Json<DeleteSecretOutput>>("destroy_secret", Json(input))
+            .map(|out| out.0.deleted)
             .map_err(|e| PluginError::Call {
                 function: "destroy_secret".into(),
                 message: e.to_string(),

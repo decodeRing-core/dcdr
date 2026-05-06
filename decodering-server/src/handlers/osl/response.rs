@@ -28,14 +28,14 @@ impl ApiPutSecretResponse {
 #[derive(Serialize)]
 pub(crate) struct ApiGetSecretResponse {
     #[serde(flatten)]
-    pub(crate) data: Value,
-    pub(crate) metadata: ApiGetSecretMetadataResponse,
+    data: Value,
+    metadata: ApiGetSecretMetadataResponse,
 }
 
 #[derive(Serialize)]
 struct ApiGetSecretMetadataResponse {
-    pub(crate) resolved_backend_ref: String,
-    pub(crate) provider_version_id: String,
+    resolved_backend_ref: String,
+    provider_version_id: String,
 }
 
 impl ApiGetSecretResponse {
@@ -76,10 +76,10 @@ pub(crate) struct ApiListSecretResponse(Vec<ListSecretResponse>);
 
 #[derive(Serialize)]
 struct ListSecretResponse {
-    pub(crate) secret_name: String,
-    pub(crate) backend: String,
-    pub(crate) mount_path: String,
-    pub(crate) tainted: bool,
+    secret_name: String,
+    backend: String,
+    mount_path: String,
+    tainted: bool,
 }
 
 impl From<SecretMapping> for ListSecretResponse {

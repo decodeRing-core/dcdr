@@ -39,7 +39,7 @@ impl<'a> SecretMappingRespository for PostgresSecretMappingRepository<'a> {
         Ok(id)
     }
 
-    async fn delete(&mut self, secret_name: &str, app_id: &str) -> Result<u64, DbError> {
+    async fn delete(&mut self, app_id: &str, secret_name: &str) -> Result<u64, DbError> {
         let rows_affected = sqlx::query(
             "DELETE FROM secret_backend_mapping
              WHERE app_id = $1 AND secret_name = $2",

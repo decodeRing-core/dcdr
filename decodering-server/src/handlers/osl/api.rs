@@ -1,6 +1,7 @@
 use actix_web::web::Data;
 use actix_web::{Responder, web};
 use decodering_core::actions::create_secret_mapping::CreateSecretMapping;
+use decodering_core::actions::delete_secret_mapping::DeleteSecretMapping;
 use decodering_core::now_ts;
 use decodering_core::plugin::orchestrator::Orchestrator;
 use decodering_core::repository::{AppRepository, SecretMappingRespository};
@@ -233,13 +234,32 @@ pub(crate) async fn api_delete_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::UnsupportedBackend);
     };
     let out = backend.destroy(&secret_mapping_data.mount_path);
-    let Ok(out) = out else {
+    let Ok(_) = out else {
         let e = out.unwrap_err();
         tracing::debug!(error=?e, "Plugin error");
         return ApiResponse::error(ErrorStatus::Plugin.into());
     };
 
-    return ApiDestroySecretResponse::new(out);
+    let request = DeleteSecretMapping::request(&req.app_id, &req.secret_name);
+    match app.submit(request).await {
+        Ok(resp) => match resp {
+            AppResponse::DeleteSecretMapping(out) => {
+                return ApiDestroySecretResponse::new(out);
+            }
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to create app");
+                return ApiResponse::error(ErrorStatus::Internal.into());
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                return ApiResponse::error(ErrorStatus::Internal.into());
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            return ApiResponse::error(ErrorStatus::Internal.into());
+        }
+    }
 }
 
 pub(crate) async fn api_list_secret<D: Database + 'static>(

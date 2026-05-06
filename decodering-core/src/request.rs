@@ -10,6 +10,7 @@ use crate::actions::create_principal_credential::CreatePrincipalCredential;
 use crate::actions::create_secret_mapping::CreateSecretMapping;
 use crate::actions::create_shamir_configuration::CreateShamirConfiguration;
 use crate::actions::create_user::CreateUser;
+use crate::actions::delete_secret_mapping::DeleteSecretMapping;
 use crate::actions::system_init::SystemInit;
 use crate::error::ActionError;
 use crate::response::AppResponse;
@@ -22,6 +23,7 @@ pub enum AppRequest {
     CreateApp(CreateApp),
     CreateUser(CreateUser),
     CreateSecretMapping(CreateSecretMapping),
+    DeleteSecretMapping(DeleteSecretMapping),
     CreateShamirConfiguration(CreateShamirConfiguration),
     CreatePrincipal(CreatePrincipal),
     CreatePrincipalCredential(CreatePrincipalCredential),
@@ -88,6 +90,13 @@ impl fmt::Display for AppRequest {
                     create_principal_credential.principal_id
                 )
             }
+            AppRequest::DeleteSecretMapping(delete_secret_mapping) => {
+                write!(
+                    f,
+                    "DeleteSecretMapping(app_id={}, secret_name={})",
+                    delete_secret_mapping.app_id, delete_secret_mapping.secret_name
+                )
+            }
         }
     }
 }
@@ -128,6 +137,9 @@ impl AppRequest {
                 Ok(run_action_direct(db, create_principal_credential)
                     .await?
                     .response)
+            }
+            AppRequest::DeleteSecretMapping(delete_secret_mapping) => {
+                Ok(run_action_direct(db, delete_secret_mapping).await?.response)
             }
         }
     }

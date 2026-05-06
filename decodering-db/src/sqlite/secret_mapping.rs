@@ -37,7 +37,8 @@ impl<'a> SecretMappingRespository for SqliteSecretMappingRepository<'a> {
         Ok(id)
     }
 
-    async fn delete(&mut self, secret_name: &str, app_id: &str) -> Result<u64, DbError> {
+    async fn delete(&mut self, app_id: &str, secret_name: &str) -> Result<u64, DbError> {
+        println!("DELETE {} {}", app_id, secret_name);
         let rows_affected = sqlx::query(
             "DELETE FROM secret_backend_mapping
              WHERE app_id = ? AND secret_name = ?",

@@ -203,8 +203,8 @@ pub trait SecretMappingRespository: Send {
     ) -> impl Future<Output = Result<String, DbError>> + Send;
     fn delete(
         &mut self,
-        secret_name: &str,
         app_id: &str,
+        secret_name: &str,
     ) -> impl Future<Output = Result<u64, DbError>> + Send;
 
     fn get_by_app_id_secret_name(
