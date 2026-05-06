@@ -13,7 +13,7 @@ pub struct CreatePrincipalToken {
     pub token_id: String,
     pub token_hash: String,
     pub principal_id: String,
-    pub credential_id: Option<String>,
+    pub credential_id: String,
     pub issued_at: i64,
     pub expires_at: i64,
     pub revoked_at: Option<i64>,

@@ -7,16 +7,19 @@ use decodering_core::actions::create_principal_credential::CreatePrincipalCreden
 use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
 use decodering_core::repository::{AppRepository, PrincipalRepository};
+use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
 use decodering_core::tx::{Database, Tx};
-use decodering_core::{now_ts, sha256_hex};
+use decodering_core::{now_ts, now_ts_plus, sha256_hex};
 use rand::distr::{Alphanumeric, SampleString};
 use uuid::Uuid;
 
 use crate::app_data::AppData;
 use crate::extractor::AuthMiddleware;
 use crate::handlers::app::payload::{AuthUserData, CreateAppData, CreateAppUserData};
-use crate::handlers::app::response::{ApiCreateAppResponse, ApiCreateAppUserResponse};
+use crate::handlers::app::response::{
+    ApiAuthAppUserResponse, ApiCreateAppResponse, ApiCreateAppUserResponse,
+};
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
 pub(crate) async fn create_app_user<D: Database + 'static>(
@@ -154,7 +157,6 @@ pub(crate) async fn create_app<D: Database + 'static>(
 pub(crate) async fn auth_app_user<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<AuthUserData>,
-    auth: AuthMiddleware<D>,
 ) -> impl Responder {
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
@@ -181,36 +183,36 @@ pub(crate) async fn auth_app_user<D: Database + 'static>(
     let token = format!("pk_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
     let token_hash = sha256_hex(token.as_bytes());
 
+    let timestamp = now_ts();
+    let expires = now_ts_plus(3600);
     let principal_token = CreatePrincipalToken {
         token_id: Uuid::now_v7().to_string(),
         token_hash: token_hash,
         principal_id: principal.principal_id,
-        credential_id: todo!(),
-        issued_at: todo!(),
-        expires_at: todo!(),
-        revoked_at: todo!(),
+        credential_id: principal.credential_id,
+        issued_at: timestamp,
+        expires_at: expires,
+        revoked_at: None,
     };
 
-    return ApiResponse::<()>::error(ErrorStatus::Unimplemented.into());
-    // if !auth.user.is_admin {
-    //     return ApiResponse::error(ErrorStatus::Unauthorized.into());
-    // }
-    // let request = CreateApp::request(Uuid::now_v7().to_string(), req.0.app_name);
-    // match app.submit(request).await {
-    //     Ok(resp) => match resp {
-    //         AppResponse::CreateApp(a) => ApiCreateAppResponse::new(a.app_id, a.app_name),
-    //         AppResponse::Error(e) => {
-    //             tracing::error!(%e, "Failed to create app");
-    //             return ApiResponse::error(ErrorStatus::Internal.into());
-    //         }
-    //         other_api_response => {
-    //             tracing::error!(?other_api_response, "unexpected AppResponse variant");
-    //             return ApiResponse::error(ErrorStatus::Internal.into());
-    //         }
-    //     },
-    //     Err(e) => {
-    //         tracing::error!(?e);
-    //         return ApiResponse::error(ErrorStatus::Internal.into());
-    //     }
-    // }
+    let request = AppRequest::CreatePrincipalToken(principal_token);
+    match app.submit(request).await {
+        Ok(resp) => match resp {
+            AppResponse::CreatePrincipalToken(r) => {
+                ApiAuthAppUserResponse::new(token, r.expires_at)
+            }
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to create app");
+                return ApiResponse::error(ErrorStatus::Internal.into());
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                return ApiResponse::error(ErrorStatus::Internal.into());
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            return ApiResponse::error(ErrorStatus::Internal.into());
+        }
+    }
 }

@@ -467,6 +467,7 @@ where
         AppRequest::CreatePrincipalCredential(x) => run_action_raft(tx, index, x).await,
         AppRequest::CreateAppUser(x) => run_action_raft(tx, index, x).await,
         AppRequest::DeleteSecretMapping(x) => run_action_raft(tx, index, x).await,
+        AppRequest::CreatePrincipalToken(x) => run_action_raft(tx, index, x).await,
     }
 }
 

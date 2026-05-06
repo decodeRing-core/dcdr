@@ -39,7 +39,7 @@ impl<'a> PrincipalRepository for PostgresPrincipalRepository<'a> {
         status: PrincipalStatus,
     ) -> Result<Option<Principal>, DbError> {
         let principal: Option<PrincipalRow> = sqlx::query_as::<_, PrincipalRow>(
-            "SELECT p.principal_id, p.name, p.app_id, p.kind, p.status, p.created_at, p.updated_at, p.deleted_at
+            "SELECT pc.credential_id, p.principal_id, p.name, p.app_id, p.kind, p.status, p.created_at, p.updated_at, p.deleted_at
                 FROM principals p
                 INNER JOIN principal_credentials pc ON pc.principal_id = p.principal_id
                 WHERE p.app_id = $1

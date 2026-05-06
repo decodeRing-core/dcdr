@@ -30,3 +30,18 @@ impl ApiCreateAppUserResponse {
         )
     }
 }
+
+#[derive(Serialize)]
+pub(crate) struct ApiAuthAppUserResponse {
+    pub(crate) token: String,
+    pub(crate) expires_at: i64,
+}
+
+impl ApiAuthAppUserResponse {
+    pub(crate) fn new(token: String, expires_at: i64) -> ApiResponse<Self> {
+        ApiResponse::new(
+            ApiStatus::Success(SuccessStatus::OperationCompleted),
+            Some(ApiAuthAppUserResponse { token, expires_at }),
+        )
+    }
+}

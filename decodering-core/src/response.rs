@@ -81,7 +81,7 @@ pub struct CreatePrincipalCredentialResponse {
 pub struct CreatePrincipalTokenResponse {
     pub token_id: String,
     pub principal_id: String,
-    pub credential_id: Option<String>,
+    pub credential_id: String,
     pub issued_at: i64,
     pub expires_at: i64,
     pub revoked_at: Option<i64>,

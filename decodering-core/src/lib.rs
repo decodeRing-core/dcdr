@@ -15,11 +15,16 @@ pub mod response;
 pub mod runner;
 pub mod tx;
 
-pub fn now_ts() -> i64 {
+pub fn now_ts_plus(secs: i64) -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+        + secs
+}
+
+pub fn now_ts() -> i64 {
+    now_ts_plus(0)
 }
 
 pub fn sha256_hex(bytes: &[u8]) -> String {

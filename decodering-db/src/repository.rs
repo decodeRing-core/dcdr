@@ -90,6 +90,7 @@ impl From<AppRow> for App {
 }
 #[derive(sqlx::FromRow)]
 pub struct PrincipalRow {
+    pub credential_id: String,
     pub principal_id: String,
     pub name: String,
     pub app_id: String,
@@ -103,6 +104,7 @@ pub struct PrincipalRow {
 impl From<PrincipalRow> for Principal {
     fn from(r: PrincipalRow) -> Self {
         Self {
+            credential_id: r.credential_id,
             app_id: r.app_id,
             principal_id: r.principal_id,
             name: r.name,
