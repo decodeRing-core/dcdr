@@ -30,7 +30,7 @@ Implements the OSL (Open Secrets Language) REST API and handles Raft node manage
 ## **Getting Started**
 
 - Install the latest version of Rust (https://rust-lang.org/tools/install/)
-- RocksDB and SQLite bindings require a system C toolchain and LLVM/Clang development libraries to build. 
+- RocksDB and SQLite bindings require a system C toolchain and LLVM/Clang development libraries to build. On *Alpine: apk add build-base clang-dev clang-libs llvm-dev*. On *Debian/Ubuntu: apt install build-essential clang libclang-dev*. 
 - Clone repository
 - Create .env file with configuration. Adjust as needed.
 ```
