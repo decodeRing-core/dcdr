@@ -70,6 +70,7 @@ config:
 The final layout should look like:
 ```
 dcdr-rs
+  |- ...
   |- Plugins
     |- compiled
       |- openbao-rust.wasm
