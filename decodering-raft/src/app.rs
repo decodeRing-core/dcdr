@@ -134,7 +134,6 @@ use crate::raft_types::AppendEntriesResponse;
 use crate::raft_types::ClientWriteError;
 use crate::raft_types::ClientWriteResponse;
 use crate::raft_types::Fatal;
-use crate::raft_types::InitializeError;
 use crate::raft_types::Node;
 use crate::raft_types::RaftMetrics;
 use crate::raft_types::SnapshotMetaOf;

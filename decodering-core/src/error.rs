@@ -14,6 +14,21 @@ pub enum DbError {
     Other(String),
 }
 
+impl DbError {
+    /// True for errors that are deterministic outcomes of the command's
+    /// content (constraint violations, missing rows). These must NOT halt
+    /// the Raft apply loop — they're business failures, not storage failures.
+    pub fn is_business(&self) -> bool {
+        matches!(
+            self,
+            DbError::NotFound
+                | DbError::UniqueViolation { .. }
+                | DbError::ForeignKeyViolation { .. }
+                | DbError::CheckViolation { .. }
+        )
+    }
+}
+
 impl fmt::Display for DbError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -67,6 +82,15 @@ impl fmt::Display for DenyReason {
 pub enum ExecutionError {
     Db(DbError),
     Other(String),
+}
+
+impl ExecutionError {
+    pub fn is_business(&self) -> bool {
+        match self {
+            Self::Db(e) => e.is_business(),
+            Self::Other(_) => false, // unknown — treat as fatal
+        }
+    }
 }
 
 impl fmt::Display for ExecutionError {

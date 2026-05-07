@@ -54,9 +54,8 @@ impl Connection {
         Result<Resp, RaftError>: serde::de::DeserializeOwned,
     {
         let url = format!("http://{}/{}", self.addr, path);
-        tracing::debug!(">>> network send request to {}: {}", url, path);
+        tracing::trace!(">>> network send request to {}: {}", url, path);
 
-        // 1. Send the POST request
         let resp = self
             .client
             .post(&url)

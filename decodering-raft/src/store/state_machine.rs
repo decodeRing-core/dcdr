@@ -10,7 +10,7 @@ use crate::rocksdb_log_store::RocksLogStore;
 use decodering_core::action::Action;
 use decodering_core::audit::{ActionOutput, AuditDescriptor};
 use decodering_core::audit::{audit_allowed, audit_denied};
-use decodering_core::error::DenyReason;
+use decodering_core::error::{DenyReason, ExecutionError};
 use decodering_core::repository::{AuditRepository, MetaRepository};
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
@@ -75,7 +75,23 @@ where
                 let _ = tx.meta().set("last_membership", &mb).await;
                 AppResponse::Noop
             }
-            EntryPayload::Normal(req) => run_raft(&mut tx, log_id.index, req).await?.response,
+
+            EntryPayload::Normal(req) => {
+                match run_raft(&mut tx, log_id.index, req).await {
+                    Ok(out) => out.response,
+
+                    Err(e) if e.is_business() => {
+                        // Business failure: roll back the failed mutation, start a
+                        // fresh tx, advance last_applied. The log moves forward;
+                        // the client sees an error response.
+                        tx.rollback().await.map_err(io::Error::other)?;
+                        tx = self.db.begin().await.map_err(io::Error::other)?;
+                        AppResponse::Error(e.to_string())
+                    }
+
+                    Err(e) => return Err(io::Error::other(e)), // genuine storage failure
+                }
+            }
         };
 
         // Persist last_applied atomically with the mutation.
@@ -403,7 +419,7 @@ pub async fn run_raft<U>(
     tx: &mut U,
     index: u64,
     action: AppRequest,
-) -> Result<ActionOutput<AppResponse>, io::Error>
+) -> Result<ActionOutput<AppResponse>, ExecutionError>
 where
     U: Tx,
 {
@@ -426,18 +442,15 @@ pub async fn run_action_raft<U, A>(
     tx: &mut U,
     raft_index: u64,
     action: A,
-) -> Result<A::Output, io::Error>
+) -> Result<A::Output, ExecutionError>
 where
     U: Tx,
     A: Action,
 {
     let descriptor = action.audit_descriptor();
-    let output = action.execute(tx).await.map_err(io::Error::other)?;
+    let output = action.execute(tx).await?;
     let allowed = audit_allowed(&descriptor, raft_index as i64, &output, now_ts());
-    tx.audit()
-        .insert(&allowed)
-        .await
-        .map_err(io::Error::other)?;
+    tx.audit().insert(&allowed).await?;
     Ok(output)
 }
 
@@ -446,11 +459,11 @@ pub async fn run_audit_denied<U>(
     raft_index: u64,
     descriptor: AuditDescriptor,
     reason: DenyReason,
-) -> Result<(), io::Error>
+) -> Result<(), ExecutionError>
 where
     U: Tx,
 {
     let entry = audit_denied(&descriptor, raft_index as i64, reason, now_ts());
-    tx.audit().insert(&entry).await.map_err(io::Error::other)?;
+    tx.audit().insert(&entry).await?;
     Ok(())
 }

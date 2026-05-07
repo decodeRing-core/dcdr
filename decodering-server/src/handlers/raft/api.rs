@@ -50,9 +50,6 @@ pub(crate) async fn snapshot_raft<D: Database + 'static>(
             };
 
             let result = raft_bits.raft.install_full_snapshot(vote, snapshot).await;
-            let Ok(result) = result else {
-                return HttpResponse::InternalServerError().finish();
-            };
             return HttpResponse::Ok().json(result);
         }
         _ => return HttpResponse::ServiceUnavailable().finish(),
