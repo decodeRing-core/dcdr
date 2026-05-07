@@ -30,7 +30,7 @@ Implements the OSL (Open Secrets Language) REST API and handles Raft node manage
 ## **Getting Started**
 
 - Install the latest version of Rust (https://rust-lang.org/tools/install/)
-
+- Some Rust crates require a system C toolchain to build
 - Clone repository
 - Create .env file with configuration. Adjust as needed.
 ```
