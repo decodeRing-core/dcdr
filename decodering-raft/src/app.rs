@@ -154,7 +154,7 @@ impl RaftBits {
         &self,
         addr: String,
         data: Vec<(NodeId, String)>,
-    ) -> Result<(), InitializeError> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut nodes = BTreeMap::new();
         if data.is_empty() {
             nodes.insert(self.id, BasicNode { addr: addr.clone() });
@@ -163,7 +163,8 @@ impl RaftBits {
                 nodes.insert(id, BasicNode { addr });
             }
         }
-        self.raft.initialize(nodes).await.decompose().unwrap()
+        self.raft.initialize(nodes).await.decompose()??;
+        Ok(())
     }
 
     pub async fn metrics(&self) -> RaftMetrics {

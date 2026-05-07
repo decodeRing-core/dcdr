@@ -15,21 +15,18 @@ use rand::distr::{Alphanumeric, SampleString};
 use uuid::Uuid;
 
 use crate::app_data::AppData;
-use crate::extractor::AuthMiddleware;
+use crate::extractor::AuthAdminMiddleware;
 use crate::handlers::app::payload::{AuthUserData, CreateAppData, CreateAppUserData};
-use crate::handlers::app::response::{
-    ApiAuthAppUserResponse, ApiCreateAppResponse, ApiCreateAppUserResponse,
-};
+use crate::handlers::app::response::ApiAuthAppUserResponse;
+use crate::handlers::app::response::ApiCreateAppResponse;
+use crate::handlers::app::response::ApiCreateAppUserResponse;
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
 pub(crate) async fn create_app_user<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<CreateAppUserData>,
-    auth: AuthMiddleware<D>,
+    auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
-    if !auth.user.is_admin {
-        return ApiResponse::error(ErrorStatus::Unauthorized.into());
-    }
     match &app.raft {
         Some(raft_bits) => {
             let is_initialized = raft_bits.raft.is_initialized().await;
@@ -128,11 +125,42 @@ pub(crate) async fn create_app_user<D: Database + 'static>(
 pub(crate) async fn create_app<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<CreateAppData>,
-    auth: AuthMiddleware<D>,
+    _auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
-    if !auth.user.is_admin {
-        return ApiResponse::error(ErrorStatus::Unauthorized.into());
+    match &app.raft {
+        Some(raft_bits) => {
+            let is_initialized = raft_bits.raft.is_initialized().await;
+            if !matches!(is_initialized, Ok(true)) {
+                return ApiResponse::error(ErrorStatus::NotInitialized.into());
+            }
+            if !raft_bits.raft.is_leader() {
+                return ApiResponse::error(ErrorStatus::NotLeader.into());
+            }
+        }
+        _ => {}
     }
+
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::Internal.into());
+    };
+    match db.app().get_by_app_name(&req.0.app_name).await {
+        Ok(Some(a)) => {
+            tracing::warn!(
+                name = a.app_name,
+                id = a.app_id,
+                "Cannot create a duplicate app with name"
+            );
+            return ApiResponse::error(ErrorStatus::DuplicatedApp.into());
+        }
+        Ok(None) => (),
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::Internal.into());
+        }
+    };
+
     let request = CreateApp::request(Uuid::now_v7().to_string(), req.0.app_name);
     match app.submit(request).await {
         Ok(resp) => match resp {
@@ -184,7 +212,7 @@ pub(crate) async fn auth_app_user<D: Database + 'static>(
         }
     };
 
-    let token = format!("pk_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
+    let token = format!("tok_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
     let token_hash = sha256_hex(token.as_bytes());
 
     let timestamp = now_ts();

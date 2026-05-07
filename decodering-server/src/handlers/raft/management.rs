@@ -15,6 +15,10 @@ pub(crate) async fn init_raft<D: Database + 'static>(
     let req = req.into_inner();
     match &app.raft {
         Some(raft_bits) => {
+            let is_initialized = raft_bits.raft.is_initialized().await;
+            if matches!(is_initialized, Ok(true)) {
+                return ApiResponse::error(ErrorStatus::AlreadyInitialized.into());
+            }
             let result = raft_bits.init(app.addr.clone(), req.raft_init).await;
             let Ok(_) = result else {
                 let err = result.unwrap_err();

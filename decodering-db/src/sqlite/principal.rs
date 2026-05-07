@@ -59,4 +59,25 @@ impl<'a> PrincipalRepository for SqlitePrincipalRepository<'a> {
         .map_err(map_sqlx)?;
         Ok(principal.map(Into::into))
     }
+
+    async fn get_active_by_token(
+        &mut self,
+        token_hash: &str,
+    ) -> Result<Option<Principal>, DbError> {
+        let principal: Option<PrincipalRow> = sqlx::query_as::<_, PrincipalRow>(
+            "SELECT p.principal_id, p.name, p.app_id, p.kind, p.status, p.created_at, p.updated_at, p.deleted_at
+             FROM principals p
+             INNER JOIN principal_tokens t ON t.principal_id = p.principal_id
+             WHERE t.token_hash = ?
+               AND t.revoked_at IS NULL
+               AND t.expires_at > unixepoch()
+               AND p.status = 'active'
+               AND p.deleted_at IS NULL",
+        )
+        .bind(token_hash)
+        .fetch_optional(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(principal.map(Into::into))
+    }
 }

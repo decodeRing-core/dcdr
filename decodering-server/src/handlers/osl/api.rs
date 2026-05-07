@@ -10,7 +10,7 @@ use decodering_core::response::AppResponse;
 use decodering_core::tx::{Database, Tx};
 
 use crate::app_data::AppData;
-use crate::extractor::AuthMiddleware;
+use crate::extractor::AuthOSLMiddleware;
 use crate::handlers::osl::payload::{DeleteSecretRequestData, PutSecretRequestData};
 use crate::handlers::osl::payload::{GetSecretRequestData, ListSecretRequestData};
 use crate::handlers::osl::response::{
@@ -22,7 +22,7 @@ pub(crate) async fn api_put_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<PutSecretRequestData>,
-    auth: AuthMiddleware<D>,
+    auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
     match &app.raft {
         Some(raft_bits) => {
@@ -37,9 +37,11 @@ pub(crate) async fn api_put_secret<D: Database + 'static>(
         _ => {}
     }
 
-    if !auth.user.is_admin {
-        return ApiResponse::error(ErrorStatus::Unauthorized.into());
-    }
+    tracing::debug!(
+        user_id = auth.user.map(|u| u.id),
+        principal_id = auth.principal.map(|p| p.principal_id),
+        "OSL put secret"
+    );
 
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
@@ -120,7 +122,7 @@ pub(crate) async fn api_get_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<GetSecretRequestData>,
-    auth: AuthMiddleware<D>,
+    auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
     match &app.raft {
         Some(raft_bits) => {
@@ -132,9 +134,11 @@ pub(crate) async fn api_get_secret<D: Database + 'static>(
         _ => {}
     }
 
-    if !auth.user.is_admin {
-        return ApiResponse::error(ErrorStatus::Unauthorized.into());
-    }
+    tracing::debug!(
+        user_id = auth.user.map(|u| u.id),
+        principal_id = auth.principal.map(|p| p.principal_id),
+        "OSL get secret"
+    );
 
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
@@ -185,7 +189,7 @@ pub(crate) async fn api_delete_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<DeleteSecretRequestData>,
-    auth: AuthMiddleware<D>,
+    auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
     match &app.raft {
         Some(raft_bits) => {
@@ -197,9 +201,11 @@ pub(crate) async fn api_delete_secret<D: Database + 'static>(
         _ => {}
     }
 
-    if !auth.user.is_admin {
-        return ApiResponse::error(ErrorStatus::Unauthorized.into());
-    }
+    tracing::debug!(
+        user_id = auth.user.map(|u| u.id),
+        principal_id = auth.principal.map(|p| p.principal_id),
+        "OSL delete secret"
+    );
 
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
@@ -265,7 +271,7 @@ pub(crate) async fn api_delete_secret<D: Database + 'static>(
 pub(crate) async fn api_list_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: web::Json<ListSecretRequestData>,
-    auth: AuthMiddleware<D>,
+    auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
     match &app.raft {
         Some(raft_bits) => {
@@ -277,9 +283,11 @@ pub(crate) async fn api_list_secret<D: Database + 'static>(
         _ => {}
     }
 
-    if !auth.user.is_admin {
-        return ApiResponse::error(ErrorStatus::Unauthorized.into());
-    }
+    tracing::debug!(
+        user_id = auth.user.map(|u| u.id),
+        principal_id = auth.principal.map(|p| p.principal_id),
+        "OSL list secrets"
+    );
 
     let db = app.db.begin().await;
     let Ok(mut db) = db else {

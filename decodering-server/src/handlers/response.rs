@@ -64,6 +64,7 @@ pub enum ErrorStatus {
     SecretNotFound,
     Unauthorized,
     Unimplemented,
+    DuplicatedApp,
 }
 
 impl ErrorStatus {
@@ -80,6 +81,7 @@ impl ErrorStatus {
             Self::SecretNotFound => "secret-not-found",
             Self::Unauthorized => "unauthorized",
             Self::Unimplemented => "not-implemented",
+            Self::DuplicatedApp => "duplicated-app",
         }
     }
 
@@ -91,11 +93,12 @@ impl ErrorStatus {
             Self::Plugin => "Plugin error.",
             Self::Internal => "Internal error.",
             Self::InvalidKeys => "Invalid keys.",
-            Self::Locked => "Node locked",
-            Self::UnsupportedBackend => "Unsupported backend",
-            Self::SecretNotFound => "Secret not found",
-            Self::Unauthorized => "Unauthorized access",
-            Self::Unimplemented => "Not implemented",
+            Self::Locked => "Node locked.",
+            Self::UnsupportedBackend => "Unsupported backend.",
+            Self::SecretNotFound => "Secret not found.",
+            Self::Unauthorized => "Unauthorized access.",
+            Self::Unimplemented => "Not implemented.",
+            Self::DuplicatedApp => "App with the same name already exists.",
         }
     }
 
@@ -112,6 +115,7 @@ impl ErrorStatus {
             Self::SecretNotFound => StatusCode::NOT_FOUND,
             Self::Unauthorized => StatusCode::FORBIDDEN,
             Self::Unimplemented => StatusCode::NOT_IMPLEMENTED,
+            Self::DuplicatedApp => StatusCode::CONFLICT,
         }
     }
 }

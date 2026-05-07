@@ -42,7 +42,7 @@ pub trait PrincipalCredentialRepository: Send {
     ) -> impl Future<Output = Result<String, DbError>> + Send;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct Principal {
     pub credential_id: String,
     pub principal_id: String,
@@ -77,6 +77,10 @@ pub trait PrincipalRepository: Send {
         app_id: &str,
         key: &str,
         status: PrincipalStatus,
+    ) -> impl Future<Output = Result<Option<Principal>, DbError>> + Send;
+    fn get_active_by_token(
+        &mut self,
+        token: &str,
     ) -> impl Future<Output = Result<Option<Principal>, DbError>> + Send;
 }
 
@@ -172,6 +176,10 @@ pub trait UserRepository: Send {
         &mut self,
         api_key_hash: &str,
     ) -> impl Future<Output = Result<Option<User>, DbError>> + Send;
+    fn get_admin_by_api_key(
+        &mut self,
+        api_key_hash: &str,
+    ) -> impl Future<Output = Result<Option<User>, DbError>> + Send;
 }
 
 pub struct App {
@@ -194,6 +202,10 @@ pub trait AppRepository: Send {
     fn get_by_app_id(
         &mut self,
         app_id: &str,
+    ) -> impl Future<Output = Result<Option<App>, DbError>> + Send;
+    fn get_by_app_name(
+        &mut self,
+        app_name: &str,
     ) -> impl Future<Output = Result<Option<App>, DbError>> + Send;
 }
 

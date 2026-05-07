@@ -76,63 +76,14 @@ where
                 AppResponse::Noop
             }
             EntryPayload::Normal(req) => run_raft(&mut tx, log_id.index, req).await?.response,
-            // EntryPayload::Normal(req) => match req {
-            //     AppRequest::CreateApiKey(create_api_key) => {
-            //         run_action_raft(&mut tx, log_id.index, create_api_key)
-            //             .await?
-            //             .response
-            //     }
-            //     AppRequest::CreateUser(create_user) => {
-            //         run_action_raft(&mut tx, log_id.index, create_user)
-            //             .await?
-            //             .response
-            //     }
-            //     AppRequest::CreateApp(create_app) => {
-            //         run_action_raft(&mut tx, log_id.index, create_app)
-            //             .await?
-            //             .response
-            //     }
-            //     AppRequest::CreateShamirConfiguration(create_shamir_configuration) => {
-            //         run_action_raft(&mut tx, log_id.index, create_shamir_configuration)
-            //             .await?
-            //             .response
-            //     }
-            //     AppRequest::CreateSecretMapping(create_secret_mapping) => {
-            //         run_action_raft(&mut tx, log_id.index, create_secret_mapping)
-            //             .await?
-            //             .response
-            //     }
-            //     AppRequest::SystemInit(system_init) => {
-            //         run_action_raft(&mut tx, log_id.index, system_init)
-            //             .await?
-            //             .response
-            //     }
-            //     AppRequest::CreatePrincipal(create_principal) => {
-            //         run_action_raft(&mut tx, log_id.index, create_principal)
-            //             .await?
-            //             .response
-            //     }
-            //     AppRequest::CreatePrincipalCredential(create_principal_credential) => {
-            //         run_action_raft(&mut tx, log_id.index, create_principal_credential)
-            //             .await?
-            //             .response
-            //     }
-            //     AppRequest::CreateAppUser(create_app_user) => {
-            //         run_action_raft(&mut tx, log_id.index, create_app_user)
-            //             .await?
-            //             .response
-            //     }
-            // },
         };
 
         // Persist last_applied atomically with the mutation.
         let lid = serde_json::to_string(&log_id)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         let _ = tx.meta().set("last_applied", &lid).await;
-        //set_meta(&mut tx, "last_applied", &lid).await?;
 
         tx.commit().await.map_err(io::Error::other)?;
-        //tx.commit().await.map_err(io::Error::other)?;
         Ok(response)
     }
 }

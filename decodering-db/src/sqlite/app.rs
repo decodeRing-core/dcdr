@@ -37,4 +37,15 @@ impl<'a> AppRepository for SqliteAppRepository<'a> {
         .map_err(map_sqlx)?;
         Ok(app.map(Into::into))
     }
+
+    async fn get_by_app_name(&mut self, app_name: &str) -> Result<Option<App>, DbError> {
+        let app: Option<AppRow> = sqlx::query_as::<_, AppRow>(
+            "SELECT app_id, app_name, created_at, updated_at FROM applications WHERE app_name = ? LIMIT 1",
+        )
+        .bind(app_name)
+        .fetch_optional(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(app.map(Into::into))
+    }
 }
