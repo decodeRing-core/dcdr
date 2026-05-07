@@ -9,22 +9,22 @@ The project is organized into the following workspaces:
 - decodering-raft
 - decodering-server
 
-## DecodeRing-Core
+## decodering-core
 Contains the abstractions shared across the codebase: plugins, actions, requests, responses, and other core logic. **This workspace must not depend on any other workspace in the project.**
 
-## DecodeRing-CLI
+## decodering-cli
 A command-line tool that lets operators interact with decodering-server without calling the REST API directly.
 
-## DecodeRing-Db
+## decodering-db
 Concrete implementations of the storage backends. Currently supports SQLite and PostgreSQL. Depends on decodering-core.
 
-## DecodeRing-Plugins
+## decodering-plugins
 Plugins maintained by the DecodeRing team that integrate with different vault backends.
 
-## DecodeRing-Raft
+## decodering-raft
 Concrete implementation of the Raft consensus protocol for DecodeRing, built on the openraft crate. Depends on decodering-core and decodering-db.
 
-## DecodeRing-Server
+## decodering-server
 Implements the OSL (Open Secrets Language) REST API and handles Raft node management, system initialization, and ongoing operations. Depends on decodering-core, decodering-db, and decodering-raft.
 
 ## **Getting Started**
