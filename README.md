@@ -30,7 +30,7 @@ Implements the OSL (Open Secrets Language) REST API and handles Raft node manage
 ## **Getting Started**
 
 - Install the latest version of Rust (https://rust-lang.org/tools/install/)
-- Some Rust crates require a system C toolchain to build
+- RocksDB and SQLite bindings require a system C toolchain and LLVM/Clang development libraries to build. 
 - Clone repository
 - Create .env file with configuration. Adjust as needed.
 ```
@@ -49,6 +49,14 @@ TRACING_LEVEL=error,decodering=debug,extism=error,extism_pdk=error,tracing_actix
 PLUGIN_DIRECTORY="plugins"
 ```
 #### **Compiling plugins**
+Run:
+```
+  rustup target list --installed
+```
+Install wasm32-unknown-unknown target if you don't have it
+```
+  rustup target add wasm32-unknown-unknown
+```
 From the decodering-plugins folder, run:
 ```
 ./build.sh
