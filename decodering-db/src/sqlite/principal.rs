@@ -65,14 +65,17 @@ impl<'a> PrincipalRepository for SqlitePrincipalRepository<'a> {
         token_hash: &str,
     ) -> Result<Option<Principal>, DbError> {
         let principal: Option<PrincipalRow> = sqlx::query_as::<_, PrincipalRow>(
-            "SELECT p.principal_id, p.name, p.app_id, p.kind, p.status, p.created_at, p.updated_at, p.deleted_at
-             FROM principals p
-             INNER JOIN principal_tokens t ON t.principal_id = p.principal_id
+            "SELECT pc.credential_id, p.principal_id, p.name, p.app_id, p.kind, p.status, p.created_at, p.updated_at, p.deleted_at
+             FROM principal_tokens t
+             INNER JOIN principals p ON p.principal_id = t.principal_id
+             INNER JOIN principal_credentials pc ON pc.credential_id = t.credential_id
              WHERE t.token_hash = ?
                AND t.revoked_at IS NULL
                AND t.expires_at > unixepoch()
                AND p.status = 'active'
-               AND p.deleted_at IS NULL",
+               AND p.deleted_at IS NULL
+               AND pc.status = 'active'
+               AND pc.revoked_at IS NULL",
         )
         .bind(token_hash)
         .fetch_optional(&mut **self.tx)

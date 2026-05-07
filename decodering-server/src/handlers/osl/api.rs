@@ -185,7 +185,7 @@ pub(crate) async fn api_get_secret<D: Database + 'static>(
     return ApiGetSecretResponse::new(out.data, secret_mapping_data.backend, out.version);
 }
 
-pub(crate) async fn api_delete_secret<D: Database + 'static>(
+pub(crate) async fn api_destroy_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<DeleteSecretRequestData>,
