@@ -55,7 +55,7 @@ From the decodering-plugins folder, run:
 ```
 This compiles the plugins to WebAssembly and copies them into a plugins folder inside dcdr-rs (the directory where you cloned the repository). If you set PLUGIN_DIRECTORY to a different path, compile the plugins manually, see build.sh for details.
 If the build succeeds, you should see a compiled/ folder containing **openbao-rust.wasm**.
-Create a **manifests/** folder next to **compiled/** and add a file named openbao-rust.yaml with the following contents:
+Create a **manifests/** folder next to **compiled/** and add a file named **openbao-rust.yaml** with the following contents:
 ```
 wasm:
   - path: "plugins/compiled/openbao-rust.wasm"
@@ -69,11 +69,12 @@ config:
 
 The final layout should look like:
 ```
-Plugins
-|- compiled
-  |- openbao-rust.wasm
-|- manifests
-  |- openbao-rust.yaml
+dcdr-rs
+  |- Plugins
+    |- compiled
+      |- openbao-rust.wasm
+    |- manifests
+      |- openbao-rust.yaml
 ```
 
 ### **Run Nodes**
@@ -93,4 +94,4 @@ If this is a brand-new Raft cluster (i.e. no Raft state exists yet in RAFT_LOG_D
 POST http://127.0.0.1:21001/raft/init
 ```
 
-(To Continue)
+TODO
