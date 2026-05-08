@@ -66,7 +66,7 @@ pub async fn api_put_secret<D: Database + 'static>(
     {
         tracing::error!(app_id = %req.app_id, secret_name = %req.secret_name, "Secret already exists for app id");
         return ApiResponse::error(ErrorStatus::Internal);
-    };
+    }
 
     let backend = core.get_backend(&req.store.backend_ref);
     let Ok(backend) = backend else {

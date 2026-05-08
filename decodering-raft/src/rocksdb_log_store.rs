@@ -49,7 +49,7 @@ where
         }
         Ok(Self {
             db,
-            _p: Default::default(),
+            _p: PhantomData,
         })
     }
 

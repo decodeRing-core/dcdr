@@ -63,7 +63,7 @@ where
     // `last_applied` position atomically. On crash, either everything is
     // persisted or nothing is — no possibility of state machine drift.
     async fn apply_one(
-        &mut self,
+        &self,
         log_id: LogId,
         payload: EntryPayload,
     ) -> Result<AppResponse, io::Error> {
@@ -80,7 +80,10 @@ where
             }
 
             EntryPayload::Normal(req) => {
-                match run_raft(&mut tx, log_id.index, req).await {
+                let index_i64 = i64::try_from(log_id.index).map_err(|_| {
+                    io::Error::new(io::ErrorKind::InvalidData, "raft index overflow")
+                })?;
+                match run_raft(&mut tx, index_i64, req).await {
                     Ok(out) => out.response,
 
                     Err(e) if e.is_business() => {
@@ -412,7 +415,7 @@ pub async fn new_storage<P: AsRef<Path>>(
 
 pub async fn run_raft<U>(
     tx: &mut U,
-    index: u64,
+    index: i64,
     action: AppRequest,
 ) -> Result<ActionOutput<AppResponse>, ExecutionError>
 where
@@ -435,7 +438,7 @@ where
 
 pub async fn run_action_raft<U, A>(
     tx: &mut U,
-    raft_index: u64,
+    raft_index: i64,
     action: A,
 ) -> Result<A::Output, ExecutionError>
 where
@@ -444,21 +447,21 @@ where
 {
     let descriptor = action.audit_descriptor();
     let output = action.execute(tx).await?;
-    let allowed = audit_allowed(&descriptor, raft_index as i64, &output, now_ts());
+    let allowed = audit_allowed(&descriptor, raft_index, &output, now_ts());
     tx.audit().insert(&allowed).await?;
     Ok(output)
 }
 
 pub async fn run_audit_denied<U>(
     tx: &mut U,
-    raft_index: u64,
+    raft_index: i64,
     descriptor: AuditDescriptor,
     reason: DenyReason,
 ) -> Result<(), ExecutionError>
 where
     U: Tx,
 {
-    let entry = audit_denied(&descriptor, raft_index as i64, &reason, now_ts());
+    let entry = audit_denied(&descriptor, raft_index, &reason, now_ts());
     tx.audit().insert(&entry).await?;
     Ok(())
 }
