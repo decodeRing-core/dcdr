@@ -53,7 +53,7 @@ Run:
 ```
   rustup target list --installed
 ```
-Install wasm32-unknown-unknown target if you don't have it
+Install the wasm32-unknown-unknown target if you haven't already. The wasm32-unknown-unknown target means the plugin is not tied to any specific operating system or CPU architecture, it will run anywhere a WASM runtime is available.
 ```
   rustup target add wasm32-unknown-unknown
 ```
