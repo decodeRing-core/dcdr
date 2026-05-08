@@ -23,9 +23,9 @@ impl<'a> PrincipalTokenRepository for PostgresPrincipalTokenRepository<'a> {
         .bind(&params.token_hash)
         .bind(&params.principal_id)
         .bind(&params.credential_id)
-        .bind(&params.issued_at)
-        .bind(&params.expires_at)
-        .bind(&params.revoked_at)
+        .bind(params.issued_at)
+        .bind(params.expires_at)
+        .bind(params.revoked_at)
         .fetch_one(&mut **self.tx)
         .await
         .map_err(map_sqlx)?;

@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
@@ -37,8 +39,10 @@ pub enum PrincipalKind {
     Service,
 }
 
-impl PrincipalKind {
-    pub fn from_str(s: &str) -> Result<Self, UnknownPrincipalKind> {
+impl FromStr for PrincipalKind {
+    type Err = UnknownPrincipalKind;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
             "human" => PrincipalKind::Human,
             "machine" => PrincipalKind::Machine,
@@ -66,8 +70,10 @@ pub enum PrincipalStatus {
     Deleted,
 }
 
-impl PrincipalStatus {
-    pub fn from_str(s: &str) -> Result<Self, UnknownPrincipalStatus> {
+impl FromStr for PrincipalStatus {
+    type Err = UnknownPrincipalStatus;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
             "active" => PrincipalStatus::Active,
             "disabled" => PrincipalStatus::Disabled,
@@ -95,8 +101,10 @@ pub enum PrincipalCredentialKind {
     AwsIdentity,
 }
 
-impl PrincipalCredentialKind {
-    pub fn from_str(s: &str) -> Result<Self, UnknownPrincipalCredentialKind> {
+impl FromStr for PrincipalCredentialKind {
+    type Err = UnknownPrincipalCredentialKind;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
             "api_key" => PrincipalCredentialKind::ApiKey,
             "vtpm" => PrincipalCredentialKind::VirtualTrustedPlatformModule,

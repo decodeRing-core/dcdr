@@ -1,5 +1,3 @@
-#![warn(unused_extern_crates)]
-#![warn(clippy::cast_lossless)]
 #![recursion_limit = "256"]
 
 use actix_cors::Cors;
@@ -14,7 +12,8 @@ use dotenvy::dotenv;
 use tracing_actix_web::TracingLogger;
 
 use crate::app_data::AppData;
-use crate::config::{StorageMode, get_config};
+use crate::config::StorageConfig;
+use crate::config::load_config;
 use crate::logger::init_tracing;
 use crate::middleware::PropagateRequestId;
 use crate::routes::config::config_app;
@@ -41,42 +40,65 @@ pub struct Opt {
 }
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let options = Opt::parse();
 
     dotenv().ok();
-    let config = get_config();
-    let _guards = init_tracing(config, &options.addr);
-
-    let raft_log_dir = format!(
-        "{}/{}.{}.db",
-        config.raft_log_dir, config.raft_log_prefix, options.addr
-    );
-    tracing::debug!(raft_log_dir, "Raft log directory");
+    let config = load_config()?;
+    let _guards = init_tracing(config, &options.addr)?;
 
     let mut orchestrator = Orchestrator::new();
-    let out = orchestrator.load_wasm_plugins_from_dir(&config.plugin_directory);
-    if let Err(error) = out {
-        tracing::debug!(error=%error, "Failure to initialize decodering core orchestrator");
-        panic!("Failure to initialize decodering core orchestrator");
-    };
+    orchestrator
+        .load_wasm_plugins_from_dir(&config.plugin_directory)
+        .map_err(|e| {
+            tracing::error!(error=%e, "Failed to initialize orchestrator");
+            e
+        })?;
 
-    match config.storage_mode {
-        StorageMode::Raft => {
+    match &config.storage {
+        StorageConfig::Raft {
+            log_dir,
+            log_prefix,
+        } => {
+            let raft_log_dir = format!("{}/{}.{}.db", log_dir, log_prefix, options.addr);
             let app = AppData::<SqliteDatabase>::init_raft(
                 options.id,
                 raft_log_dir,
                 options.addr.clone(),
             )
             .await?;
-            run_server(app, orchestrator, options.addr).await
+            run_server(app, orchestrator, options.addr)
+                .await
+                .map_err(Into::into)
         }
-        StorageMode::Postgres => {
-            let app = AppData::<PostgresDatabase>::new(&config.database_url, options.addr.clone())
-                .await?;
-            run_server(app, orchestrator, options.addr).await
+        StorageConfig::Postgres { database_url } => {
+            let app = AppData::<PostgresDatabase>::new(database_url, options.addr.clone()).await?;
+            run_server(app, orchestrator, options.addr)
+                .await
+                .map_err(Into::into)
         }
     }
+
+    // match config.storage_mode {
+    //     StorageMode::Raft => {
+    //         let app = AppData::<SqliteDatabase>::init_raft(
+    //             options.id,
+    //             raft_log_dir,
+    //             options.addr.clone(),
+    //         )
+    //         .await?;
+    //         run_server(app, orchestrator, options.addr)
+    //             .await
+    //             .map_err(Into::into)
+    //     }
+    //     StorageMode::Postgres => {
+    //         let app = AppData::<PostgresDatabase>::new(&config.database_url, options.addr.clone())
+    //             .await?;
+    //         run_server(app, orchestrator, options.addr)
+    //             .await
+    //             .map_err(Into::into)
+    //     }
+    // }
 }
 
 async fn run_server<D>(
@@ -100,7 +122,6 @@ where
             .wrap(cors)
             .configure(config_app::<D>)
             .wrap(Compress::default())
-            //.wrap(Logger::default())
             .wrap(PropagateRequestId)
             .wrap(TracingLogger::default())
     })

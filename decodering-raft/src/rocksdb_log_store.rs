@@ -5,9 +5,6 @@ use std::marker::PhantomData;
 use std::ops::RangeBounds;
 use std::sync::Arc;
 
-use byteorder::BigEndian;
-use byteorder::ReadBytesExt;
-use byteorder::WriteBytesExt;
 use meta::StoreMeta;
 use openraft::LogState;
 use openraft::OptionalSend;
@@ -37,24 +34,33 @@ impl<C> RocksLogStore<C>
 where
     C: RaftTypeConfig,
 {
-    pub fn new(db: Arc<DB>) -> Self {
-        db.cf_handle("meta")
-            .expect("column family `meta` not found");
-        db.cf_handle("logs")
-            .expect("column family `logs` not found");
-
-        Self {
+    pub fn new(db: Arc<DB>) -> Result<Self, io::Error> {
+        if db.cf_handle("meta").is_none() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "column family `meta` not found",
+            ));
+        }
+        if db.cf_handle("logs").is_none() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "column family `logs` not found",
+            ));
+        }
+        Ok(Self {
             db,
             _p: Default::default(),
-        }
+        })
     }
 
     fn cf_meta(&self) -> &ColumnFamily {
-        self.db.cf_handle("meta").unwrap()
+        #[allow(clippy::expect_used)]
+        self.db.cf_handle("meta").expect("validated in new")
     }
 
     fn cf_logs(&self) -> &ColumnFamily {
-        self.db.cf_handle("logs").unwrap()
+        #[allow(clippy::expect_used)]
+        self.db.cf_handle("logs").expect("validated in new")
     }
 
     /// Get a store metadata.
@@ -112,7 +118,7 @@ where
         for item_res in it {
             let (id, val) = item_res.map_err(read_logs_err)?;
 
-            let id = bin_to_id(&id);
+            let id = bin_to_id(&id)?;
             if !range.contains(&id) {
                 break;
             }
@@ -293,14 +299,24 @@ mod meta {
 
 /// converts an id to a byte vector for storing in the database.
 /// Note that we're using big endian encoding to ensure correct sorting of keys
-fn id_to_bin(id: u64) -> Vec<u8> {
-    let mut buf = Vec::with_capacity(8);
-    buf.write_u64::<BigEndian>(id).unwrap();
-    buf
+fn id_to_bin(id: u64) -> [u8; 8] {
+    id.to_be_bytes()
 }
 
-fn bin_to_id(buf: &[u8]) -> u64 {
-    (&buf[0..8]).read_u64::<BigEndian>().unwrap()
+fn bin_to_id(buf: &[u8]) -> Result<u64, io::Error> {
+    let arr: [u8; 8] = buf
+        .get(..8)
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("expected 8 bytes for u64 key, got {}", buf.len()),
+            )
+        })?
+        .try_into()
+        .map_err(|e: std::array::TryFromSliceError| {
+            io::Error::new(io::ErrorKind::InvalidData, e)
+        })?;
+    Ok(u64::from_be_bytes(arr))
 }
 
 fn read_logs_err(e: impl Error + 'static) -> io::Error {

@@ -27,34 +27,31 @@ pub(crate) async fn create_app_user<D: Database + 'static>(
     req: Json<CreateAppUserData>,
     auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
-    match &app.raft {
-        Some(raft_bits) => {
-            let is_initialized = raft_bits.raft.is_initialized().await;
-            if !matches!(is_initialized, Ok(true)) {
-                return ApiResponse::error(ErrorStatus::NotInitialized.into());
-            }
-            if !raft_bits.raft.is_leader() {
-                return ApiResponse::error(ErrorStatus::NotLeader.into());
-            }
+    if let Some(raft_bits) = &app.raft {
+        let is_initialized = raft_bits.raft.is_initialized().await;
+        if !matches!(is_initialized, Ok(true)) {
+            return ApiResponse::error(ErrorStatus::NotInitialized);
         }
-        _ => {}
+        if !raft_bits.raft.is_leader() {
+            return ApiResponse::error(ErrorStatus::NotLeader);
+        }
     }
 
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::Internal.into());
+        return ApiResponse::error(ErrorStatus::Internal);
     };
 
     let application = match db.app().get_by_app_id(&req.app_id).await {
         Ok(Some(app)) => app,
         Ok(None) => {
             tracing::error!("Application not found {}", req.app_id);
-            return ApiResponse::error(ErrorStatus::Internal.into());
+            return ApiResponse::error(ErrorStatus::Internal);
         }
         Err(e) => {
             tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::Internal.into());
+            return ApiResponse::error(ErrorStatus::Internal);
         }
     };
 
@@ -78,22 +75,22 @@ pub(crate) async fn create_app_user<D: Database + 'static>(
             (token, lookup_key)
         }
         _ => {
-            return ApiResponse::error(ErrorStatus::Unimplemented.into());
+            return ApiResponse::error(ErrorStatus::Unimplemented);
         }
     };
 
     let secret_material = match req.0.credential_kind {
         PrincipalCredentialKind::ApiKey => "{}".to_owned(),
         _ => {
-            return ApiResponse::error(ErrorStatus::Unimplemented.into());
+            return ApiResponse::error(ErrorStatus::Unimplemented);
         }
     };
 
     let principal_credential = CreatePrincipalCredential {
         credential_id: Uuid::now_v7().to_string(),
-        principal_id: principal_id,
+        principal_id,
         kind: req.0.credential_kind,
-        lookup_key: lookup_key,
+        lookup_key,
         secret_material,
         status: PrincipalStatus::Active,
         expires_at: req.0.expires_at,
@@ -108,16 +105,16 @@ pub(crate) async fn create_app_user<D: Database + 'static>(
             AppResponse::CreateAppUser(_) => ApiCreateAppUserResponse::new(token),
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app");
-                return ApiResponse::error(ErrorStatus::Internal.into());
+                ApiResponse::error(ErrorStatus::Internal)
             }
             other_api_response => {
                 tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                return ApiResponse::error(ErrorStatus::Internal.into());
+                ApiResponse::error(ErrorStatus::Internal)
             }
         },
         Err(e) => {
             tracing::error!(?e);
-            return ApiResponse::error(ErrorStatus::Internal.into());
+            ApiResponse::error(ErrorStatus::Internal)
         }
     }
 }
@@ -127,23 +124,20 @@ pub(crate) async fn create_app<D: Database + 'static>(
     req: Json<CreateAppData>,
     _auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
-    match &app.raft {
-        Some(raft_bits) => {
-            let is_initialized = raft_bits.raft.is_initialized().await;
-            if !matches!(is_initialized, Ok(true)) {
-                return ApiResponse::error(ErrorStatus::NotInitialized.into());
-            }
-            if !raft_bits.raft.is_leader() {
-                return ApiResponse::error(ErrorStatus::NotLeader.into());
-            }
+    if let Some(raft_bits) = &app.raft {
+        let is_initialized = raft_bits.raft.is_initialized().await;
+        if !matches!(is_initialized, Ok(true)) {
+            return ApiResponse::error(ErrorStatus::NotInitialized);
         }
-        _ => {}
+        if !raft_bits.raft.is_leader() {
+            return ApiResponse::error(ErrorStatus::NotLeader);
+        }
     }
 
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::Internal.into());
+        return ApiResponse::error(ErrorStatus::Internal);
     };
     match db.app().get_by_app_name(&req.0.app_name).await {
         Ok(Some(a)) => {
@@ -152,12 +146,12 @@ pub(crate) async fn create_app<D: Database + 'static>(
                 id = a.app_id,
                 "Cannot create a duplicate app with name"
             );
-            return ApiResponse::error(ErrorStatus::DuplicatedApp.into());
+            return ApiResponse::error(ErrorStatus::DuplicatedApp);
         }
         Ok(None) => (),
         Err(e) => {
             tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::Internal.into());
+            return ApiResponse::error(ErrorStatus::Internal);
         }
     };
 
@@ -167,16 +161,16 @@ pub(crate) async fn create_app<D: Database + 'static>(
             AppResponse::CreateApp(a) => ApiCreateAppResponse::new(a.app_id, a.app_name),
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app");
-                return ApiResponse::error(ErrorStatus::Internal.into());
+                ApiResponse::error(ErrorStatus::Internal)
             }
             other_api_response => {
                 tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                return ApiResponse::error(ErrorStatus::Internal.into());
+                ApiResponse::error(ErrorStatus::Internal)
             }
         },
         Err(e) => {
             tracing::error!(?e);
-            return ApiResponse::error(ErrorStatus::Internal.into());
+            ApiResponse::error(ErrorStatus::Internal)
         }
     }
 }
@@ -188,7 +182,7 @@ pub(crate) async fn auth_app_user<D: Database + 'static>(
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::Internal.into());
+        return ApiResponse::error(ErrorStatus::Internal);
     };
 
     let key_hash = sha256_hex(req.key.as_bytes());
@@ -204,11 +198,11 @@ pub(crate) async fn auth_app_user<D: Database + 'static>(
                 req.app_id,
                 key_hash
             );
-            return ApiResponse::error(ErrorStatus::Internal.into());
+            return ApiResponse::error(ErrorStatus::Internal);
         }
         Err(e) => {
             tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::Internal.into());
+            return ApiResponse::error(ErrorStatus::Internal);
         }
     };
 
@@ -219,7 +213,7 @@ pub(crate) async fn auth_app_user<D: Database + 'static>(
     let expires = now_ts_plus(3600);
     let principal_token = CreatePrincipalToken {
         token_id: Uuid::now_v7().to_string(),
-        token_hash: token_hash,
+        token_hash,
         principal_id: principal.principal_id,
         credential_id: principal.credential_id,
         issued_at: timestamp,
@@ -235,16 +229,16 @@ pub(crate) async fn auth_app_user<D: Database + 'static>(
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app");
-                return ApiResponse::error(ErrorStatus::Internal.into());
+                ApiResponse::error(ErrorStatus::Internal)
             }
             other_api_response => {
                 tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                return ApiResponse::error(ErrorStatus::Internal.into());
+                ApiResponse::error(ErrorStatus::Internal)
             }
         },
         Err(e) => {
             tracing::error!(?e);
-            return ApiResponse::error(ErrorStatus::Internal.into());
+            ApiResponse::error(ErrorStatus::Internal)
         }
     }
 }

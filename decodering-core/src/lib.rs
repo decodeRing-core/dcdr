@@ -15,11 +15,12 @@ pub mod response;
 pub mod runner;
 pub mod tx;
 
+#[allow(clippy::expect_used)]
 pub fn now_ts_plus(secs: i64) -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
+        .expect("System clock is before UNIX_EPOCH; refusing to operate with broken clock")
         + secs
 }
 
@@ -27,11 +28,12 @@ pub fn now_ts() -> i64 {
     now_ts_plus(0)
 }
 
+#[allow(clippy::expect_used)]
 pub fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     let mut s = String::with_capacity(digest.len() * 2);
     for b in digest {
-        write!(&mut s, "{:02x}", b).unwrap();
+        write!(&mut s, "{:02x}", b).expect("writing to String never fails");
     }
     s
 }

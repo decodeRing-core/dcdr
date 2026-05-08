@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use decodering_core::domain::{PrincipalKind, PrincipalStatus};
 use decodering_core::repository::{App, Principal, SecretMapping, Shamir, User};
 

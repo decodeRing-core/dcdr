@@ -24,7 +24,7 @@ impl AppData<SqliteDatabase> {
         node_id: NodeId,
         dir: P,
         addr: String,
-    ) -> std::io::Result<Self> {
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let components = setup_raft_node(node_id, dir).await?;
         Ok(Self {
             master_key: OnceLock::new(),
@@ -47,7 +47,7 @@ impl AppData<PostgresDatabase> {
         Ok(Self {
             master_key: OnceLock::new(),
             addr,
-            db: db,
+            db,
             raft: None,
         })
     }

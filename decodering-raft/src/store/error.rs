@@ -1,37 +1,48 @@
-// use std::fmt;
+use std::fmt;
 
-// #[derive(Debug)]
-// pub(crate) enum StoreError {
-//     //Sqlx(sqlx::Error),
-//     Serde(serde_json::Error),
-// }
+use decodering_core::error::DbError;
 
-// impl fmt::Display for StoreError {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             //StoreError::Sqlx(e) => write!(f, "{e}"),
-//             StoreError::Serde(e) => write!(f, "serialization failed: {e}"),
-//         }
-//     }
-// }
+#[derive(Debug)]
+pub enum StorageError {
+    Io(std::io::Error),
+    RocksDb(rocksdb::Error),
+    Db(DbError),
+}
 
-// impl std::error::Error for StoreError {
-//     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-//         match self {
-//             //StoreError::Sqlx(e) => Some(e),
-//             StoreError::Serde(e) => Some(e),
-//         }
-//     }
-// }
+impl fmt::Display for StorageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            StorageError::Io(e) => write!(f, "io error: {e}"),
+            StorageError::RocksDb(e) => write!(f, "rocksdb error: {e}"),
+            StorageError::Db(e) => write!(f, "db error: {e}"),
+        }
+    }
+}
 
-// // impl From<sqlx::Error> for StoreError {
-// //     fn from(e: sqlx::Error) -> Self {
-// //         StoreError::Sqlx(e)
-// //     }
-// // }
+impl std::error::Error for StorageError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            StorageError::Io(e) => Some(e),
+            StorageError::RocksDb(e) => Some(e),
+            StorageError::Db(e) => Some(e),
+        }
+    }
+}
 
-// impl From<serde_json::Error> for StoreError {
-//     fn from(e: serde_json::Error) -> Self {
-//         StoreError::Serde(e)
-//     }
-// }
+impl From<std::io::Error> for StorageError {
+    fn from(e: std::io::Error) -> Self {
+        StorageError::Io(e)
+    }
+}
+
+impl From<rocksdb::Error> for StorageError {
+    fn from(e: rocksdb::Error) -> Self {
+        StorageError::RocksDb(e)
+    }
+}
+
+impl From<DbError> for StorageError {
+    fn from(e: DbError) -> Self {
+        StorageError::Db(e)
+    }
+}

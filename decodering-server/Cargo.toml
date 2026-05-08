@@ -26,3 +26,6 @@ base64.workspace = true
 serde_with.workspace = true
 zeroize.workspace = true
 uuid.workspace = true
+
+[lints]
+workspace = true

@@ -1,3 +1,6 @@
+use std::error::Error;
+use std::fmt::Display;
+use std::str::FromStr;
 use std::sync::OnceLock;
 
 use serde::Deserialize;
@@ -11,77 +14,107 @@ pub enum StorageMode {
     Postgres,
 }
 
-impl From<String> for StorageMode {
-    fn from(s: String) -> Self {
+#[derive(Debug)]
+pub struct InvalidStorageMode(String);
+
+impl Display for InvalidStorageMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "invalid storage mode {:?}, expected raft|postgres",
+            self.0
+        )
+    }
+}
+
+impl Error for InvalidStorageMode {}
+
+impl FromStr for StorageMode {
+    type Err = InvalidStorageMode;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "raft" => StorageMode::Raft,
-            "postgres" => StorageMode::Postgres,
-            other => panic!("Invalid storage mode: {other:?}, expected raft|postgres"),
+            "raft" => Ok(StorageMode::Raft),
+            "postgres" => Ok(StorageMode::Postgres),
+            other => Err(InvalidStorageMode(other.to_owned())),
         }
     }
 }
 
-impl From<&str> for StorageMode {
-    fn from(s: &str) -> Self {
-        Self::from(s.to_string())
-    }
-}
-
-fn get_env_var(var_name: &str) -> String {
-    std::env::var(var_name).unwrap_or_else(|_| panic!("{var_name} must be set"))
+#[derive(Debug, Clone)]
+pub enum StorageConfig {
+    Raft { log_dir: String, log_prefix: String },
+    Postgres { database_url: String },
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct Config {
     pub plugin_directory: String,
-    pub database_url: String,
-    pub storage_mode: StorageMode,
+    pub storage: StorageConfig,
     pub server_log_output: LogOutput,
     pub server_log_dir: String,
     pub server_log_prefix: String,
     pub server_log_max_files: usize,
-    pub raft_log_dir: String,
-    pub raft_log_prefix: String,
     pub tracing_level: String,
 }
 
-fn init_config() -> Config {
-    let plugin_directory = get_env_var("PLUGIN_DIRECTORY");
-    let storage_mode = get_env_var("STORAGE_MODE").into();
-    let mut database_url = "".to_string();
-    let mut raft_log_dir = "".to_string();
-    let mut raft_log_prefix = "".to_string();
-    if storage_mode == StorageMode::Postgres {
-        database_url = get_env_var("DATABASE_URL");
-    }
-    let server_log_output = get_env_var("SERVER_LOG_OUTPUT").into();
-    let server_log_dir = get_env_var("SERVER_LOG_DIR");
-    let server_log_prefix = get_env_var("SERVER_LOG_PREFIX");
-    let server_log_max_files = get_env_var("SERVER_LOG_MAX_FILES")
-        .parse::<usize>()
-        .unwrap_or(0);
-    if storage_mode == StorageMode::Raft {
-        raft_log_dir = get_env_var("RAFT_LOG_DIR");
-        raft_log_prefix = get_env_var("RAFT_LOG_PREFIX");
-    }
-    let tracing_level = get_env_var("TRACING_LEVEL");
+#[derive(Debug)]
+pub struct ConfigError(String);
 
-    Config {
-        plugin_directory,
-        database_url,
-        storage_mode,
-        server_log_output,
-        server_log_dir,
-        server_log_prefix,
-        server_log_max_files,
-        raft_log_dir,
-        raft_log_prefix,
-        tracing_level,
+impl std::fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "config error: {}", self.0)
     }
+}
+
+impl std::error::Error for ConfigError {}
+
+fn env_var(name: &str) -> Result<String, ConfigError> {
+    std::env::var(name).map_err(|_| ConfigError(format!("{name} must be set")))
+}
+
+fn env_parsed<T: FromStr>(name: &str) -> Result<T, ConfigError>
+where
+    T::Err: std::fmt::Display,
+{
+    let raw = env_var(name)?;
+    raw.parse().map_err(|e| ConfigError(format!("{name}: {e}")))
+}
+
+fn init_config() -> Result<Config, ConfigError> {
+    let storage_mode: StorageMode = env_parsed("STORAGE_MODE")?;
+
+    let storage = match storage_mode {
+        StorageMode::Raft => StorageConfig::Raft {
+            log_dir: env_var("RAFT_LOG_DIR")?,
+            log_prefix: env_var("RAFT_LOG_PREFIX")?,
+        },
+        StorageMode::Postgres => StorageConfig::Postgres {
+            database_url: env_var("DATABASE_URL")?,
+        },
+    };
+
+    Ok(Config {
+        plugin_directory: env_var("PLUGIN_DIRECTORY")?,
+        storage,
+        server_log_output: env_parsed("SERVER_LOG_OUTPUT")?,
+        server_log_dir: env_var("SERVER_LOG_DIR")?,
+        server_log_prefix: env_var("SERVER_LOG_PREFIX")?,
+        server_log_max_files: env_parsed("SERVER_LOG_MAX_FILES")?,
+        tracing_level: env_var("TRACING_LEVEL")?,
+    })
 }
 
 static CONFIG: OnceLock<Config> = OnceLock::new();
 
-pub(crate) fn get_config<'a>() -> &'a Config {
-    CONFIG.get_or_init(init_config)
+pub(crate) fn load_config() -> Result<&'static Config, ConfigError> {
+    let cfg = init_config()?;
+    Ok(CONFIG.get_or_init(|| cfg))
 }
+
+// pub(crate) fn get_config() -> &'static Config {
+//     #[allow(clippy::expect_used)]
+//     CONFIG
+//         .get()
+//         .expect("config not initialized; call load_config() at startup")
+// }

@@ -1,4 +1,5 @@
 #![deny(unused_qualifications)]
+#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::path::Path;
 use std::sync::Arc;
@@ -37,7 +38,10 @@ pub struct RaftComponents {
     pub db: SqliteDatabase,
 }
 
-pub async fn setup_raft_node<P>(node_id: NodeId, dir: P) -> std::io::Result<RaftComponents>
+pub async fn setup_raft_node<P>(
+    node_id: NodeId,
+    dir: P,
+) -> Result<RaftComponents, Box<dyn std::error::Error>>
 where
     P: AsRef<Path>,
 {
@@ -49,13 +53,11 @@ where
         ..Default::default()
     };
 
-    let validated_config = config.validate();
-    let Ok(validated_config) = validated_config else {
-        panic!("Config not validated");
-    };
+    let validated_config = config.validate()?;
+    //let Ok(validated_config) = validated_config?;
     let config = Arc::new(validated_config);
 
-    let (log_store, state_machine_store, sqlite_db) = new_storage(&dir).await;
+    let (log_store, state_machine_store, sqlite_db) = new_storage(&dir).await?;
 
     let network = NetworkFactory::new();
     let raft = openraft::Raft::new(
@@ -65,12 +67,7 @@ where
         log_store,
         state_machine_store.clone(),
     )
-    .await;
-    let Ok(raft) = raft else {
-        let err = raft.unwrap_err();
-        tracing::debug!(error=%err, "Unable to instantiate raft");
-        panic!("Unable to instantiate raft");
-    };
+    .await?;
 
     Ok(RaftComponents {
         raft,

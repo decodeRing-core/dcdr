@@ -41,11 +41,12 @@ impl From<AppEntry> for CreateAppResponse {
 
 impl CreateApp {
     pub fn request(app_id: String, app_name: String) -> AppRequest {
+        let timestamp = now_ts();
         let app = CreateApp {
             app_id,
             app_name,
-            created_at: now_ts(),
-            updated_at: now_ts(),
+            created_at: timestamp,
+            updated_at: timestamp,
         };
         AppRequest::CreateApp(app)
     }

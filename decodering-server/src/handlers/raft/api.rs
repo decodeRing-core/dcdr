@@ -18,9 +18,9 @@ pub(crate) async fn vote_raft<D: Database + 'static>(
     match &app.raft {
         Some(raft_bits) => {
             let result = raft_bits.vote(req.into_inner()).await;
-            return HttpResponse::Ok().json(result);
+            HttpResponse::Ok().json(result)
         }
-        _ => return HttpResponse::ServiceUnavailable().finish(),
+        _ => HttpResponse::ServiceUnavailable().finish(),
     }
 }
 
@@ -31,9 +31,9 @@ pub(crate) async fn append_raft<D: Database + 'static>(
     match &app.raft {
         Some(raft_bits) => {
             let result = raft_bits.append(req.into_inner()).await;
-            return HttpResponse::Ok().json(result);
+            HttpResponse::Ok().json(result)
         }
-        _ => return HttpResponse::ServiceUnavailable().finish(),
+        _ => HttpResponse::ServiceUnavailable().finish(),
     }
 }
 
@@ -50,8 +50,8 @@ pub(crate) async fn snapshot_raft<D: Database + 'static>(
             };
 
             let result = raft_bits.raft.install_full_snapshot(vote, snapshot).await;
-            return HttpResponse::Ok().json(result);
+            HttpResponse::Ok().json(result)
         }
-        _ => return HttpResponse::ServiceUnavailable().finish(),
+        _ => HttpResponse::ServiceUnavailable().finish(),
     }
 }

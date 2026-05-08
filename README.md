@@ -79,7 +79,7 @@ The final layout should look like:
 ```
 dcdr-rs
   |- ...
-  |- Plugins
+  |- plugins
     |- compiled
       |- openbao-rust.wasm
     |- manifests

@@ -2,15 +2,16 @@ use std::io;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::TypeConfig;
 use crate::raft_types::*;
 use crate::rocksdb_log_store::RocksLogStore;
+use crate::store::error::StorageError;
 use decodering_core::action::Action;
 use decodering_core::audit::{ActionOutput, AuditDescriptor};
 use decodering_core::audit::{audit_allowed, audit_denied};
 use decodering_core::error::{DenyReason, ExecutionError};
+use decodering_core::now_ts;
 use decodering_core::repository::{AuditRepository, MetaRepository};
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
@@ -376,15 +377,16 @@ impl<D: Database + 'static> RaftSnapshotBuilder<TypeConfig> for StateMachineStor
 
 pub(crate) async fn new_storage<P: AsRef<Path>>(
     db_path: P,
-) -> (
-    RocksLogStore<TypeConfig>,
-    StateMachineStore<SqliteDatabase>,
-    SqliteDatabase,
-) {
+) -> Result<
+    (
+        RocksLogStore<TypeConfig>,
+        StateMachineStore<SqliteDatabase>,
+        SqliteDatabase,
+    ),
+    StorageError,
+> {
     let base = db_path.as_ref();
-    tokio::fs::create_dir_all(base)
-        .await
-        .expect("create storage dir");
+    tokio::fs::create_dir_all(base).await?;
 
     // RocksDB: logs + Raft protocol meta
     let raft_path = base.join("raft");
@@ -393,26 +395,17 @@ pub(crate) async fn new_storage<P: AsRef<Path>>(
     db_opts.create_if_missing(true);
     let meta = ColumnFamilyDescriptor::new("meta", Options::default());
     let logs = ColumnFamilyDescriptor::new("logs", Options::default());
-    let db = DB::open_cf_descriptors(&db_opts, &raft_path, vec![meta, logs]).expect("open rocksdb");
+    let db = DB::open_cf_descriptors(&db_opts, &raft_path, vec![meta, logs])?;
     let db = Arc::new(db);
-    let log_store = RocksLogStore::new(db);
+    let log_store = RocksLogStore::new(db)?;
 
     // SQLite state machine via app-db
     let sqlite_path = base.join("state.db");
     let url = format!("sqlite://{}", sqlite_path.display());
-    let sqlite_db = SqliteDatabase::connect(&url)
-        .await
-        .expect("open sqlite state machine");
+    let sqlite_db = SqliteDatabase::connect(&url).await?;
     let sm_store = StateMachineStore::new(sqlite_db.clone(), sqlite_path);
 
-    (log_store, sm_store, sqlite_db)
-}
-
-pub fn now_ts() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64
+    Ok((log_store, sm_store, sqlite_db))
 }
 
 pub async fn run_raft<U>(

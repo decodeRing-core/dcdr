@@ -10,20 +10,36 @@ use reqwest::Client;
 
 use crate::NodeId;
 use crate::TypeConfig;
-use crate::raft_types::{
-    AppendEntriesRequest, AppendEntriesResponse, RPCError, RaftError, Snapshot, SnapshotResponse,
-    StreamingError, Vote, VoteRequest, VoteResponse,
-};
+use crate::raft_types::AppendEntriesRequest;
+use crate::raft_types::AppendEntriesResponse;
+use crate::raft_types::RPCError;
+use crate::raft_types::RaftError;
+use crate::raft_types::Snapshot;
+use crate::raft_types::SnapshotResponse;
+use crate::raft_types::StreamingError;
+use crate::raft_types::Vote;
+use crate::raft_types::VoteRequest;
+use crate::raft_types::VoteResponse;
 
 #[derive(Clone)]
 pub struct NetworkFactory {
     client: Client,
 }
 
+impl Default for NetworkFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NetworkFactory {
     pub fn new() -> Self {
+        #[allow(clippy::expect_used)]
         Self {
-            client: Client::builder().no_proxy().build().unwrap(),
+            client: Client::builder()
+                .no_proxy()
+                .build()
+                .expect("Failed to build reqwest client"),
         }
     }
 }

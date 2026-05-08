@@ -2,6 +2,7 @@ use actix_web::Responder;
 use actix_web::web::{Data, Json};
 use decodering_core::tx::Database;
 use decodering_raft::NodeId;
+use decodering_raft::raft_types::{ClientWriteError, RaftError};
 use std::collections::BTreeSet;
 
 use crate::app_data::AppData;
@@ -17,19 +18,19 @@ pub(crate) async fn init_raft<D: Database + 'static>(
         Some(raft_bits) => {
             let is_initialized = raft_bits.raft.is_initialized().await;
             if matches!(is_initialized, Ok(true)) {
-                return ApiResponse::error(ErrorStatus::AlreadyInitialized.into());
+                return ApiResponse::error(ErrorStatus::AlreadyInitialized);
             }
-            let result = raft_bits.init(app.addr.clone(), req.raft_init).await;
-            let Ok(_) = result else {
-                let err = result.unwrap_err();
-                tracing::error!(e=%err, "Raft error");
-                return ApiResponse::<()>::error(ErrorStatus::Internal.into());
-            };
-            return ApiResponse::empty(SuccessStatus::RaftInitialized.into());
+            match raft_bits.init(app.addr.clone(), req.raft_init).await {
+                Ok(_) => ApiResponse::empty(SuccessStatus::RaftInitialized.into()),
+                Err(e) => {
+                    tracing::error!(err=%e, "Raft error");
+                    ApiResponse::<()>::error(ErrorStatus::Internal)
+                }
+            }
         }
         _ => {
             tracing::error!("RaftBits not available");
-            return ApiResponse::error(ErrorStatus::Internal.into());
+            ApiResponse::error(ErrorStatus::Internal)
         }
     }
 }
@@ -41,11 +42,11 @@ pub(crate) async fn metrics_raft<D: Database + 'static>(
     match &app.raft {
         Some(raft_bits) => {
             let result = raft_bits.metrics().await;
-            return ApiResponse::new(SuccessStatus::RaftMetrics.into(), Some(result));
+            ApiResponse::new(SuccessStatus::RaftMetrics.into(), Some(result))
         }
         _ => {
             tracing::error!("RaftBits not available");
-            return ApiResponse::error(ErrorStatus::Internal.into());
+            ApiResponse::error(ErrorStatus::Internal)
         }
     }
 }
@@ -55,13 +56,20 @@ pub(crate) async fn add_learner_raft<D: Database + 'static>(
     req: Json<(NodeId, String)>,
 ) -> impl Responder {
     match &app.raft {
-        Some(raft_bits) => {
-            let result = raft_bits.add_learner(req.0).await;
-            return ApiResponse::new(SuccessStatus::RaftAddLearner.into(), Some(result));
-        }
+        Some(raft_bits) => match raft_bits.add_learner(req.0).await {
+            Ok(resp) => ApiResponse::new(SuccessStatus::RaftAddLearner.into(), Some(resp)),
+            Err(RaftError::APIError(ClientWriteError::ForwardToLeader(fwd))) => {
+                tracing::warn!(err=%fwd, "forward to leader");
+                ApiResponse::error(ErrorStatus::NotLeader)
+            }
+            Err(e) => {
+                tracing::error!(err=%e, "Raft change membership error");
+                ApiResponse::error(ErrorStatus::Internal)
+            }
+        },
         _ => {
             tracing::error!("RaftBits not available");
-            return ApiResponse::error(ErrorStatus::Internal.into());
+            ApiResponse::error(ErrorStatus::Internal)
         }
     }
 }
@@ -71,13 +79,20 @@ pub(crate) async fn change_membership_raft<D: Database + 'static>(
     req: Json<BTreeSet<NodeId>>,
 ) -> impl Responder {
     match &app.raft {
-        Some(raft_bits) => {
-            let result = raft_bits.change_membership(req.0).await;
-            return ApiResponse::new(SuccessStatus::RaftMembership.into(), Some(result));
-        }
+        Some(raft_bits) => match raft_bits.change_membership(req.0).await {
+            Ok(resp) => ApiResponse::new(SuccessStatus::RaftMembership.into(), Some(resp)),
+            Err(RaftError::APIError(ClientWriteError::ForwardToLeader(fwd))) => {
+                tracing::warn!(err=%fwd, "forward to leader");
+                ApiResponse::error(ErrorStatus::NotLeader)
+            }
+            Err(e) => {
+                tracing::error!(err=%e, "Raft change membership error");
+                ApiResponse::error(ErrorStatus::Internal)
+            }
+        },
         _ => {
             tracing::error!("RaftBits not available");
-            return ApiResponse::error(ErrorStatus::Internal.into());
+            ApiResponse::error(ErrorStatus::Internal)
         }
     }
 }

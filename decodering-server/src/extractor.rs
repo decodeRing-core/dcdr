@@ -64,11 +64,11 @@ where
                         access_token,
                         "Invalid authentication attempt. No user found for token"
                     );
-                    return Err(ErrorStatus::Unauthorized.into());
+                    Err(ErrorStatus::Unauthorized.into())
                 }
                 Err(e) => {
                     tracing::error!(err=%e, "Failed to query database");
-                    return Err(ErrorStatus::Internal.into());
+                    Err(ErrorStatus::Internal.into())
                 }
             }
         })

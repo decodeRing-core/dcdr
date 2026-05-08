@@ -10,10 +10,7 @@ fn main() -> Result<(), PluginError> {
     let plugin_directory = env::var("PLUGIN_DIRECTORY").expect("PLUGIN_DIRECTORY must be set");
 
     let mut orchestrator = Orchestrator::new();
-    let out = orchestrator.load_wasm_plugins_from_dir(&plugin_directory);
-    if let Err(error) = out {
-        return Err(error);
-    };
+    orchestrator.load_wasm_plugins_from_dir(&plugin_directory)?;
 
     println!("decodeRing core ready. Accepting OSL requests.");
 

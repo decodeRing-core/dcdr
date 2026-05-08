@@ -63,10 +63,10 @@ where
         let svc = self.service.clone();
         Box::pin(async move {
             let mut res = svc.call(req).await?;
-            if let Some(id) = req_id {
-                if let Ok(val) = HeaderValue::from_str(&id.to_string()) {
-                    res.headers_mut().insert(X_REQUEST_ID, val);
-                }
+            if let Some(id) = req_id
+                && let Ok(val) = HeaderValue::from_str(&id.to_string())
+            {
+                res.headers_mut().insert(X_REQUEST_ID, val);
             }
             Ok(res)
         })
@@ -129,14 +129,14 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let app_state = req.app_data::<web::Data<AppData<D>>>();
 
-        if let Some(state) = app_state {
-            if state.master_key.get().is_none() {
-                let (http_req, _payload) = req.into_parts();
-                let response = ApiResponse::<()>::error(ErrorStatus::Locked)
-                    .respond_to(&http_req)
-                    .map_into_right_body(); // ← BoxBody → EitherBody::Right
-                return Box::pin(async move { Ok(ServiceResponse::new(http_req, response)) });
-            }
+        if let Some(state) = app_state
+            && state.master_key.get().is_none()
+        {
+            let (http_req, _payload) = req.into_parts();
+            let response = ApiResponse::<()>::error(ErrorStatus::Locked)
+                .respond_to(&http_req)
+                .map_into_right_body(); // ← BoxBody → EitherBody::Right
+            return Box::pin(async move { Ok(ServiceResponse::new(http_req, response)) });
         }
 
         let fut = self.service.call(req).in_current_span();

@@ -62,8 +62,8 @@ impl<'a> SecretMappingRespository for SqliteSecretMappingRepository<'a> {
                 FROM secret_backend_mapping
                 WHERE app_id = ? AND secret_name = ?",
         )
-        .bind(&app_id)
-        .bind(&secret_name)
+        .bind(app_id)
+        .bind(secret_name)
         .fetch_optional(&mut **self.tx)
         .await
         .map_err(map_sqlx)?;

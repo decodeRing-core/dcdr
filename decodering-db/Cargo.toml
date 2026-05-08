@@ -7,3 +7,6 @@ publish.workspace = true
 [dependencies]
 decodering-core.workspace = true
 sqlx.workspace = true
+
+[lints]
+workspace = true
