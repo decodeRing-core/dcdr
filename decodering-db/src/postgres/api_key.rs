@@ -10,7 +10,7 @@ pub struct PostgresApiKeysRepository<'a> {
     pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a> ApiKeyRepository for PostgresApiKeysRepository<'a> {
+impl ApiKeyRepository for PostgresApiKeysRepository<'_> {
     async fn insert(&mut self, params: &ApiKeyEntry) -> Result<i64, DbError> {
         let id = sqlx::query_scalar(
             "INSERT INTO api_keys (user_id, key_hash, key_prefix, created_at, expires_at, revoked_at, last_used_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",

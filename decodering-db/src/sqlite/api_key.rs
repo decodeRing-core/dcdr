@@ -10,7 +10,7 @@ pub struct SqliteApiKeysRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
 }
 
-impl<'a> ApiKeyRepository for SqliteApiKeysRepository<'a> {
+impl ApiKeyRepository for SqliteApiKeysRepository<'_> {
     async fn insert(&mut self, params: &ApiKeyEntry) -> Result<i64, DbError> {
         let id = sqlx::query_scalar(
             "INSERT INTO api_keys (user_id, key_hash, key_prefix, created_at, expires_at, revoked_at, last_used_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",

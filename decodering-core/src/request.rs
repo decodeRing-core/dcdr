@@ -36,24 +36,24 @@ pub enum AppRequest {
 impl fmt::Display for AppRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AppRequest::CreateApp(create_app) => {
+            Self::CreateApp(create_app) => {
                 write!(
                     f,
                     "CreateApp(app_id={}, app_name={})",
                     create_app.app_id, create_app.app_name
                 )
             }
-            AppRequest::CreateUser(create_user) => {
+            Self::CreateUser(create_user) => {
                 write!(
                     f,
                     "CreateUser(username={}, email={}, is_admin={})",
                     create_user.username, create_user.email, create_user.is_admin
                 )
             }
-            AppRequest::CreateApiKey(create_api_key) => {
+            Self::CreateApiKey(create_api_key) => {
                 write!(f, "CreateApiKey(user_id={})", create_api_key.user_id)
             }
-            AppRequest::CreateSecretMapping(create_secret_mapping) => {
+            Self::CreateSecretMapping(create_secret_mapping) => {
                 write!(
                     f,
                     "CreateSecretMapping(app_id={}, secret_name={}, backend={}, mount_path={}, tainted={})",
@@ -64,27 +64,27 @@ impl fmt::Display for AppRequest {
                     create_secret_mapping.tainted
                 )
             }
-            AppRequest::CreateShamirConfiguration(create_shamir_configuration) => {
+            Self::CreateShamirConfiguration(create_shamir_configuration) => {
                 write!(
                     f,
                     "CreateShamirConfiguration(total_shares={}, threshold={})",
                     create_shamir_configuration.total_shares, create_shamir_configuration.threshold
                 )
             }
-            AppRequest::SystemInit(_) => {
+            Self::SystemInit(_) => {
                 write!(f, "SystemInit()")
             }
-            AppRequest::CreateAppUser(_) => {
+            Self::CreateAppUser(_) => {
                 write!(f, "CreateAppUser()")
             }
-            AppRequest::CreatePrincipal(create_principal) => {
+            Self::CreatePrincipal(create_principal) => {
                 write!(
                     f,
                     "CreatePrincipal(name={}, app_id={})",
                     create_principal.name, create_principal.app_id
                 )
             }
-            AppRequest::CreatePrincipalCredential(create_principal_credential) => {
+            Self::CreatePrincipalCredential(create_principal_credential) => {
                 write!(
                     f,
                     "CreatePrincipalCredential(credential_id={}, principal_id={})",
@@ -92,14 +92,14 @@ impl fmt::Display for AppRequest {
                     create_principal_credential.principal_id
                 )
             }
-            AppRequest::DeleteSecretMapping(delete_secret_mapping) => {
+            Self::DeleteSecretMapping(delete_secret_mapping) => {
                 write!(
                     f,
                     "DeleteSecretMapping(app_id={}, secret_name={})",
                     delete_secret_mapping.app_id, delete_secret_mapping.secret_name
                 )
             }
-            AppRequest::CreatePrincipalToken(_) => {
+            Self::CreatePrincipalToken(_) => {
                 write!(f, "CreatePrincipalToken()")
             }
         }
@@ -112,41 +112,35 @@ impl AppRequest {
         D: Database,
     {
         match self {
-            AppRequest::CreateApiKey(create_api_key) => {
+            Self::CreateApiKey(create_api_key) => {
                 Ok(run_action_direct(db, create_api_key).await?.response)
             }
-            AppRequest::CreateUser(create_user) => {
-                Ok(run_action_direct(db, create_user).await?.response)
-            }
-            AppRequest::CreateApp(create_app) => {
-                Ok(run_action_direct(db, create_app).await?.response)
-            }
-            AppRequest::CreateAppUser(create_app_user) => {
+            Self::CreateUser(create_user) => Ok(run_action_direct(db, create_user).await?.response),
+            Self::CreateApp(create_app) => Ok(run_action_direct(db, create_app).await?.response),
+            Self::CreateAppUser(create_app_user) => {
                 Ok(run_action_direct(db, create_app_user).await?.response)
             }
-            AppRequest::CreateShamirConfiguration(create_shamir_configuration) => {
+            Self::CreateShamirConfiguration(create_shamir_configuration) => {
                 Ok(run_action_direct(db, create_shamir_configuration)
                     .await?
                     .response)
             }
-            AppRequest::CreateSecretMapping(create_secret_mapping) => {
+            Self::CreateSecretMapping(create_secret_mapping) => {
                 Ok(run_action_direct(db, create_secret_mapping).await?.response)
             }
-            AppRequest::SystemInit(system_init) => {
-                Ok(run_action_direct(db, system_init).await?.response)
-            }
-            AppRequest::CreatePrincipal(create_principal) => {
+            Self::SystemInit(system_init) => Ok(run_action_direct(db, system_init).await?.response),
+            Self::CreatePrincipal(create_principal) => {
                 Ok(run_action_direct(db, create_principal).await?.response)
             }
-            AppRequest::CreatePrincipalCredential(create_principal_credential) => {
+            Self::CreatePrincipalCredential(create_principal_credential) => {
                 Ok(run_action_direct(db, create_principal_credential)
                     .await?
                     .response)
             }
-            AppRequest::DeleteSecretMapping(delete_secret_mapping) => {
+            Self::DeleteSecretMapping(delete_secret_mapping) => {
                 Ok(run_action_direct(db, delete_secret_mapping).await?.response)
             }
-            AppRequest::CreatePrincipalToken(create_principal_token) => {
+            Self::CreatePrincipalToken(create_principal_token) => {
                 Ok(run_action_direct(db, create_principal_token)
                     .await?
                     .response)

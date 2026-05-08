@@ -20,7 +20,7 @@ use crate::app_data::AppData;
 use crate::handlers::response::ErrorStatus;
 
 #[derive(Debug, Serialize)]
-pub(crate) struct AuthAdminMiddleware<D> {
+pub struct AuthAdminMiddleware<D> {
     pub(crate) user: User,
     _marker: PhantomData<D>,
 }
@@ -58,7 +58,7 @@ where
             let api_key_hash = sha256_hex(access_token.as_bytes());
             let user = db.user().get_admin_by_api_key(&api_key_hash).await;
             match user {
-                Ok(Some(u)) => Ok(AuthAdminMiddleware::new(u)),
+                Ok(Some(u)) => Ok(Self::new(u)),
                 Ok(None) => {
                     tracing::warn!(
                         access_token,
@@ -76,7 +76,7 @@ where
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct AuthOSLMiddleware<D> {
+pub struct AuthOSLMiddleware<D> {
     pub(crate) user: Option<User>,
     pub(crate) principal: Option<Principal>,
     _marker: PhantomData<D>,
@@ -119,7 +119,7 @@ where
                 tracing::error!(err=%e, "Failed to query database");
                 ErrorStatus::Internal
             })? {
-                return Ok(AuthOSLMiddleware::new(Some(u), None));
+                return Ok(Self::new(Some(u), None));
             }
 
             if let Some(p) = db
@@ -131,7 +131,7 @@ where
                     ErrorStatus::Internal
                 })?
             {
-                return Ok(AuthOSLMiddleware::new(None, Some(p)));
+                return Ok(Self::new(None, Some(p)));
             }
 
             tracing::warn!(
@@ -143,24 +143,27 @@ where
     }
 }
 
-pub(crate) fn get_authorization(req: &HttpRequest) -> Result<String, Error> {
+pub fn get_authorization(req: &HttpRequest) -> Result<String, Error> {
     let authorization = req.headers().get(header::AUTHORIZATION);
     let Some(authorization) = authorization else {
         return Err(ErrorStatus::Unauthorized.into());
     };
 
     let access_token = authorization.to_str();
-    let Ok(mut access_token) = access_token else {
+    let Ok(access_token) = access_token else {
         return Err(ErrorStatus::Unauthorized.into());
     };
 
-    let bearer_token: Vec<&str> = access_token.split_whitespace().collect();
-    if bearer_token.len() != 2 {
+    if access_token.split_whitespace().count() != 2 {
         return Err(ErrorStatus::Unauthorized.into());
     }
-    if bearer_token[0] != "Bearer" {
+    let token = access_token
+        .strip_prefix("Bearer ")
+        .ok_or(ErrorStatus::Unauthorized)?;
+
+    if token.is_empty() || token.contains(char::is_whitespace) {
         return Err(ErrorStatus::Unauthorized.into());
     }
-    access_token = bearer_token[1].trim();
-    Ok(access_token.to_owned())
+
+    Ok(token.to_owned())
 }

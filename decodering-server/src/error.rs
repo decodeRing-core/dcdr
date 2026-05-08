@@ -12,8 +12,8 @@ pub enum AppError {
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Action(e) => write!(f, "action error: {:#?}", e),
-            Self::Raft(e) => write!(f, "raft error: {}", e),
+            Self::Action(e) => write!(f, "action error: {e}"),
+            Self::Raft(e) => write!(f, "raft error: {e}"),
         }
     }
 }

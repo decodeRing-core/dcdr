@@ -5,19 +5,16 @@ use serde_json::Value;
 use crate::handlers::response::{ApiResponse, ApiStatus, SuccessStatus};
 
 #[derive(Serialize)]
-pub(crate) struct ApiPutSecretResponse {
+pub struct ApiPutSecretResponse {
     pub secret_name: String,
     pub provider_version_id: String,
 }
 
 impl ApiPutSecretResponse {
-    pub(crate) fn new(
-        secret_name: String,
-        provider_version_id: String,
-    ) -> ApiResponse<ApiPutSecretResponse> {
+    pub(crate) fn new(secret_name: String, provider_version_id: String) -> ApiResponse<Self> {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
-            Some(ApiPutSecretResponse {
+            Some(Self {
                 secret_name,
                 provider_version_id,
             }),
@@ -26,7 +23,7 @@ impl ApiPutSecretResponse {
 }
 
 #[derive(Serialize)]
-pub(crate) struct ApiGetSecretResponse {
+pub struct ApiGetSecretResponse {
     #[serde(flatten)]
     data: Value,
     metadata: ApiGetSecretMetadataResponse,
@@ -43,10 +40,10 @@ impl ApiGetSecretResponse {
         data: Value,
         resolved_backend_ref: String,
         provider_version_id: String,
-    ) -> ApiResponse<ApiGetSecretResponse> {
+    ) -> ApiResponse<Self> {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
-            Some(ApiGetSecretResponse {
+            Some(Self {
                 data,
                 metadata: ApiGetSecretMetadataResponse {
                     resolved_backend_ref,
@@ -58,21 +55,21 @@ impl ApiGetSecretResponse {
 }
 
 #[derive(Serialize)]
-pub(crate) struct ApiDestroySecretResponse {
+pub struct ApiDestroySecretResponse {
     pub(crate) destroyed: bool,
 }
 
 impl ApiDestroySecretResponse {
-    pub(crate) fn new(destroyed: bool) -> ApiResponse<ApiDestroySecretResponse> {
+    pub(crate) fn new(destroyed: bool) -> ApiResponse<Self> {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
-            Some(ApiDestroySecretResponse { destroyed }),
+            Some(Self { destroyed }),
         )
     }
 }
 
 #[derive(Serialize)]
-pub(crate) struct ApiListSecretResponse(Vec<ListSecretResponse>);
+pub struct ApiListSecretResponse(Vec<ListSecretResponse>);
 
 #[derive(Serialize)]
 struct ListSecretResponse {
@@ -94,12 +91,10 @@ impl From<SecretMapping> for ListSecretResponse {
 }
 
 impl ApiListSecretResponse {
-    pub(crate) fn new(secrets: Vec<SecretMapping>) -> ApiResponse<ApiListSecretResponse> {
+    pub(crate) fn new(secrets: Vec<SecretMapping>) -> ApiResponse<Self> {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
-            Some(ApiListSecretResponse(
-                secrets.into_iter().map(|f| f.into()).collect(),
-            )),
+            Some(Self(secrets.into_iter().map(Into::into).collect())),
         )
     }
 }

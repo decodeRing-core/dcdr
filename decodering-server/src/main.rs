@@ -40,7 +40,7 @@ pub struct Opt {
 }
 
 #[actix_web::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     let options = Opt::parse();
 
     dotenv().ok();
@@ -78,29 +78,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .map_err(Into::into)
         }
     }
-
-    // match config.storage_mode {
-    //     StorageMode::Raft => {
-    //         let app = AppData::<SqliteDatabase>::init_raft(
-    //             options.id,
-    //             raft_log_dir,
-    //             options.addr.clone(),
-    //         )
-    //         .await?;
-    //         run_server(app, orchestrator, options.addr)
-    //             .await
-    //             .map_err(Into::into)
-    //     }
-    //     StorageMode::Postgres => {
-    //         let app = AppData::<PostgresDatabase>::new(&config.database_url, options.addr.clone())
-    //             .await?;
-    //         run_server(app, orchestrator, options.addr)
-    //             .await
-    //             .map_err(Into::into)
-    //     }
-    // }
 }
 
+#[allow(clippy::future_not_send)]
 async fn run_server<D>(
     app: AppData<D>,
     orchestrator: Orchestrator,

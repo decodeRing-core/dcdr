@@ -12,7 +12,7 @@ pub struct SqliteSecretMappingRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
 }
 
-impl<'a> SecretMappingRespository for SqliteSecretMappingRepository<'a> {
+impl SecretMappingRespository for SqliteSecretMappingRepository<'_> {
     async fn insert(&mut self, params: &SecretMappingEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
             "INSERT INTO secret_backend_mapping (app_id, secret_name, backend, mount_path, tainted, created_at, updated_at)
@@ -38,7 +38,6 @@ impl<'a> SecretMappingRespository for SqliteSecretMappingRepository<'a> {
     }
 
     async fn delete(&mut self, app_id: &str, secret_name: &str) -> Result<u64, DbError> {
-        println!("DELETE {} {}", app_id, secret_name);
         let rows_affected = sqlx::query(
             "DELETE FROM secret_backend_mapping
              WHERE app_id = ? AND secret_name = ?",
@@ -70,6 +69,7 @@ impl<'a> SecretMappingRespository for SqliteSecretMappingRepository<'a> {
         Ok(secret_mapping.map(Into::into))
     }
 
+    #[allow(clippy::option_if_let_else)]
     async fn get_by_app_id_after(
         &mut self,
         app_id: &str,

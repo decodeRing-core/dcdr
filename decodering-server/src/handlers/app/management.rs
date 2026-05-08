@@ -22,7 +22,7 @@ use crate::handlers::app::response::ApiCreateAppResponse;
 use crate::handlers::app::response::ApiCreateAppUserResponse;
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
-pub(crate) async fn create_app_user<D: Database + 'static>(
+pub async fn create_app_user<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<CreateAppUserData>,
     auth: AuthAdminMiddleware<D>,
@@ -119,7 +119,7 @@ pub(crate) async fn create_app_user<D: Database + 'static>(
     }
 }
 
-pub(crate) async fn create_app<D: Database + 'static>(
+pub async fn create_app<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<CreateAppData>,
     _auth: AuthAdminMiddleware<D>,
@@ -153,7 +153,7 @@ pub(crate) async fn create_app<D: Database + 'static>(
             tracing::error!(err=?e, "Failed to query database");
             return ApiResponse::error(ErrorStatus::Internal);
         }
-    };
+    }
 
     let request = CreateApp::request(Uuid::now_v7().to_string(), req.0.app_name);
     match app.submit(request).await {
@@ -175,7 +175,7 @@ pub(crate) async fn create_app<D: Database + 'static>(
     }
 }
 
-pub(crate) async fn auth_app_user<D: Database + 'static>(
+pub async fn auth_app_user<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<AuthUserData>,
 ) -> impl Responder {

@@ -161,10 +161,7 @@ where
 
         let last_purged_log_id = self.get_meta::<meta::LastPurged>()?;
 
-        let last_log_id = match last_log_id {
-            None => last_purged_log_id.clone(),
-            Some(x) => Some(x),
-        };
+        let last_log_id = last_log_id.or_else(|| last_purged_log_id.clone());
 
         Ok(LogState {
             last_purged_log_id,
@@ -223,10 +220,7 @@ where
     async fn truncate_after(&mut self, last_log_id: Option<LogIdOf<C>>) -> Result<(), io::Error> {
         tracing::debug!("truncate_after: ({:?}, +oo)", last_log_id);
 
-        let start_index = match last_log_id {
-            Some(log_id) => log_id.index() + 1,
-            None => 0,
-        };
+        let start_index = last_log_id.map_or(0, |log_id| log_id.index() + 1);
 
         let from = id_to_bin(start_index);
         let to = id_to_bin(u64::MAX);
@@ -267,7 +261,7 @@ mod meta {
     use openraft::alias::VoteOf;
 
     /// Defines metadata key and value
-    pub(crate) trait StoreMeta<C>
+    pub trait StoreMeta<C>
     where
         C: RaftTypeConfig,
     {
@@ -278,8 +272,8 @@ mod meta {
         type Value: serde::Serialize + serde::de::DeserializeOwned;
     }
 
-    pub(crate) struct LastPurged {}
-    pub(crate) struct Vote {}
+    pub struct LastPurged {}
+    pub struct Vote {}
 
     impl<C> StoreMeta<C> for LastPurged
     where

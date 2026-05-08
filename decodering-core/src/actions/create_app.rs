@@ -42,7 +42,7 @@ impl From<AppEntry> for CreateAppResponse {
 impl CreateApp {
     pub fn request(app_id: String, app_name: String) -> AppRequest {
         let timestamp = now_ts();
-        let app = CreateApp {
+        let app = Self {
             app_id,
             app_name,
             created_at: timestamp,

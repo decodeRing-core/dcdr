@@ -26,7 +26,7 @@ impl SystemInit {
         user: CreateUser,
         api_key: CreateApiKey,
     ) -> AppRequest {
-        let app = SystemInit {
+        let app = Self {
             shamir,
             user,
             api_key,

@@ -11,7 +11,7 @@ use decodering_raft::raft_types::VoteRequest;
 
 use crate::app_data::AppData;
 
-pub(crate) async fn vote_raft<D: Database + 'static>(
+pub async fn vote_raft<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<VoteRequest>,
 ) -> impl Responder {
@@ -24,7 +24,7 @@ pub(crate) async fn vote_raft<D: Database + 'static>(
     }
 }
 
-pub(crate) async fn append_raft<D: Database + 'static>(
+pub async fn append_raft<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<AppendEntriesRequest>,
 ) -> impl Responder {
@@ -37,7 +37,7 @@ pub(crate) async fn append_raft<D: Database + 'static>(
     }
 }
 
-pub(crate) async fn snapshot_raft<D: Database + 'static>(
+pub async fn snapshot_raft<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<(VoteOf, SnapshotMetaOf, Vec<u8>)>,
 ) -> impl Responder {

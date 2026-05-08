@@ -10,7 +10,7 @@ pub struct PostgresPrincipalCredentialRepository<'a> {
     pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a> PrincipalCredentialRepository for PostgresPrincipalCredentialRepository<'a> {
+impl PrincipalCredentialRepository for PostgresPrincipalCredentialRepository<'_> {
     async fn insert(&mut self, params: &PrincipalCredentialEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
             "INSERT INTO principal_credentials (

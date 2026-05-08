@@ -19,7 +19,7 @@ use decodering_core::tx::{Database, Tx};
 use rand::distr::{Alphanumeric, SampleString};
 use zeroize::Zeroizing;
 
-pub(crate) async fn system_init<D: Database + 'static>(
+pub async fn system_init<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<InitSystemRequestData>,
 ) -> impl Responder {
@@ -104,7 +104,7 @@ pub(crate) async fn system_init<D: Database + 'static>(
     }
 }
 
-pub(crate) async fn system_unlock<D: Database + 'static>(
+pub async fn system_unlock<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<UnlockData>,
 ) -> impl Responder {
@@ -141,11 +141,11 @@ pub(crate) async fn system_unlock<D: Database + 'static>(
         tracing::error!("Shamir configuration threshold out of range");
         return ApiResponse::error(ErrorStatus::InvalidKeys);
     };
-    match unlock(threshold, &shamir_configuration.validation_hash, shares) {
+    match unlock(threshold, &shamir_configuration.validation_hash, &shares) {
         Ok(master_key) => {
             let out = app.master_key.set(Zeroizing::new(master_key));
             match out {
-                Ok(_) => ApiResponse::empty(SuccessStatus::SystemUnlocked.into()),
+                Ok(()) => ApiResponse::empty(SuccessStatus::SystemUnlocked.into()),
                 Err(e) => {
                     tracing::error!(err=?e, "Unlock error");
                     ApiResponse::error(ErrorStatus::Internal)
@@ -159,7 +159,7 @@ pub(crate) async fn system_unlock<D: Database + 'static>(
     }
 }
 
-pub(crate) async fn system_status<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
+pub async fn system_status<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
     if app.master_key.get().is_none() {
         return ApiResponse::<()>::empty(ErrorStatus::Locked.into());
     }

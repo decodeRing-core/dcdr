@@ -10,7 +10,7 @@ pub struct SqlitePrincipalTokenRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
 }
 
-impl<'a> PrincipalTokenRepository for SqlitePrincipalTokenRepository<'a> {
+impl PrincipalTokenRepository for SqlitePrincipalTokenRepository<'_> {
     async fn insert(&mut self, params: &PrincipalTokenEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
             "INSERT INTO principal_tokens (

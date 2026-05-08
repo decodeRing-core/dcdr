@@ -35,7 +35,7 @@ impl Orchestrator {
         let manifests_dir = Path::new(plugins_root).join("manifests");
 
         let entries = fs::read_dir(&manifests_dir)
-            .map_err(|e| PluginError::Io(format!("read_dir {:?}: {}", manifests_dir, e)))?;
+            .map_err(|e| PluginError::Io(format!("read_dir {}: {e}", manifests_dir.display())))?;
 
         for entry in entries.flatten() {
             let path = entry.path();
@@ -68,7 +68,7 @@ impl Orchestrator {
             };
 
             tracing::info!(backend = name, "loaded plugin manifest");
-            self.register(name.to_string(), Arc::new(WasmSecretBackend::new(manifest)));
+            self.register(name.to_owned(), Arc::new(WasmSecretBackend::new(manifest)));
         }
         Ok(())
     }

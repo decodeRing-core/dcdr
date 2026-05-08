@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::TypeConfig;
-use crate::raft_types::*;
+use crate::raft_types::{
+    EntryPayload, LogId, Snapshot, SnapshotData, SnapshotMeta, StoredMembership,
+};
 use crate::rocksdb_log_store::RocksLogStore;
 use crate::store::error::StorageError;
 use decodering_core::action::Action;
@@ -51,15 +53,15 @@ impl<D: Database + Clone> Clone for StateMachineStore<D> {
 }
 
 // The apply path
-impl<D: Database> StateMachineStore<D>
+impl<D> StateMachineStore<D>
 where
     D: Database,
     for<'a> D::Tx<'a>: RaftTx,
 {
-    /// Apply a single log entry inside a SQLite transaction.
-    /// The transaction commits the mutation, the audit row, AND the updated
-    /// last_applied position atomically. On crash, either everything is
-    /// persisted or nothing is — no possibility of state machine drift.
+    // Apply a single log entry inside a `SQLite` transaction.
+    // The transaction commits the mutation, the audit row, AND the updated
+    // `last_applied` position atomically. On crash, either everything is
+    // persisted or nothing is — no possibility of state machine drift.
     async fn apply_one(
         &mut self,
         log_id: LogId,
@@ -226,7 +228,7 @@ where
             .get("last_applied")
             .await
             .map_err(io::Error::other)?
-            .unwrap_or_else(|| "null".to_string());
+            .unwrap_or_else(|| "null".to_owned());
         let actual_mb = tx
             .meta()
             .get("last_membership")
@@ -375,7 +377,7 @@ impl<D: Database + 'static> RaftSnapshotBuilder<TypeConfig> for StateMachineStor
     }
 }
 
-pub(crate) async fn new_storage<P: AsRef<Path>>(
+pub async fn new_storage<P: AsRef<Path>>(
     db_path: P,
 ) -> Result<
     (
@@ -456,7 +458,7 @@ pub async fn run_audit_denied<U>(
 where
     U: Tx,
 {
-    let entry = audit_denied(&descriptor, raft_index as i64, reason, now_ts());
+    let entry = audit_denied(&descriptor, raft_index as i64, &reason, now_ts());
     tx.audit().insert(&entry).await?;
     Ok(())
 }

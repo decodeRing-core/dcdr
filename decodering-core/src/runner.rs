@@ -14,7 +14,7 @@ where
 
     if let Some(reason) = action.policy_check().await.map_err(ActionError::Db)? {
         let mut tx = db.begin().await.map_err(ActionError::Db)?;
-        let entry = audit_denied(&descriptor, 0, reason.clone(), now_ts());
+        let entry = audit_denied(&descriptor, 0, &reason, now_ts());
         tx.audit().insert(&entry).await.map_err(ActionError::Db)?;
         tx.commit().await.map_err(ActionError::Db)?;
         return Err(ActionError::Denied(reason));

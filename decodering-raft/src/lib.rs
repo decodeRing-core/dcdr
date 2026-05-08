@@ -41,9 +41,9 @@ pub struct RaftComponents {
 pub async fn setup_raft_node<P>(
     node_id: NodeId,
     dir: P,
-) -> Result<RaftComponents, Box<dyn std::error::Error>>
+) -> Result<RaftComponents, Box<dyn std::error::Error + Send + Sync + 'static>>
 where
-    P: AsRef<Path>,
+    P: AsRef<Path> + Send + Sync,
 {
     let config = Config {
         heartbeat_interval: 250,

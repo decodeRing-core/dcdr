@@ -12,7 +12,7 @@ pub struct PostgresAppRepository<'a> {
     pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a> AppRepository for PostgresAppRepository<'a> {
+impl AppRepository for PostgresAppRepository<'_> {
     async fn insert(&mut self, params: &AppEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
             "INSERT INTO applications (app_id, app_name, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING app_id",

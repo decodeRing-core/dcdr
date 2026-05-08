@@ -12,9 +12,8 @@ pub struct PostgresUserRepository<'a> {
     pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a> UserRepository for PostgresUserRepository<'a> {
+impl UserRepository for PostgresUserRepository<'_> {
     async fn insert(&mut self, params: &UserEntry) -> Result<i64, DbError> {
-        println!("here");
         let id = sqlx::query_scalar(
             "INSERT INTO users (username, email, password_hash, is_admin, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id",
         )

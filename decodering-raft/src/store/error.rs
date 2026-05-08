@@ -12,9 +12,9 @@ pub enum StorageError {
 impl fmt::Display for StorageError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StorageError::Io(e) => write!(f, "io error: {e}"),
-            StorageError::RocksDb(e) => write!(f, "rocksdb error: {e}"),
-            StorageError::Db(e) => write!(f, "db error: {e}"),
+            Self::Io(e) => write!(f, "io error: {e}"),
+            Self::RocksDb(e) => write!(f, "rocksdb error: {e}"),
+            Self::Db(e) => write!(f, "db error: {e}"),
         }
     }
 }
@@ -22,27 +22,27 @@ impl fmt::Display for StorageError {
 impl std::error::Error for StorageError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            StorageError::Io(e) => Some(e),
-            StorageError::RocksDb(e) => Some(e),
-            StorageError::Db(e) => Some(e),
+            Self::Io(e) => Some(e),
+            Self::RocksDb(e) => Some(e),
+            Self::Db(e) => Some(e),
         }
     }
 }
 
 impl From<std::io::Error> for StorageError {
     fn from(e: std::io::Error) -> Self {
-        StorageError::Io(e)
+        Self::Io(e)
     }
 }
 
 impl From<rocksdb::Error> for StorageError {
     fn from(e: rocksdb::Error) -> Self {
-        StorageError::RocksDb(e)
+        Self::RocksDb(e)
     }
 }
 
 impl From<DbError> for StorageError {
     fn from(e: DbError) -> Self {
-        StorageError::Db(e)
+        Self::Db(e)
     }
 }

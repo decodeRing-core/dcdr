@@ -44,9 +44,9 @@ impl FromStr for PrincipalKind {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
-            "human" => PrincipalKind::Human,
-            "machine" => PrincipalKind::Machine,
-            "service" => PrincipalKind::Service,
+            "human" => Self::Human,
+            "machine" => Self::Machine,
+            "service" => Self::Service,
             other => return Err(UnknownPrincipalKind(other.to_owned())),
         })
     }
@@ -55,9 +55,9 @@ impl FromStr for PrincipalKind {
 impl PrincipalKind {
     pub fn as_str(self) -> &'static str {
         match self {
-            PrincipalKind::Human => "human",
-            PrincipalKind::Machine => "machine",
-            PrincipalKind::Service => "service",
+            Self::Human => "human",
+            Self::Machine => "machine",
+            Self::Service => "service",
         }
     }
 }
@@ -75,9 +75,9 @@ impl FromStr for PrincipalStatus {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
-            "active" => PrincipalStatus::Active,
-            "disabled" => PrincipalStatus::Disabled,
-            "deleted" => PrincipalStatus::Deleted,
+            "active" => Self::Active,
+            "disabled" => Self::Disabled,
+            "deleted" => Self::Deleted,
             other => return Err(UnknownPrincipalStatus(other.to_owned())),
         })
     }
@@ -86,9 +86,9 @@ impl FromStr for PrincipalStatus {
 impl PrincipalStatus {
     pub fn as_str(self) -> &'static str {
         match self {
-            PrincipalStatus::Active => "active",
-            PrincipalStatus::Disabled => "disabled",
-            PrincipalStatus::Deleted => "deleted",
+            Self::Active => "active",
+            Self::Disabled => "disabled",
+            Self::Deleted => "deleted",
         }
     }
 }
@@ -106,9 +106,9 @@ impl FromStr for PrincipalCredentialKind {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
-            "api_key" => PrincipalCredentialKind::ApiKey,
-            "vtpm" => PrincipalCredentialKind::VirtualTrustedPlatformModule,
-            "aws_iam" => PrincipalCredentialKind::AwsIdentity,
+            "api_key" => Self::ApiKey,
+            "vtpm" => Self::VirtualTrustedPlatformModule,
+            "aws_iam" => Self::AwsIdentity,
             other => return Err(UnknownPrincipalCredentialKind(other.to_owned())),
         })
     }
@@ -117,9 +117,9 @@ impl FromStr for PrincipalCredentialKind {
 impl PrincipalCredentialKind {
     pub fn as_str(self) -> &'static str {
         match self {
-            PrincipalCredentialKind::ApiKey => "api_key",
-            PrincipalCredentialKind::VirtualTrustedPlatformModule => "vtpm",
-            PrincipalCredentialKind::AwsIdentity => "aws_iam",
+            Self::ApiKey => "api_key",
+            Self::VirtualTrustedPlatformModule => "vtpm",
+            Self::AwsIdentity => "aws_iam",
         }
     }
 }

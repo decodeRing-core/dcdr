@@ -10,7 +10,7 @@ pub struct SqlitePrincipalCredentialRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
 }
 
-impl<'a> PrincipalCredentialRepository for SqlitePrincipalCredentialRepository<'a> {
+impl PrincipalCredentialRepository for SqlitePrincipalCredentialRepository<'_> {
     async fn insert(&mut self, params: &PrincipalCredentialEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
             "INSERT INTO principal_credentials (

@@ -15,16 +15,16 @@ pub enum DbError {
 }
 
 impl DbError {
-    /// True for errors that are deterministic outcomes of the command's
-    /// content (constraint violations, missing rows). These must NOT halt
-    /// the Raft apply loop — they're business failures, not storage failures.
+    // True for errors that are deterministic outcomes of the command's
+    // content (constraint violations, missing rows). These must NOT halt
+    // the Raft apply loop — they're business failures, not storage failures.
     pub fn is_business(&self) -> bool {
         matches!(
             self,
-            DbError::NotFound
-                | DbError::UniqueViolation { .. }
-                | DbError::ForeignKeyViolation { .. }
-                | DbError::CheckViolation { .. }
+            Self::NotFound
+                | Self::UniqueViolation { .. }
+                | Self::ForeignKeyViolation { .. }
+                | Self::CheckViolation { .. }
         )
     }
 }
@@ -32,42 +32,42 @@ impl DbError {
 impl fmt::Display for DbError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DbError::NotFound => write!(f, "not found"),
-            DbError::UniqueViolation {
+            Self::NotFound => write!(f, "not found"),
+            Self::UniqueViolation {
                 constraint: Some(c),
             } => {
-                write!(f, "unique constraint violated: {}", c)
+                write!(f, "unique constraint violated: {c}")
             }
-            DbError::UniqueViolation { constraint: None } => {
+            Self::UniqueViolation { constraint: None } => {
                 write!(f, "unique constraint violated")
             }
-            DbError::ForeignKeyViolation {
+            Self::ForeignKeyViolation {
                 constraint: Some(c),
             } => {
-                write!(f, "foreign key constraint violated: {}", c)
+                write!(f, "foreign key constraint violated: {c}")
             }
-            DbError::ForeignKeyViolation { constraint: None } => {
+            Self::ForeignKeyViolation { constraint: None } => {
                 write!(f, "foreign key constraint violated")
             }
-            DbError::CheckViolation {
+            Self::CheckViolation {
                 constraint: Some(c),
             } => {
-                write!(f, "check constraint violated: {}", c)
+                write!(f, "check constraint violated: {c}")
             }
-            DbError::CheckViolation { constraint: None } => {
+            Self::CheckViolation { constraint: None } => {
                 write!(f, "check constraint violated")
             }
-            DbError::SerializationFailure => write!(f, "serialization failure; retry"),
-            DbError::Connection(msg) => write!(f, "connection error: {}", msg),
-            DbError::Schema(msg) => write!(f, "schema error: {}", msg),
-            DbError::Serde(msg) => write!(f, "serialization error: {}", msg),
-            DbError::Other(msg) => write!(f, "database error: {}", msg),
+            Self::SerializationFailure => write!(f, "serialization failure; retry"),
+            Self::Connection(msg) => write!(f, "connection error: {msg}"),
+            Self::Schema(msg) => write!(f, "schema error: {msg}"),
+            Self::Serde(msg) => write!(f, "serialization error: {msg}"),
+            Self::Other(msg) => write!(f, "database error: {msg}"),
         }
     }
 }
 impl Error for DbError {}
 
-/// Reason a policy check denied an action.
+// Reason a policy check denied an action.
 #[derive(Debug, Clone)]
 pub struct DenyReason(pub String);
 
@@ -77,7 +77,7 @@ impl fmt::Display for DenyReason {
     }
 }
 
-/// Error from `Action::execute`. Wraps DbError plus action-specific failures.
+/// Error from `Action::execute`. Wraps `DbError` plus action-specific failures.
 #[derive(Debug)]
 pub enum ExecutionError {
     Db(DbError),
@@ -96,8 +96,8 @@ impl ExecutionError {
 impl fmt::Display for ExecutionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Db(e) => write!(f, "db error: {}", e),
-            Self::Other(s) => write!(f, "execution error: {}", s),
+            Self::Db(e) => write!(f, "db error: {e}"),
+            Self::Other(s) => write!(f, "execution error: {s}"),
         }
     }
 }
@@ -115,4 +115,14 @@ pub enum ActionError {
     Db(DbError),
     Denied(DenyReason),
     Execution(ExecutionError),
+}
+
+impl fmt::Display for ActionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Db(e) => write!(f, "database error: {e}"),
+            Self::Denied(reason) => write!(f, "action denied: {reason}"),
+            Self::Execution(e) => write!(f, "execution error: {e}"),
+        }
+    }
 }

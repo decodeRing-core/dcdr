@@ -40,13 +40,13 @@ impl SuccessStatus {
 
     fn http_status(&self) -> StatusCode {
         match self {
-            Self::SystemInitialized => StatusCode::OK,
-            Self::SystemUnlocked => StatusCode::OK,
-            Self::RaftInitialized => StatusCode::OK,
-            Self::RaftMetrics => StatusCode::OK,
-            Self::RaftAddLearner => StatusCode::OK,
-            Self::RaftMembership => StatusCode::OK,
-            Self::OperationCompleted => StatusCode::OK,
+            Self::SystemInitialized
+            | Self::SystemUnlocked
+            | Self::RaftInitialized
+            | Self::RaftMetrics
+            | Self::RaftAddLearner
+            | Self::RaftMembership
+            | Self::OperationCompleted => StatusCode::OK,
         }
     }
 }
@@ -106,15 +106,11 @@ impl ErrorStatus {
         match self {
             Self::NotLeader => StatusCode::MISDIRECTED_REQUEST,
             Self::NotInitialized => StatusCode::SERVICE_UNAVAILABLE,
-            Self::AlreadyInitialized => StatusCode::BAD_REQUEST,
-            Self::Plugin => StatusCode::BAD_REQUEST,
+            Self::AlreadyInitialized | Self::Plugin => StatusCode::BAD_REQUEST,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::InvalidKeys => StatusCode::FORBIDDEN,
-            Self::Locked => StatusCode::FORBIDDEN,
-            Self::UnsupportedBackend => StatusCode::NOT_IMPLEMENTED,
+            Self::InvalidKeys | Self::Locked | Self::Unauthorized => StatusCode::FORBIDDEN,
+            Self::UnsupportedBackend | Self::Unimplemented => StatusCode::NOT_IMPLEMENTED,
             Self::SecretNotFound => StatusCode::NOT_FOUND,
-            Self::Unauthorized => StatusCode::FORBIDDEN,
-            Self::Unimplemented => StatusCode::NOT_IMPLEMENTED,
             Self::DuplicatedApp => StatusCode::CONFLICT,
         }
     }
@@ -157,7 +153,7 @@ impl ResponseError for ErrorStatus {
 }
 
 #[derive(Serialize)]
-pub struct ApiResponse<T: Serialize> {
+pub struct ApiResponse<T> {
     osl_version: &'static str,
 
     #[serde(skip_serializing_if = "Option::is_none")]

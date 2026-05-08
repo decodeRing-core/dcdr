@@ -13,11 +13,11 @@ pub struct ShamirInit {
 
 pub fn initialize_shamir(n: u8, k: u8) -> Result<ShamirInit, Box<dyn std::error::Error>> {
     if n > 10 {
-        return Err(format!("Invalid number of shards: {}", n).into());
+        return Err(format!("Invalid number of shards: {n}").into());
     }
 
     if k > n || k < 2 {
-        return Err(format!("Invalid treshold: {}", k).into());
+        return Err(format!("Invalid treshold: {k}").into());
     }
 
     let mut secret = vec![0u8; 32];
@@ -50,12 +50,12 @@ pub enum LockError {
 impl fmt::Display for LockError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LockError::RecoveryFailed(s) => write!(f, "recovery failed: {}", s),
-            LockError::HashMismatch => {
+            Self::RecoveryFailed(s) => write!(f, "recovery failed: {s}"),
+            Self::HashMismatch => {
                 write!(f, "reconstructed key does not match expected hash")
             }
-            LockError::InsufficientShards { got, need } => {
-                write!(f, "need {} shards, got {}", need, got)
+            Self::InsufficientShards { got, need } => {
+                write!(f, "need {need} shards, got {got}")
             }
         }
     }
@@ -66,7 +66,7 @@ impl std::error::Error for LockError {}
 pub fn unlock(
     threshold: u8,
     expected_hash: &[u8],
-    shards: Vec<Share>,
+    shards: &Vec<Share>,
 ) -> Result<Vec<u8>, LockError> {
     if shards.len() < threshold as usize {
         return Err(LockError::InsufficientShards {
@@ -77,7 +77,7 @@ pub fn unlock(
 
     let secret = Sharks(threshold)
         .recover(shards.as_slice())
-        .map_err(|e| LockError::RecoveryFailed(e.to_string()))?;
+        .map_err(|e| LockError::RecoveryFailed(e.to_owned()))?;
 
     if Sha256::digest(&secret).as_slice() != expected_hash {
         return Err(LockError::HashMismatch);

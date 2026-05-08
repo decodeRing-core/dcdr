@@ -20,11 +20,11 @@ pub struct AppData<D: Database> {
 }
 
 impl AppData<SqliteDatabase> {
-    pub async fn init_raft<P: AsRef<Path>>(
+    pub async fn init_raft<P: AsRef<Path> + Send + Sync>(
         node_id: NodeId,
         dir: P,
         addr: String,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let components = setup_raft_node(node_id, dir).await?;
         Ok(Self {
             master_key: OnceLock::new(),

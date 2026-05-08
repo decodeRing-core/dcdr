@@ -1,4 +1,4 @@
-//! Declare the Raft type with the TypeConfig.
+//! Declare the Raft type with the `TypeConfig`.
 
 pub use super::TypeConfig;
 

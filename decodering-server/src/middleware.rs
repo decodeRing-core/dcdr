@@ -73,7 +73,7 @@ where
     }
 }
 
-pub(crate) struct LockState<D: Database>(PhantomData<D>);
+pub struct LockState<D: Database>(PhantomData<D>);
 
 impl<D: Database> LockState<D> {
     pub fn new() -> Self {
@@ -108,7 +108,7 @@ where
     }
 }
 
-pub(crate) struct LockStateHelperMiddleware<S, D: Database> {
+pub struct LockStateHelperMiddleware<S, D: Database> {
     service: S,
     _db: PhantomData<D>,
 }

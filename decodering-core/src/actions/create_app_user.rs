@@ -26,7 +26,7 @@ impl CreateAppUser {
         principal: CreatePrincipal,
         principal_credential: CreatePrincipalCredential,
     ) -> AppRequest {
-        let app_user = CreateAppUser {
+        let app_user = Self {
             user_id,
             principal,
             principal_credential,

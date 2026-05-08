@@ -42,17 +42,17 @@ impl From<UserEntry> for CreateUserResponse {
 }
 
 impl CreateUser {
-    pub fn new(username: &str, email: &str, password_hash: &str, is_admin: u8) -> CreateUser {
-        CreateUser {
-            username: username.to_string(),
-            email: email.to_string(),
-            password_hash: password_hash.to_string(),
+    pub fn new(username: &str, email: &str, password_hash: &str, is_admin: u8) -> Self {
+        Self {
+            username: username.to_owned(),
+            email: email.to_owned(),
+            password_hash: password_hash.to_owned(),
             is_admin,
             created_at: now_ts(),
         }
     }
     pub fn request(username: &str, email: &str, password_hash: &str, is_admin: u8) -> AppRequest {
-        let user = CreateUser::new(username, email, password_hash, is_admin);
+        let user = Self::new(username, email, password_hash, is_admin);
         AppRequest::CreateUser(user)
     }
 }

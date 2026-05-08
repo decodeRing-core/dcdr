@@ -44,7 +44,7 @@ impl RaftBits {
         self.raft.initialize(nodes).await
     }
 
-    pub async fn metrics(&self) -> RaftMetrics {
+    pub fn metrics(&self) -> RaftMetrics {
         self.raft.metrics().borrow_watched().clone()
     }
 

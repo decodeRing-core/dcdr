@@ -12,7 +12,7 @@ pub struct PostgresSecretMappingRepository<'a> {
     pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a> SecretMappingRespository for PostgresSecretMappingRepository<'a> {
+impl SecretMappingRespository for PostgresSecretMappingRepository<'_> {
     async fn insert(&mut self, params: &SecretMappingEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
             "
@@ -71,6 +71,7 @@ impl<'a> SecretMappingRespository for PostgresSecretMappingRepository<'a> {
         Ok(secret_mapping.map(Into::into))
     }
 
+    #[allow(clippy::option_if_let_else)]
     async fn get_by_app_id_after(
         &mut self,
         app_id: &str,

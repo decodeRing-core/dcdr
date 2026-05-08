@@ -10,7 +10,7 @@ pub struct SqliteAuditRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
 }
 
-impl<'a> AuditRepository for SqliteAuditRepository<'a> {
+impl AuditRepository for SqliteAuditRepository<'_> {
     async fn insert(&mut self, params: &AuditEntry) -> Result<i64, DbError> {
         let id = sqlx::query_scalar(
             "INSERT INTO audit_log

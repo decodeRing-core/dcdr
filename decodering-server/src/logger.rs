@@ -21,7 +21,7 @@ impl std::fmt::Display for InvalidLogOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "invalid log output {:?}, expected file|stdout|both",
+            "invalid log output '{}', expected file|stdout|both",
             self.0
         )
     }
@@ -34,9 +34,9 @@ impl FromStr for LogOutput {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "file" => Ok(LogOutput::File),
-            "stdout" => Ok(LogOutput::Stdout),
-            "both" => Ok(LogOutput::Both),
+            "file" => Ok(Self::File),
+            "stdout" => Ok(Self::Stdout),
+            "both" => Ok(Self::Both),
             other => Err(InvalidLogOutput(other.to_owned())),
         }
     }
@@ -51,8 +51,8 @@ pub enum TracingError {
 impl std::fmt::Display for TracingError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TracingError::InvalidFilter(s) => write!(f, "invalid tracing filter: {s}"),
-            TracingError::FileAppender(s) => write!(f, "failed to init file appender: {s}"),
+            Self::InvalidFilter(s) => write!(f, "invalid tracing filter: {s}"),
+            Self::FileAppender(s) => write!(f, "failed to init file appender: {s}"),
         }
     }
 }

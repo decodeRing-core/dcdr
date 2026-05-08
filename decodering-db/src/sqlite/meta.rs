@@ -8,7 +8,7 @@ pub struct SqliteMetaRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
 }
 
-impl<'a> MetaRepository for SqliteMetaRepository<'a> {
+impl MetaRepository for SqliteMetaRepository<'_> {
     async fn get(&mut self, key: &str) -> Result<Option<String>, DbError> {
         let row: Option<(String,)> = sqlx::query_as("SELECT value FROM meta WHERE key = ?")
             .bind(key)

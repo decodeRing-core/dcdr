@@ -12,7 +12,7 @@ pub struct PostgresShamirRepository<'a> {
     pub tx: &'a mut Transaction<'static, Postgres>,
 }
 
-impl<'a> ShamirRepository for PostgresShamirRepository<'a> {
+impl ShamirRepository for PostgresShamirRepository<'_> {
     async fn get_first(&mut self) -> Result<Option<Shamir>, DbError> {
         let shamir = sqlx::query_as::<_, ShamirRow>(
             "SELECT id, total_shares, threshold, validation_hash, created_at FROM shamir_configuration ORDER BY created_at DESC LIMIT 1",

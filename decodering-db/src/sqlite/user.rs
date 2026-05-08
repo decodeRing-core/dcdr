@@ -12,7 +12,7 @@ pub struct SqliteUserRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
 }
 
-impl<'a> UserRepository for SqliteUserRepository<'a> {
+impl UserRepository for SqliteUserRepository<'_> {
     async fn insert(&mut self, params: &UserEntry) -> Result<i64, DbError> {
         let id = sqlx::query_scalar::<_, i64>(
             "INSERT INTO users (username, email, password_hash, is_admin, created_at) \

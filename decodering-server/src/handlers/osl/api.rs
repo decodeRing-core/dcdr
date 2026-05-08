@@ -18,7 +18,7 @@ use crate::handlers::osl::response::{
 };
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
-pub(crate) async fn api_put_secret<D: Database + 'static>(
+pub async fn api_put_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<PutSecretRequestData>,
@@ -96,7 +96,7 @@ pub(crate) async fn api_put_secret<D: Database + 'static>(
     match app.submit(request).await {
         Ok(resp) => match resp {
             AppResponse::CreateSecretMapping(resp) => {
-                ApiPutSecretResponse::new(resp.secret_name, secret_version.to_string())
+                ApiPutSecretResponse::new(resp.secret_name, secret_version)
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app");
@@ -114,7 +114,7 @@ pub(crate) async fn api_put_secret<D: Database + 'static>(
     }
 }
 
-pub(crate) async fn api_get_secret<D: Database + 'static>(
+pub async fn api_get_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<GetSecretRequestData>,
@@ -177,7 +177,7 @@ pub(crate) async fn api_get_secret<D: Database + 'static>(
     }
 }
 
-pub(crate) async fn api_destroy_secret<D: Database + 'static>(
+pub async fn api_destroy_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<DeleteSecretRequestData>,
@@ -239,7 +239,7 @@ pub(crate) async fn api_destroy_secret<D: Database + 'static>(
             tracing::debug!(error=?e, "Plugin error");
             return ApiResponse::error(ErrorStatus::Plugin);
         }
-    };
+    }
 
     let request = DeleteSecretMapping::request(&req.app_id, &req.secret_name);
     match app.submit(request).await {
@@ -261,7 +261,7 @@ pub(crate) async fn api_destroy_secret<D: Database + 'static>(
     }
 }
 
-pub(crate) async fn api_list_secret<D: Database + 'static>(
+pub async fn api_list_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: web::Json<ListSecretRequestData>,
     auth: AuthOSLMiddleware<D>,

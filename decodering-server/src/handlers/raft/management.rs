@@ -9,7 +9,7 @@ use crate::app_data::AppData;
 use crate::handlers::raft::payload::InitRaftRequestData;
 use crate::handlers::response::{ApiResponse, ErrorStatus, SuccessStatus};
 
-pub(crate) async fn init_raft<D: Database + 'static>(
+pub async fn init_raft<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<InitRaftRequestData>,
 ) -> impl Responder {
@@ -35,13 +35,13 @@ pub(crate) async fn init_raft<D: Database + 'static>(
     }
 }
 
-pub(crate) async fn metrics_raft<D: Database + 'static>(
+pub async fn metrics_raft<D: Database + 'static>(
     app: Data<AppData<D>>,
     _req: Json<Vec<(NodeId, String)>>,
 ) -> impl Responder {
     match &app.raft {
         Some(raft_bits) => {
-            let result = raft_bits.metrics().await;
+            let result = raft_bits.metrics();
             ApiResponse::new(SuccessStatus::RaftMetrics.into(), Some(result))
         }
         _ => {
@@ -51,7 +51,7 @@ pub(crate) async fn metrics_raft<D: Database + 'static>(
     }
 }
 
-pub(crate) async fn add_learner_raft<D: Database + 'static>(
+pub async fn add_learner_raft<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<(NodeId, String)>,
 ) -> impl Responder {
@@ -74,7 +74,7 @@ pub(crate) async fn add_learner_raft<D: Database + 'static>(
     }
 }
 
-pub(crate) async fn change_membership_raft<D: Database + 'static>(
+pub async fn change_membership_raft<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<BTreeSet<NodeId>>,
 ) -> impl Responder {

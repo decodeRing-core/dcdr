@@ -113,24 +113,24 @@ pub enum AppResponse {
 impl fmt::Display for AppResponse {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AppResponse::CreateApp(create_app) => {
+            Self::CreateApp(create_app) => {
                 write!(
                     f,
                     "CreateApp(app_id={}, app_name={})",
                     create_app.app_id, create_app.app_name
                 )
             }
-            AppResponse::CreateUser(create_user) => {
+            Self::CreateUser(create_user) => {
                 write!(
                     f,
                     "CreateUser(username={}, email={}, is_admin={})",
                     create_user.username, create_user.email, create_user.is_admin
                 )
             }
-            AppResponse::CreateApiKey(create_api_key) => {
+            Self::CreateApiKey(create_api_key) => {
                 write!(f, "CreateApiKey(user_id={})", create_api_key.user_id)
             }
-            AppResponse::CreateSecretMapping(create_secret_mapping) => {
+            Self::CreateSecretMapping(create_secret_mapping) => {
                 write!(
                     f,
                     "CreateSecretMapping(app_id={}, secret_name={}, backend={}, mount_path={}, tainted={})",
@@ -141,28 +141,28 @@ impl fmt::Display for AppResponse {
                     create_secret_mapping.tainted
                 )
             }
-            AppResponse::CreateShamirConfiguration(create_shamir_configuration) => {
+            Self::CreateShamirConfiguration(create_shamir_configuration) => {
                 write!(
                     f,
                     "CreateShamirConfiguration(total_shares={}, threshold={})",
                     create_shamir_configuration.total_shares, create_shamir_configuration.threshold
                 )
             }
-            AppResponse::CreatePrincipal(create_principal) => {
+            Self::CreatePrincipal(create_principal) => {
                 write!(
                     f,
                     "CreatePrincipal(principal_id={})",
                     create_principal.principal_id
                 )
             }
-            AppResponse::CreatePrincipalToken(create_principal_token) => {
+            Self::CreatePrincipalToken(create_principal_token) => {
                 write!(
                     f,
                     "CreatePrincipalToken(principal_id={})",
                     create_principal_token.principal_id
                 )
             }
-            AppResponse::CreatePrincipalCredential(create_principal_credential_response) => {
+            Self::CreatePrincipalCredential(create_principal_credential_response) => {
                 write!(
                     f,
                     "CreatePrincipalCredential(credential_id={}, principal_id={})",
@@ -170,11 +170,11 @@ impl fmt::Display for AppResponse {
                     create_principal_credential_response.principal_id
                 )
             }
-            AppResponse::CreateAppUser(_) => write!(f, "CreateAppUser()"),
-            AppResponse::Noop => write!(f, "Noop"),
-            AppResponse::Error(e) => write!(f, "Error({e})"),
-            AppResponse::SystemInit(_) => write!(f, "SystemInit()"),
-            AppResponse::DeleteSecretMapping(r) => write!(f, "DeleteSecretMapping(deleted={})", r),
+            Self::CreateAppUser(_) => write!(f, "CreateAppUser()"),
+            Self::Noop => write!(f, "Noop"),
+            Self::Error(e) => write!(f, "Error({e})"),
+            Self::SystemInit(_) => write!(f, "SystemInit()"),
+            Self::DeleteSecretMapping(r) => write!(f, "DeleteSecretMapping(deleted={r})"),
         }
     }
 }

@@ -80,7 +80,7 @@ impl CreateApiKey {
         api_key_prefix: String,
         expires_at: Option<i64>,
     ) -> AppRequest {
-        let api_key = CreateApiKey::new(user_id, api_key_hash, api_key_prefix, expires_at);
+        let api_key = Self::new(user_id, api_key_hash, api_key_prefix, expires_at);
         AppRequest::CreateApiKey(api_key)
     }
 }

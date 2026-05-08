@@ -43,14 +43,16 @@ impl Target {
     pub fn id_str(&self) -> String {
         match self {
             Self::App(id) => id.clone(),
-            Self::User(id) => id.to_string(),
-            Self::ApiKey(id) => id.to_string(),
-            Self::SecretMapping(app_id, name) => format!("{}:{}", app_id, name),
-            Self::ShamirConfiguration(id) => id.to_string(),
+            Self::User(user_id) => user_id.to_string(),
+            Self::ApiKey(api_key_id) => api_key_id.to_string(),
+            Self::SecretMapping(app_id, name) => format!("{app_id}:{name}"),
+            Self::ShamirConfiguration(shamir_id) => shamir_id.to_string(),
             Self::AuditEntry(id) => id.to_string(),
-            Self::Principal(id) => id.to_string(),
-            Self::PrincipalCredential(id) => id.to_string(),
-            Self::PrincipalToken(id) => id.to_string(),
+            Self::Principal(principal_id) => principal_id.to_owned(),
+            Self::PrincipalCredential(principal_credential_id) => {
+                principal_credential_id.to_owned()
+            }
+            Self::PrincipalToken(principal_token_id) => principal_token_id.to_owned(),
         }
     }
 }
@@ -74,18 +76,18 @@ pub enum ActionKind {
 impl ActionKind {
     pub fn as_str(&self) -> &'static str {
         match self {
-            ActionKind::AppCreate => "app.create",
-            ActionKind::UserCreate => "user.create",
-            ActionKind::ApiKeyCreate => "api_key.create",
-            ActionKind::PrincipalCreate => "principal.create",
-            ActionKind::SecretMappingCreate => "secret_mapping.create",
-            ActionKind::SecretMappingDelete => "secret_mapping.delete",
-            ActionKind::ShamirConfigurationCreate => "shamir_configuration.create",
-            ActionKind::SystemInit => "system.init",
-            ActionKind::SecretMappingGet => "secret_mapping.get",
-            ActionKind::PrincipalCredentialCreate => "principal_credential.create",
-            ActionKind::PrincipalTokenCreate => "principal_token.create",
-            ActionKind::CreateAppUser => "app_user.create",
+            Self::AppCreate => "app.create",
+            Self::UserCreate => "user.create",
+            Self::ApiKeyCreate => "api_key.create",
+            Self::PrincipalCreate => "principal.create",
+            Self::SecretMappingCreate => "secret_mapping.create",
+            Self::SecretMappingDelete => "secret_mapping.delete",
+            Self::ShamirConfigurationCreate => "shamir_configuration.create",
+            Self::SystemInit => "system.init",
+            Self::SecretMappingGet => "secret_mapping.get",
+            Self::PrincipalCredentialCreate => "principal_credential.create",
+            Self::PrincipalTokenCreate => "principal_token.create",
+            Self::CreateAppUser => "app_user.create",
         }
     }
 }
@@ -100,7 +102,7 @@ pub struct AuditDescriptor {
 
 impl AuditDescriptor {
     fn metadata_json(&self) -> Option<String> {
-        self.metadata.as_ref().map(|v| v.to_string())
+        self.metadata.as_ref().map(ToString::to_string)
     }
 }
 
@@ -111,16 +113,15 @@ pub fn audit_allowed<O: AuditCapture>(
     timestamp: i64,
 ) -> AuditEntry {
     let (user_id, principal_id) = split_actor(&descriptor.actor);
-    let (target_type, target_id) = match output.target() {
-        Some(t) => (Some(t.kind_str().to_string()), Some(t.id_str())),
-        None => (None, None),
-    };
+    let (target_type, target_id) = output.target().map_or((None, None), |t| {
+        (Some(t.kind_str().to_owned()), Some(t.id_str()))
+    });
     AuditEntry {
         raft_index,
         timestamp,
         user_id,
         principal_id,
-        action_type: descriptor.action_kind.as_str().to_string(),
+        action_type: descriptor.action_kind.as_str().to_owned(),
         target_type,
         target_id,
         outcome: AuditOutcome::Allowed,
@@ -136,7 +137,7 @@ pub fn audit_allowed<O: AuditCapture>(
 pub fn audit_denied(
     descriptor: &AuditDescriptor,
     raft_index: i64,
-    reason: DenyReason,
+    reason: &DenyReason,
     timestamp: i64,
 ) -> AuditEntry {
     let (user_id, principal_id) = split_actor(&descriptor.actor);
@@ -146,7 +147,7 @@ pub fn audit_denied(
         timestamp,
         user_id,
         principal_id,
-        action_type: descriptor.action_kind.as_str().to_string(),
+        action_type: descriptor.action_kind.as_str().to_owned(),
         target_type: None,
         target_id: None,
         outcome: AuditOutcome::Denied,
@@ -172,7 +173,7 @@ pub fn audit_errored(
         timestamp,
         user_id,
         principal_id,
-        action_type: descriptor.action_kind.as_str().to_string(),
+        action_type: descriptor.action_kind.as_str().to_owned(),
         target_type: None,
         target_id: None,
         outcome: AuditOutcome::Error,
@@ -208,10 +209,10 @@ pub struct ActionOutput<R> {
 
 impl<R> AuditCapture for ActionOutput<R> {
     fn before_state(&self) -> Option<String> {
-        self.before_state.as_ref().map(|v| v.to_string())
+        self.before_state.as_ref().map(ToString::to_string)
     }
     fn after_state(&self) -> Option<String> {
-        self.after_state.as_ref().map(|v| v.to_string())
+        self.after_state.as_ref().map(ToString::to_string)
     }
     fn target(&self) -> Option<Target> {
         self.target.clone()

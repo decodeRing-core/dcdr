@@ -3,7 +3,7 @@ use serde::Serialize;
 use crate::handlers::response::{ApiResponse, ApiStatus, SuccessStatus};
 
 #[derive(Serialize)]
-pub(crate) struct ApiCreateAppResponse {
+pub struct ApiCreateAppResponse {
     pub(crate) app_id: String,
     pub(crate) app_name: String,
 }
@@ -12,13 +12,13 @@ impl ApiCreateAppResponse {
     pub(crate) fn new(app_id: String, app_name: String) -> ApiResponse<Self> {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
-            Some(ApiCreateAppResponse { app_id, app_name }),
+            Some(Self { app_id, app_name }),
         )
     }
 }
 
 #[derive(Serialize)]
-pub(crate) struct ApiCreateAppUserResponse {
+pub struct ApiCreateAppUserResponse {
     pub(crate) token: String,
 }
 
@@ -26,13 +26,13 @@ impl ApiCreateAppUserResponse {
     pub(crate) fn new(token: String) -> ApiResponse<Self> {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
-            Some(ApiCreateAppUserResponse { token }),
+            Some(Self { token }),
         )
     }
 }
 
 #[derive(Serialize)]
-pub(crate) struct ApiAuthAppUserResponse {
+pub struct ApiAuthAppUserResponse {
     pub(crate) token: String,
     pub(crate) expires_at: i64,
 }
@@ -41,7 +41,7 @@ impl ApiAuthAppUserResponse {
     pub(crate) fn new(token: String, expires_at: i64) -> ApiResponse<Self> {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
-            Some(ApiAuthAppUserResponse { token, expires_at }),
+            Some(Self { token, expires_at }),
         )
     }
 }

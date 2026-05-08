@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 use crate::logger::LogOutput;
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum StorageMode {
     Raft,
@@ -21,7 +21,7 @@ impl Display for InvalidStorageMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "invalid storage mode {:?}, expected raft|postgres",
+            "invalid storage mode '{}', expected raft|postgres",
             self.0
         )
     }
@@ -34,8 +34,8 @@ impl FromStr for StorageMode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "raft" => Ok(StorageMode::Raft),
-            "postgres" => Ok(StorageMode::Postgres),
+            "raft" => Ok(Self::Raft),
+            "postgres" => Ok(Self::Postgres),
             other => Err(InvalidStorageMode(other.to_owned())),
         }
     }
@@ -48,7 +48,7 @@ pub enum StorageConfig {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Config {
+pub struct Config {
     pub plugin_directory: String,
     pub storage: StorageConfig,
     pub server_log_output: LogOutput,
@@ -107,7 +107,7 @@ fn init_config() -> Result<Config, ConfigError> {
 
 static CONFIG: OnceLock<Config> = OnceLock::new();
 
-pub(crate) fn load_config() -> Result<&'static Config, ConfigError> {
+pub fn load_config() -> Result<&'static Config, ConfigError> {
     let cfg = init_config()?;
     Ok(CONFIG.get_or_init(|| cfg))
 }

@@ -39,12 +39,8 @@ impl From<ShamirEntry> for CreateShamirConfigurationResponse {
 }
 
 impl CreateShamirConfiguration {
-    pub fn new(
-        total_shares: i16,
-        threshold: i16,
-        validation_hash: Vec<u8>,
-    ) -> CreateShamirConfiguration {
-        CreateShamirConfiguration {
+    pub fn new(total_shares: i16, threshold: i16, validation_hash: Vec<u8>) -> Self {
+        Self {
             total_shares,
             threshold,
             validation_hash,
@@ -52,8 +48,7 @@ impl CreateShamirConfiguration {
         }
     }
     pub fn request(total_shares: i16, threshold: i16, validation_hash: Vec<u8>) -> AppRequest {
-        let shamir_config =
-            CreateShamirConfiguration::new(total_shares, threshold, validation_hash);
+        let shamir_config = Self::new(total_shares, threshold, validation_hash);
         AppRequest::CreateShamirConfiguration(shamir_config)
     }
 }

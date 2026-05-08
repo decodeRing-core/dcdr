@@ -1,4 +1,4 @@
-use extism_pdk::*;
+use extism_pdk::{Error, FnResult, HttpRequest, Json, WithReturnCode, config, http, plugin_fn};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -41,7 +41,7 @@ pub fn destroy_secret(Json(input): Json<DeleteSecretInput>) -> FnResult<Json<Del
         .ok_or_else(|| WithReturnCode::from(Error::msg("missing vault_addr config")))?;
     let token = config::get("vault_token")?
         .ok_or_else(|| WithReturnCode::from(Error::msg("missing vault_token config")))?;
-    let mount = config::get("kv_mount")?.unwrap_or_else(|| "secret".to_string());
+    let mount = config::get("kv_mount")?.unwrap_or_else(|| "secret".to_owned());
 
     let url = format!(
         "{}/v1/{}/metadata/{}",
@@ -73,7 +73,7 @@ pub fn get_secret(Json(input): Json<ReadSecretInput>) -> FnResult<Json<ReadSecre
         .ok_or_else(|| WithReturnCode::from(Error::msg("missing vault_addr config")))?;
     let token = config::get("vault_token")?
         .ok_or_else(|| WithReturnCode::from(Error::msg("missing vault_token config")))?;
-    let mount = config::get("kv_mount")?.unwrap_or_else(|| "secret".to_string());
+    let mount = config::get("kv_mount")?.unwrap_or_else(|| "secret".to_owned());
 
     let url = match input.version {
         Some(v) => format!(
@@ -108,7 +108,7 @@ pub fn get_secret(Json(input): Json<ReadSecretInput>) -> FnResult<Json<ReadSecre
     let parsed: serde_json::Value = serde_json::from_slice(&res.body())?;
     let version = parsed
         .pointer("/data/metadata/version")
-        .and_then(|v| v.as_u64())
+        .and_then(serde_json::Value::as_u64)
         .unwrap_or(0);
 
     let data = parsed
@@ -128,7 +128,7 @@ pub fn put_secret(Json(input): Json<WriteSecretInput>) -> FnResult<Json<WriteSec
         .ok_or_else(|| WithReturnCode::from(Error::msg("missing vault_addr config")))?;
     let token = config::get("vault_token")?
         .ok_or_else(|| WithReturnCode::from(Error::msg("missing vault_token config")))?;
-    let mount = config::get("kv_mount")?.unwrap_or_else(|| "secret".to_string());
+    let mount = config::get("kv_mount")?.unwrap_or_else(|| "secret".to_owned());
 
     let body = json!({ "data": input.data });
 
@@ -157,7 +157,7 @@ pub fn put_secret(Json(input): Json<WriteSecretInput>) -> FnResult<Json<WriteSec
     let parsed: serde_json::Value = serde_json::from_slice(&res.body())?;
     let version = parsed
         .pointer("/data/version")
-        .and_then(|v| v.as_u64())
+        .and_then(serde_json::Value::as_u64)
         .unwrap_or(0);
 
     Ok(Json(WriteSecretOutput {
