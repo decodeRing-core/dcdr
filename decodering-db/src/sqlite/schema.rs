@@ -144,6 +144,17 @@ pub const SCHEMA: &str = r#"
     CREATE INDEX IF NOT EXISTS audit_log_active_idx ON audit_log (id) WHERE undone_by IS NULL;
     CREATE INDEX IF NOT EXISTS audit_log_raft_idx ON audit_log (raft_index);
 
+    CREATE TABLE IF NOT EXISTS tpm_challenges (
+        challenge_id    TEXT PRIMARY KEY,
+        nonce           BLOB NOT NULL,           -- 32 random bytes
+        ek_pubkey_hash  TEXT,                    -- optional: which credential we expect
+        issued_at       INTEGER NOT NULL,
+        expires_at      INTEGER NOT NULL,
+        consumed_at     INTEGER                  -- single-use flag
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_tpm_challenges_expires ON tpm_challenges(expires_at);
+
     -- Enable foreign key enforcement (SQLite default is OFF, must be set per connection).
     PRAGMA foreign_keys = ON;
 "#;

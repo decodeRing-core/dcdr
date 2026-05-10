@@ -5,18 +5,22 @@ use decodering_core::actions::create_app_user::CreateAppUser;
 use decodering_core::actions::create_principal::CreatePrincipal;
 use decodering_core::actions::create_principal_credential::CreatePrincipalCredential;
 use decodering_core::actions::create_principal_token::CreatePrincipalToken;
+use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
+use decodering_core::crypto::{encode_hex, pem_to_der, sha256_hex};
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
 use decodering_core::repository::{AppRepository, PrincipalRepository};
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
+use decodering_core::time::{CHALLENGE_TTL_SECS, now_ts, now_ts_plus};
 use decodering_core::tx::{Database, Tx};
-use decodering_core::{now_ts, now_ts_plus, sha256_hex};
+use rand::Rng;
 use rand::distr::{Alphanumeric, SampleString};
 use uuid::Uuid;
 
 use crate::app_data::AppData;
+use crate::config::get_config;
 use crate::extractor::AuthAdminMiddleware;
-use crate::handlers::app::payload::{AuthUserData, CreateAppData, CreateAppUserData};
+use crate::handlers::app::payload::{AuthTpmData, AuthUserData, CreateAppData, CreateAppUserData};
 use crate::handlers::app::response::ApiAuthAppUserResponse;
 use crate::handlers::app::response::ApiCreateAppResponse;
 use crate::handlers::app::response::ApiCreateAppUserResponse;
@@ -74,14 +78,63 @@ pub async fn create_app_user<D: Database + 'static>(
             let lookup_key = sha256_hex(token.as_bytes());
             (token, lookup_key)
         }
-        _ => {
+        PrincipalCredentialKind::TrustedPlatformModule => {
+            let Some(ref tpm_req) = req.0.tpm else {
+                tracing::error!("Missing TPM data");
+                return ApiResponse::error(ErrorStatus::Internal);
+            };
+            let ek_der = match pem_to_der(&tpm_req.ek_pubkey_pem) {
+                Ok(x) => x,
+                Err(e) => {
+                    tracing::error!(err=?e, "Invalid EK public key");
+                    return ApiResponse::error(ErrorStatus::Internal);
+                }
+            };
+            let ek_hash = sha256_hex(&ek_der);
+            if tpm_req.require_ek_cert {
+                let cert_pem = tpm_req.ek_cert_pem.as_ref();
+                let Some(cert_pem) = cert_pem else {
+                    tracing::error!("EK cert required");
+                    return ApiResponse::error(ErrorStatus::Internal);
+                };
+                let config = get_config();
+                let trust_store = TpmTrustStore::from_directory(&config.tpm_trust_dir);
+                let Ok(trust_store) = trust_store else {
+                    tracing::error!("Failed to load trust store");
+                    return ApiResponse::error(ErrorStatus::Internal);
+                };
+                tracing::info!(count = trust_store.len(), "loaded TPM trust anchors");
+
+                if let Err(e) = verify_ek_cert_chain(cert_pem, &tpm_req.ek_pubkey_pem, &trust_store)
+                {
+                    tracing::error!(err=?e, "EK cert verification failed");
+                    return ApiResponse::error(ErrorStatus::Internal);
+                }
+            }
+
+            (String::new(), ek_hash)
+        }
+        PrincipalCredentialKind::AwsIdentity => {
             return ApiResponse::error(ErrorStatus::Unimplemented);
         }
     };
 
     let secret_material = match req.0.credential_kind {
-        PrincipalCredentialKind::ApiKey => "{}".to_owned(),
-        _ => {
+        PrincipalCredentialKind::ApiKey => serde_json::json!({}),
+        PrincipalCredentialKind::TrustedPlatformModule => {
+            let Some(ref tpm_req) = req.0.tpm else {
+                tracing::error!("Missing TPM data");
+                return ApiResponse::error(ErrorStatus::Internal);
+            };
+            let material = serde_json::json!({
+                "ek_pubkey_pem":   tpm_req.ek_pubkey_pem,
+                "ek_cert_pem":     tpm_req.ek_cert_pem,
+                "require_ek_cert": tpm_req.require_ek_cert,
+                "expected_pcrs":   tpm_req.expected_pcrs,
+            });
+            material
+        }
+        PrincipalCredentialKind::AwsIdentity => {
             return ApiResponse::error(ErrorStatus::Unimplemented);
         }
     };
@@ -91,7 +144,7 @@ pub async fn create_app_user<D: Database + 'static>(
         principal_id,
         kind: req.0.credential_kind,
         lookup_key,
-        secret_material,
+        secret_material: secret_material.to_string(),
         status: PrincipalStatus::Active,
         expires_at: req.0.expires_at,
         last_used_at: None,
@@ -241,4 +294,26 @@ pub async fn auth_app_user<D: Database + 'static>(
             ApiResponse::error(ErrorStatus::Internal)
         }
     }
+}
+
+pub async fn auth_tpm_app_user<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
+    ApiResponse::<()>::error(ErrorStatus::Unimplemented)
+}
+
+pub async fn tpm_challenge_app_user<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    req: Json<AuthTpmData>,
+) -> impl Responder {
+    let mut nonce_bytes = [0u8; 32];
+    rand::rng().fill_bytes(&mut nonce_bytes);
+    let nonce_hex = encode_hex(&nonce_bytes);
+
+    let challenge_id = Uuid::now_v7().to_string();
+    let now = now_ts();
+    let expires_at = now + CHALLENGE_TTL_SECS;
+    ApiResponse::<()>::error(ErrorStatus::Unimplemented)
+}
+
+pub async fn auth_aws_iam_app_user<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
+    ApiResponse::<()>::error(ErrorStatus::Unimplemented)
 }

@@ -1,4 +1,3 @@
-// app-core/src/plugin/wasm.rs
 use extism::convert::Json;
 use extism::{Manifest, Plugin};
 use serde::{Deserialize, Serialize};

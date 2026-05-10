@@ -3,10 +3,10 @@ use serde::{Deserialize, Serialize};
 use crate::action::Action;
 use crate::audit::{ActionKind, ActionOutput, Actor, AuditDescriptor, Target};
 use crate::error::ExecutionError;
-use crate::now_ts;
 use crate::repository::{ApiKeyEntry, ApiKeyRepository};
 use crate::request::AppRequest;
 use crate::response::{AppResponse, CreateApiKeyResponse};
+use crate::time::now_ts;
 use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]

@@ -97,7 +97,7 @@ impl PrincipalStatus {
 #[serde(rename_all = "camelCase")]
 pub enum PrincipalCredentialKind {
     ApiKey,
-    VirtualTrustedPlatformModule,
+    TrustedPlatformModule,
     AwsIdentity,
 }
 
@@ -107,7 +107,7 @@ impl FromStr for PrincipalCredentialKind {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
             "api_key" => Self::ApiKey,
-            "vtpm" => Self::VirtualTrustedPlatformModule,
+            "tpm" => Self::TrustedPlatformModule,
             "aws_iam" => Self::AwsIdentity,
             other => return Err(UnknownPrincipalCredentialKind(other.to_owned())),
         })
@@ -118,7 +118,7 @@ impl PrincipalCredentialKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::ApiKey => "api_key",
-            Self::VirtualTrustedPlatformModule => "vtpm",
+            Self::TrustedPlatformModule => "tpm",
             Self::AwsIdentity => "aws_iam",
         }
     }

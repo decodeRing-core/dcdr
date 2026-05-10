@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalKind};
 use serde::Deserialize;
 use serde_with::{base64::Base64, serde_as};
@@ -8,7 +10,16 @@ pub struct CreateAppUserData {
     pub name: String,
     pub kind: PrincipalKind,
     pub credential_kind: PrincipalCredentialKind,
+    pub tpm: Option<TrustedPlatformModuleData>,
     pub expires_at: Option<i64>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct TrustedPlatformModuleData {
+    pub ek_pubkey_pem: String,       // the public key from the TPM
+    pub ek_cert_pem: Option<String>, // optional EK certificate
+    pub expected_pcrs: Option<HashMap<u8, String>>, // optional boot-state pinning
+    pub require_ek_cert: bool,       // policy
 }
 
 #[serde_as]
@@ -27,4 +38,9 @@ pub struct CreateAppData {
 pub struct AuthUserData {
     pub app_id: String,
     pub key: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct AuthTpmData {
+    pub ek_pubkey_hash: Option<String>,
 }

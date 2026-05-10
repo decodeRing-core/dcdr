@@ -44,7 +44,7 @@ tracing-subscriber = { version = "0.3.23", features = [
 tracing-actix-web = "0.7.21"
 actix-cors = "0.7.1"
 futures-util = "0.3.32"
-openraft = { version = "0.10.0-alpha.18", features = ["serde", "type-alias"] }
+openraft = { version = "0.10.0-alpha.20", features = ["serde", "type-alias"] }
 rocksdb = "0.24.0"
 futures = "0.3.32"
 rand = { version = "0.10.1", features = ["thread_rng"] }
@@ -61,6 +61,10 @@ sha2 = "0.11.0"
 base64 = "0.22.1"
 zeroize = "1.8.2"
 uuid = { version = "1", features = ["v7", "serde"] }
+pem = "3.0.6"
+x509-parser = "0.18.1"
+rustls-webpki = { version = "0.103.13", features = ["alloc", "std", "ring"] }
+rustls-pki-types = "1.14"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
@@ -82,9 +86,9 @@ missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 multiple_crate_versions = "allow"
 
-print_stdout = "warn"  # use logging instead
+print_stdout = "warn"       # use logging instead
 print_stderr = "warn"
-use_debug = "warn"  # {:?} in user-facing output
+use_debug = "warn"          # {:?} in user-facing output
 string_to_string = "warn"
 string_slice = "warn"
 str_to_string = "warn"

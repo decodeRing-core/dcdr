@@ -49,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
 
     let mut orchestrator = Orchestrator::new();
     orchestrator
-        .load_wasm_plugins_from_dir(&config.plugin_directory)
+        .load_wasm_plugins_from_dir(&config.plugin_dir)
         .map_err(|e| {
             tracing::error!(error=%e, "Failed to initialize orchestrator");
             e

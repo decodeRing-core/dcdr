@@ -49,13 +49,14 @@ pub enum StorageConfig {
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    pub plugin_directory: String,
+    pub plugin_dir: String,
     pub storage: StorageConfig,
     pub server_log_output: LogOutput,
     pub server_log_dir: String,
     pub server_log_prefix: String,
     pub server_log_max_files: usize,
     pub tracing_level: String,
+    pub tpm_trust_dir: String,
 }
 
 #[derive(Debug)]
@@ -95,13 +96,14 @@ fn init_config() -> Result<Config, ConfigError> {
     };
 
     Ok(Config {
-        plugin_directory: env_var("PLUGIN_DIRECTORY")?,
+        plugin_dir: env_var("PLUGIN_DIR")?,
         storage,
         server_log_output: env_parsed("SERVER_LOG_OUTPUT")?,
         server_log_dir: env_var("SERVER_LOG_DIR")?,
         server_log_prefix: env_var("SERVER_LOG_PREFIX")?,
         server_log_max_files: env_parsed("SERVER_LOG_MAX_FILES")?,
         tracing_level: env_var("TRACING_LEVEL")?,
+        tpm_trust_dir: env_var("TPM_TRUST_DIR")?,
     })
 }
 
@@ -112,9 +114,9 @@ pub fn load_config() -> Result<&'static Config, ConfigError> {
     Ok(CONFIG.get_or_init(|| cfg))
 }
 
-// pub(crate) fn get_config() -> &'static Config {
-//     #[allow(clippy::expect_used)]
-//     CONFIG
-//         .get()
-//         .expect("config not initialized; call load_config() at startup")
-// }
+pub fn get_config() -> &'static Config {
+    #[allow(clippy::expect_used)]
+    CONFIG
+        .get()
+        .expect("config not initialized; call load_config() at startup")
+}
