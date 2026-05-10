@@ -8,6 +8,7 @@ use crate::repository::PrincipalRepository;
 use crate::repository::PrincipalTokenRepository;
 use crate::repository::SecretMappingRespository;
 use crate::repository::ShamirRepository;
+use crate::repository::TpmChallengeRepository;
 use crate::repository::UserRepository;
 
 pub trait Tx: Send {
@@ -38,7 +39,11 @@ pub trait Tx: Send {
     type PrincipalTokenRepo<'a>: PrincipalTokenRepository
     where
         Self: 'a;
+    type TpmChallengeRepo<'a>: TpmChallengeRepository
+    where
+        Self: 'a;
 
+    fn tpm_challenge(&mut self) -> Self::TpmChallengeRepo<'_>;
     fn principal_token(&mut self) -> Self::PrincipalTokenRepo<'_>;
     fn principal_credential(&mut self) -> Self::PrincipalCredentialRepo<'_>;
     fn principal(&mut self) -> Self::PrincipalRepo<'_>;

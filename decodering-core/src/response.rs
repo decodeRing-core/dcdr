@@ -88,6 +88,21 @@ pub struct CreatePrincipalTokenResponse {
 }
 
 #[derive(Serialize, Debug, Deserialize)]
+pub struct CreateTpmChallengeResponse {
+    pub challenge_id: String,
+    pub nonce: Vec<u8>,
+    pub ek_pubkey_hash: Option<String>,
+    pub issued_at: i64,
+    pub expires_at: i64,
+    pub consumed_at: Option<i64>,
+}
+
+#[derive(Serialize, Debug, Deserialize)]
+pub struct ConsumeTpmChallengeResponse {
+    pub challenge_id: String,
+}
+
+#[derive(Serialize, Debug, Deserialize)]
 pub struct CreateAppUserResponse {
     pub principal: CreatePrincipalResponse,
     pub principal_credential: CreatePrincipalCredentialResponse,
@@ -106,6 +121,8 @@ pub enum AppResponse {
     CreatePrincipalToken(CreatePrincipalTokenResponse),
     SystemInit(SystemInitResponse),
     CreateAppUser(CreateAppUserResponse),
+    CreateTpmChallenge(CreateTpmChallengeResponse),
+    ConsumeTpmChallenge(ConsumeTpmChallengeResponse),
     Noop,
     Error(String),
 }
@@ -168,6 +185,20 @@ impl fmt::Display for AppResponse {
                     "CreatePrincipalCredential(credential_id={}, principal_id={})",
                     create_principal_credential_response.credential_id,
                     create_principal_credential_response.principal_id
+                )
+            }
+            Self::CreateTpmChallenge(create_tpm_challenge) => {
+                write!(
+                    f,
+                    "CreateTpmChallenge(challenge_id={})",
+                    create_tpm_challenge.challenge_id
+                )
+            }
+            Self::ConsumeTpmChallenge(consume_tpm_challenge) => {
+                write!(
+                    f,
+                    "ConsumeTpmChallenge(challenge_id={})",
+                    consume_tpm_challenge.challenge_id
                 )
             }
             Self::CreateAppUser(_) => write!(f, "CreateAppUser()"),

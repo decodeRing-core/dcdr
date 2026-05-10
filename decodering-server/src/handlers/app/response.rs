@@ -45,3 +45,23 @@ impl ApiAuthAppUserResponse {
         )
     }
 }
+
+#[derive(Serialize)]
+pub struct ApiTpmChallengeResponse {
+    pub(crate) challenge_id: String,
+    pub(crate) nonce: String,
+    pub(crate) expires_at: i64,
+}
+
+impl ApiTpmChallengeResponse {
+    pub(crate) fn new(challenge_id: String, nonce: String, expires_at: i64) -> ApiResponse<Self> {
+        ApiResponse::new(
+            ApiStatus::Success(SuccessStatus::OperationCompleted),
+            Some(Self {
+                challenge_id,
+                nonce,
+                expires_at,
+            }),
+        )
+    }
+}

@@ -5,6 +5,7 @@ use decodering_core::actions::create_app_user::CreateAppUser;
 use decodering_core::actions::create_principal::CreatePrincipal;
 use decodering_core::actions::create_principal_credential::CreatePrincipalCredential;
 use decodering_core::actions::create_principal_token::CreatePrincipalToken;
+use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
 use decodering_core::crypto::{encode_hex, pem_to_der, sha256_hex};
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
@@ -21,9 +22,9 @@ use crate::app_data::AppData;
 use crate::config::get_config;
 use crate::extractor::AuthAdminMiddleware;
 use crate::handlers::app::payload::{AuthTpmData, AuthUserData, CreateAppData, CreateAppUserData};
-use crate::handlers::app::response::ApiAuthAppUserResponse;
 use crate::handlers::app::response::ApiCreateAppResponse;
 use crate::handlers::app::response::ApiCreateAppUserResponse;
+use crate::handlers::app::response::{ApiAuthAppUserResponse, ApiTpmChallengeResponse};
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
 pub async fn create_app_user<D: Database + 'static>(
@@ -311,7 +312,35 @@ pub async fn tpm_challenge_app_user<D: Database + 'static>(
     let challenge_id = Uuid::now_v7().to_string();
     let now = now_ts();
     let expires_at = now + CHALLENGE_TTL_SECS;
-    ApiResponse::<()>::error(ErrorStatus::Unimplemented)
+
+    let tpm_challenge = CreateTpmChallenge {
+        challenge_id,
+        nonce: nonce_bytes.to_vec(),
+        ek_pubkey_hash: req.0.ek_pubkey_hash,
+        issued_at: now,
+        expires_at,
+        consumed_at: None,
+    };
+    let tpm_request = AppRequest::CreateTpmChallenge(tpm_challenge);
+    match app.submit(tpm_request).await {
+        Ok(resp) => match resp {
+            AppResponse::CreateTpmChallenge(r) => {
+                ApiTpmChallengeResponse::new(r.challenge_id, nonce_hex, expires_at)
+            }
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to create app");
+                ApiResponse::error(ErrorStatus::Internal)
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                ApiResponse::error(ErrorStatus::Internal)
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            ApiResponse::error(ErrorStatus::Internal)
+        }
+    }
 }
 
 pub async fn auth_aws_iam_app_user<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {

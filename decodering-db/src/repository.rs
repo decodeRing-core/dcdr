@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use decodering_core::domain::{PrincipalKind, PrincipalStatus};
-use decodering_core::repository::{App, Principal, SecretMapping, Shamir, User};
+use decodering_core::repository::{App, Principal, SecretMapping, Shamir, TpmChallenge, User};
 
 #[derive(sqlx::FromRow)]
 pub struct SecretMappingRow {
@@ -116,6 +116,29 @@ impl From<PrincipalRow> for Principal {
             deleted_at: r.deleted_at,
             created_at: r.created_at,
             updated_at: r.updated_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct TpmChallengeRow {
+    challenge_id: String,
+    nonce: Vec<u8>,
+    ek_pubkey_hash: String,
+    issued_at: i64,
+    expires_at: i64,
+    consumed_at: Option<i64>,
+}
+
+impl From<TpmChallengeRow> for TpmChallenge {
+    fn from(r: TpmChallengeRow) -> Self {
+        Self {
+            challenge_id: r.challenge_id,
+            nonce: r.nonce,
+            ek_pubkey_hash: r.ek_pubkey_hash,
+            issued_at: r.issued_at,
+            expires_at: r.expires_at,
+            consumed_at: r.consumed_at,
         }
     }
 }

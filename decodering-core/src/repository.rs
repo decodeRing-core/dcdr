@@ -4,6 +4,42 @@ use crate::domain::{AuditOutcome, PrincipalCredentialKind, PrincipalKind, Princi
 use crate::error::DbError;
 
 #[derive(Debug, Clone)]
+pub struct TpmChallenge {
+    pub challenge_id: String,
+    pub nonce: Vec<u8>,
+    pub ek_pubkey_hash: String,
+    pub issued_at: i64,
+    pub expires_at: i64,
+    pub consumed_at: Option<i64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TpmChallengeEntry {
+    pub challenge_id: String,
+    pub nonce: Vec<u8>,
+    pub ek_pubkey_hash: Option<String>,
+    pub issued_at: i64,
+    pub expires_at: i64,
+    pub consumed_at: Option<i64>,
+}
+
+pub trait TpmChallengeRepository: Send {
+    fn insert(
+        &mut self,
+        tpm_challenge: &TpmChallengeEntry,
+    ) -> impl Future<Output = Result<String, DbError>> + Send;
+    fn updated_consumed(
+        &mut self,
+        challenge_id: &str,
+        consumed_at: i64,
+    ) -> impl Future<Output = Result<String, DbError>> + Send;
+    fn get_active(
+        &mut self,
+        challenge_id: &str,
+    ) -> impl Future<Output = Result<Option<TpmChallenge>, DbError>> + Send;
+}
+
+#[derive(Debug, Clone)]
 pub struct PrincipalTokenEntry {
     pub token_id: String,
     pub token_hash: String,

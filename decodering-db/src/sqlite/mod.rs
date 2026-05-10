@@ -16,6 +16,7 @@ use crate::sqlite::principal_token::SqlitePrincipalTokenRepository;
 use crate::sqlite::schema::SCHEMA;
 use crate::sqlite::secret_mapping::SqliteSecretMappingRepository;
 use crate::sqlite::shamir::SqliteShamirRepository;
+use crate::sqlite::tpm_challenge::SqliteTpmChallengeRepository;
 use crate::sqlite::user::SqliteUserRepository;
 
 mod api_key;
@@ -28,6 +29,7 @@ mod principal_token;
 mod schema;
 mod secret_mapping;
 mod shamir;
+mod tpm_challenge;
 mod user;
 
 pub struct SqliteTx {
@@ -71,6 +73,14 @@ impl Tx for SqliteTx {
         = SqlitePrincipalTokenRepository<'a>
     where
         Self: 'a;
+    type TpmChallengeRepo<'a>
+        = SqliteTpmChallengeRepository<'a>
+    where
+        Self: 'a;
+
+    fn tpm_challenge(&mut self) -> SqliteTpmChallengeRepository<'_> {
+        SqliteTpmChallengeRepository { tx: &mut self.tx }
+    }
 
     fn principal_token(&mut self) -> SqlitePrincipalTokenRepository<'_> {
         SqlitePrincipalTokenRepository { tx: &mut self.tx }

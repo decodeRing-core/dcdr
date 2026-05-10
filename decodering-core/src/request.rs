@@ -10,6 +10,7 @@ use crate::actions::create_principal_credential::CreatePrincipalCredential;
 use crate::actions::create_principal_token::CreatePrincipalToken;
 use crate::actions::create_secret_mapping::CreateSecretMapping;
 use crate::actions::create_shamir_configuration::CreateShamirConfiguration;
+use crate::actions::create_tpm_challenge::CreateTpmChallenge;
 use crate::actions::create_user::CreateUser;
 use crate::actions::delete_secret_mapping::DeleteSecretMapping;
 use crate::actions::system_init::SystemInit;
@@ -30,6 +31,7 @@ pub enum AppRequest {
     CreatePrincipalCredential(CreatePrincipalCredential),
     CreatePrincipalToken(CreatePrincipalToken),
     CreateAppUser(CreateAppUser),
+    CreateTpmChallenge(CreateTpmChallenge),
     SystemInit(SystemInit),
 }
 
@@ -99,6 +101,13 @@ impl fmt::Display for AppRequest {
                     delete_secret_mapping.app_id, delete_secret_mapping.secret_name
                 )
             }
+            Self::CreateTpmChallenge(create_tpm_challenge) => {
+                write!(
+                    f,
+                    "CreateTpmChallenge(challenge_id={})",
+                    create_tpm_challenge.challenge_id,
+                )
+            }
             Self::CreatePrincipalToken(_) => {
                 write!(f, "CreatePrincipalToken()")
             }
@@ -144,6 +153,9 @@ impl AppRequest {
                 Ok(run_action_direct(db, create_principal_token)
                     .await?
                     .response)
+            }
+            Self::CreateTpmChallenge(create_tpm_challenge) => {
+                Ok(run_action_direct(db, create_tpm_challenge).await?.response)
             }
         }
     }

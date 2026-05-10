@@ -41,7 +41,7 @@ impl Action for CreateAppUser {
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
             actor: Actor::None,
-            action_kind: ActionKind::CreateAppUser,
+            action_kind: ActionKind::AppUserCreate,
             revertible: true,
             undoes: None,
             metadata: None,

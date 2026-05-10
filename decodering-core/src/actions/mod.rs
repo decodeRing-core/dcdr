@@ -1,3 +1,4 @@
+pub mod consume_tpm_challenge;
 pub mod create_api_key;
 pub mod create_app;
 pub mod create_app_user;
@@ -6,6 +7,7 @@ pub mod create_principal_credential;
 pub mod create_principal_token;
 pub mod create_secret_mapping;
 pub mod create_shamir_configuration;
+pub mod create_tpm_challenge;
 pub mod create_user;
 pub mod delete_secret_mapping;
 pub mod system_init;
