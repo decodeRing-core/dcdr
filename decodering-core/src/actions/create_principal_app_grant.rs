@@ -9,6 +9,9 @@ use crate::response::{AppResponse, CreatePrincipalAppGrantResponse};
 use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
+pub struct CreatePrincipalAppGrants(pub Vec<CreatePrincipalAppGrant>);
+
+#[derive(Serialize, Debug, Deserialize)]
 pub struct CreatePrincipalAppGrant {
     pub principal_id: String,
     pub app_id: String,
@@ -70,7 +73,40 @@ impl Action for CreatePrincipalAppGrant {
             response: app_response,
             before_state: None,
             after_state: Some(after),
-            target: Some(Target::PrincipalAppGrant(principal_id)),
+            target: Some(Target::PrincipalAppGrant(Some(principal_id))),
+        })
+    }
+}
+
+impl Action for CreatePrincipalAppGrants {
+    type Output = ActionOutput<AppResponse>;
+
+    fn audit_descriptor(&self) -> AuditDescriptor {
+        AuditDescriptor {
+            actor: Actor::None,
+            action_kind: ActionKind::PrincipalAppGrantCreate,
+            revertible: true,
+            undoes: None,
+            metadata: None,
+        }
+    }
+
+    async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
+        let mut entries: Vec<PrincipalAppGrantEntry> = vec![];
+        let mut responses: Vec<CreatePrincipalAppGrantResponse> = vec![];
+        for app in self.0 {
+            let entry: PrincipalAppGrantEntry = app.into();
+            entries.push(entry.clone());
+            responses.push(entry.into());
+        }
+        tx.principal_app_grant().insert_many(&entries).await?;
+        let after = serde_json::json!(responses);
+        let app_response = AppResponse::CreatePrincipalAppGrants(responses);
+        Ok(ActionOutput {
+            response: app_response,
+            before_state: None,
+            after_state: Some(after),
+            target: Some(Target::PrincipalAppGrant(None)),
         })
     }
 }

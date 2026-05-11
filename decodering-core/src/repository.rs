@@ -138,6 +138,11 @@ pub trait PrincipalRepository: Send {
         &mut self,
         principal: &PrincipalEntry,
     ) -> impl Future<Output = Result<String, DbError>> + Send;
+    fn get_by_principal_id(
+        &mut self,
+        principal_id: &str,
+        status: PrincipalStatus,
+    ) -> impl Future<Output = Result<Option<Principal>, DbError>> + Send;
     fn get_by_app_id_and_key(
         &mut self,
         app_id: &str,

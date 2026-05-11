@@ -3,7 +3,9 @@ use actix_web::web::{Data, Json};
 use decodering_core::actions::create_app::CreateApp;
 use decodering_core::actions::create_app_user::CreateAppUser;
 use decodering_core::actions::create_principal::CreatePrincipal;
-use decodering_core::actions::create_principal_app_grant::CreatePrincipalAppGrant;
+use decodering_core::actions::create_principal_app_grant::{
+    CreatePrincipalAppGrant, CreatePrincipalAppGrants,
+};
 use decodering_core::actions::create_principal_credential::CreatePrincipalCredential;
 use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
@@ -22,10 +24,13 @@ use uuid::Uuid;
 use crate::app_data::AppData;
 use crate::config::get_config;
 use crate::extractor::AuthAdminMiddleware;
-use crate::handlers::app::payload::{AuthTpmData, AuthUserData, CreateAppData, CreateAppUserData};
-use crate::handlers::app::response::ApiCreateAppResponse;
-use crate::handlers::app::response::ApiCreateAppUserResponse;
-use crate::handlers::app::response::{ApiAuthAppUserResponse, ApiTpmChallengeResponse};
+use crate::handlers::app::payload::{
+    AppGrantData, AuthTpmData, AuthUserData, CreateAppData, CreateAppUserData,
+};
+use crate::handlers::app::response::{
+    ApiAuthAppUserResponse, ApiCreateAppGrantResponse, ApiTpmChallengeResponse,
+};
+use crate::handlers::app::response::{ApiCreateAppResponse, ApiCreateAppUserResponse};
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
 pub async fn create_app_user<D: Database + 'static>(
@@ -42,24 +47,6 @@ pub async fn create_app_user<D: Database + 'static>(
             return ApiResponse::error(ErrorStatus::NotLeader);
         }
     }
-
-    let db = app.db.begin().await;
-    let Ok(mut db) = db else {
-        tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::Internal);
-    };
-
-    // let application = match db.app().get_by_app_id(&req.app_id).await {
-    //     Ok(Some(app)) => app,
-    //     Ok(None) => {
-    //         tracing::error!("Application not found {}", req.app_id);
-    //         return ApiResponse::error(ErrorStatus::Internal);
-    //     }
-    //     Err(e) => {
-    //         tracing::error!(err=?e, "Failed to query database");
-    //         return ApiResponse::error(ErrorStatus::Internal);
-    //     }
-    // };
 
     let timestamp = now_ts();
     let principal_id = Uuid::now_v7().to_string();
@@ -173,7 +160,7 @@ pub async fn create_app_user<D: Database + 'static>(
     );
     match app.submit(request).await {
         Ok(resp) => match resp {
-            AppResponse::CreateAppUser(r) => ApiCreateAppUserResponse::new(token),
+            AppResponse::CreateAppUser(_) => ApiCreateAppUserResponse::new(token, principal_id),
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app user");
                 ApiResponse::error(ErrorStatus::Internal)
@@ -364,8 +351,74 @@ pub async fn auth_aws_iam_app_user<D: Database + 'static>(app: Data<AppData<D>>)
     ApiResponse::<()>::error(ErrorStatus::Unimplemented)
 }
 
-pub async fn grant_app_access_user<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
-    ApiResponse::<()>::error(ErrorStatus::Unimplemented)
+pub async fn grant_app_access_user<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    req: Json<AppGrantData>,
+    auth: AuthAdminMiddleware<D>,
+) -> impl Responder {
+    if let Some(raft_bits) = &app.raft {
+        let is_initialized = raft_bits.raft.is_initialized().await;
+        if !matches!(is_initialized, Ok(true)) {
+            return ApiResponse::error(ErrorStatus::NotInitialized);
+        }
+        if !raft_bits.raft.is_leader() {
+            return ApiResponse::error(ErrorStatus::NotLeader);
+        }
+    }
+
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::Internal);
+    };
+
+    let principal = match db
+        .principal()
+        .get_by_principal_id(&req.0.principal_id, PrincipalStatus::Active)
+        .await
+    {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            tracing::error!(principal_id = req.0.principal_id, "No principal found");
+            return ApiResponse::error(ErrorStatus::Internal);
+        }
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::Internal);
+        }
+    };
+
+    let timestamp = now_ts();
+    let mut principal_app_grants = CreatePrincipalAppGrants(vec![]);
+    for app_id in req.0.apps {
+        let app_grant = CreatePrincipalAppGrant {
+            principal_id: principal.principal_id.clone(),
+            app_id: app_id.clone(),
+            granted_at: timestamp,
+            granted_by: Some(auth.user.id),
+            revoked_at: None,
+            revoked_by: None,
+        };
+        principal_app_grants.0.push(app_grant);
+    }
+    let request = AppRequest::CreatePrincipalAppGrants(principal_app_grants);
+    match app.submit(request).await {
+        Ok(resp) => match resp {
+            AppResponse::CreatePrincipalAppGrants(_) => ApiCreateAppGrantResponse::new(),
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to create app grants");
+                ApiResponse::error(ErrorStatus::Internal)
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                ApiResponse::error(ErrorStatus::Internal)
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            ApiResponse::error(ErrorStatus::Internal)
+        }
+    }
 }
 
 pub async fn revoke_app_access_user<D: Database + 'static>(

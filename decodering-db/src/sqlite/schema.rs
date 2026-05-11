@@ -63,7 +63,7 @@ pub const SCHEMA: &str = r#"
         deleted_at   INTEGER
     );
 
-    CREATE TABLE principal_app_grants (
+    CREATE TABLE IF NOT EXISTS principal_app_grants (
         principal_id  TEXT NOT NULL REFERENCES principals(principal_id) ON DELETE CASCADE,
         app_id        TEXT NOT NULL REFERENCES applications(app_id) ON DELETE CASCADE,
         granted_at    INTEGER NOT NULL,

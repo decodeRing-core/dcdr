@@ -45,3 +45,9 @@ pub struct AuthUserData {
 pub struct AuthTpmData {
     pub ek_pubkey_hash: Option<String>,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct AppGrantData {
+    pub apps: Vec<String>,
+    pub principal_id: String,
+}

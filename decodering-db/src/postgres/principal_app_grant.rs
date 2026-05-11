@@ -1,7 +1,7 @@
 use crate::error::map_sqlx;
 use decodering_core::error::DbError;
 use decodering_core::repository::{PrincipalAppGrantEntry, PrincipalAppGrantRepository};
-use sqlx::{Postgres, Transaction};
+use sqlx::{Postgres, QueryBuilder, Transaction};
 
 pub struct PostgresPrincipalAppGrantRepository<'a> {
     pub tx: &'a mut Transaction<'static, Postgres>,
@@ -9,28 +9,29 @@ pub struct PostgresPrincipalAppGrantRepository<'a> {
 
 impl PrincipalAppGrantRepository for PostgresPrincipalAppGrantRepository<'_> {
     async fn insert_many(&mut self, params: &[PrincipalAppGrantEntry]) -> Result<(), DbError> {
-        let principal_ids: Vec<&str> = params.iter().map(|p| p.principal_id.as_str()).collect();
-        let app_ids: Vec<&str> = params.iter().map(|p| p.app_id.as_str()).collect();
-        let granted_at: Vec<i64> = params.iter().map(|p| p.granted_at).collect();
-        let granted_by: Vec<Option<i64>> = params.iter().map(|p| p.granted_by).collect();
-        let revoked_at: Vec<Option<i64>> = params.iter().map(|p| p.revoked_at).collect();
-        let revoked_by: Vec<Option<i64>> = params.iter().map(|p| p.revoked_by).collect();
-
-        sqlx::query(
-            "INSERT INTO principal_app_grants \
-             (principal_id, app_id, granted_at, granted_by, revoked_at, revoked_by) \
-             SELECT * FROM UNNEST($1::text[], $2::text[], $3::bigint[], $4::bigint[], $5::bigint[], $6::bigint[])",
-        )
-        .bind(&principal_ids)
-        .bind(&app_ids)
-        .bind(&granted_at)
-        .bind(&granted_by)
-        .bind(&revoked_at)
-        .bind(&revoked_by)
-        .execute(&mut **self.tx)
-        .await
-        .map_err(map_sqlx)?;
-
+        const CHUNK: usize = 1000;
+        for chunk in params.chunks(CHUNK) {
+            let mut qb = QueryBuilder::<Postgres>::new(
+                "INSERT INTO principal_app_grants \
+                 (principal_id, app_id, granted_at, granted_by, revoked_at, revoked_by) ",
+            );
+            qb.push_values(chunk, |mut b, entry| {
+                b.push_bind(&entry.principal_id)
+                    .push_bind(&entry.app_id)
+                    .push_bind(entry.granted_at)
+                    .push_bind(entry.granted_by)
+                    .push_bind(entry.revoked_at)
+                    .push_bind(entry.revoked_by);
+            });
+            qb.push(
+                " ON CONFLICT(principal_id, app_id) DO UPDATE SET \
+                    granted_at = excluded.granted_at, \
+                    granted_by = excluded.granted_by, \
+                    revoked_at = excluded.revoked_at, \
+                    revoked_by = excluded.revoked_by",
+            );
+            qb.build().execute(&mut **self.tx).await.map_err(map_sqlx)?;
+        }
         Ok(())
     }
 

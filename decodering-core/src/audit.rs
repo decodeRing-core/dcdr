@@ -21,7 +21,7 @@ pub enum Target {
     ShamirConfiguration(i64),
     Principal(String),
     PrincipalCredential(String),
-    PrincipalAppGrant(String),
+    PrincipalAppGrant(Option<String>),
     PrincipalToken(String),
     TpmChallenge(String),
     AuditEntry(i64),
@@ -58,7 +58,10 @@ impl Target {
             }
             Self::PrincipalToken(principal_token_id) => principal_token_id.to_owned(),
             Self::TpmChallenge(tpm_challenge_id) => tpm_challenge_id.to_owned(),
-            Self::PrincipalAppGrant(principal_app_grant) => principal_app_grant.to_owned(),
+            Self::PrincipalAppGrant(principal_app_grant) => principal_app_grant
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
         }
     }
 }

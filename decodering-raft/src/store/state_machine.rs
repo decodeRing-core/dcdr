@@ -434,6 +434,7 @@ where
         AppRequest::DeleteSecretMapping(x) => run_action_raft(tx, index, x).await,
         AppRequest::CreatePrincipalToken(x) => run_action_raft(tx, index, x).await,
         AppRequest::CreateTpmChallenge(x) => run_action_raft(tx, index, x).await,
+        AppRequest::CreatePrincipalAppGrants(x) => run_action_raft(tx, index, x).await,
     }
 }
 

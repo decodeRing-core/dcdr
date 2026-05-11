@@ -15,10 +15,7 @@ use crate::middleware::LockState;
 pub fn app_management_routes<D: Database + 'static>() -> impl HttpServiceFactory {
     web::scope(r"/app")
         .wrap(LockState::<D>::new())
-        .route(
-            "/user/app/grant",
-            web::post().to(grant_app_access_user::<D>),
-        )
+        .route("/user/grant", web::post().to(grant_app_access_user::<D>))
         .route(
             "/user/app/revoke",
             web::post().to(revoke_app_access_user::<D>),

@@ -6,6 +6,9 @@ use crate::actions::create_api_key::CreateApiKey;
 use crate::actions::create_app::CreateApp;
 use crate::actions::create_app_user::CreateAppUser;
 use crate::actions::create_principal::CreatePrincipal;
+use crate::actions::create_principal_app_grant::{
+    CreatePrincipalAppGrant, CreatePrincipalAppGrants,
+};
 use crate::actions::create_principal_credential::CreatePrincipalCredential;
 use crate::actions::create_principal_token::CreatePrincipalToken;
 use crate::actions::create_secret_mapping::CreateSecretMapping;
@@ -30,6 +33,7 @@ pub enum AppRequest {
     CreatePrincipal(CreatePrincipal),
     CreatePrincipalCredential(CreatePrincipalCredential),
     CreatePrincipalToken(CreatePrincipalToken),
+    CreatePrincipalAppGrants(CreatePrincipalAppGrants),
     CreateAppUser(CreateAppUser),
     CreateTpmChallenge(CreateTpmChallenge),
     SystemInit(SystemInit),
@@ -108,6 +112,13 @@ impl fmt::Display for AppRequest {
                     create_tpm_challenge.challenge_id,
                 )
             }
+            Self::CreatePrincipalAppGrants(create_principal_app_grants) => {
+                write!(
+                    f,
+                    "CreatePrincipalAppGrants(total={})",
+                    create_principal_app_grants.0.len(),
+                )
+            }
             Self::CreatePrincipalToken(_) => {
                 write!(f, "CreatePrincipalToken()")
             }
@@ -151,6 +162,11 @@ impl AppRequest {
             }
             Self::CreatePrincipalToken(create_principal_token) => {
                 Ok(run_action_direct(db, create_principal_token)
+                    .await?
+                    .response)
+            }
+            Self::CreatePrincipalAppGrants(create_principal_app_grants) => {
+                Ok(run_action_direct(db, create_principal_app_grants)
                     .await?
                     .response)
             }

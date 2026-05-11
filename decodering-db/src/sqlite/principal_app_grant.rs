@@ -13,7 +13,7 @@ pub struct SqlitePrincipalAppGrantRepository<'a> {
 
 impl PrincipalAppGrantRepository for SqlitePrincipalAppGrantRepository<'_> {
     async fn insert_many(&mut self, params: &[PrincipalAppGrantEntry]) -> Result<(), DbError> {
-        const CHUNK: usize = 1000; // 6 * 1000 = 6000 params, safely under the limit
+        const CHUNK: usize = 1000;
         for chunk in params.chunks(CHUNK) {
             let mut qb = QueryBuilder::<Sqlite>::new(
                 "INSERT INTO principal_app_grants \
@@ -27,6 +27,13 @@ impl PrincipalAppGrantRepository for SqlitePrincipalAppGrantRepository<'_> {
                     .push_bind(entry.revoked_at)
                     .push_bind(entry.revoked_by);
             });
+            qb.push(
+                " ON CONFLICT(principal_id, app_id) DO UPDATE SET \
+                    granted_at = excluded.granted_at, \
+                    granted_by = excluded.granted_by, \
+                    revoked_at = excluded.revoked_at, \
+                    revoked_by = excluded.revoked_by",
+            );
             qb.build().execute(&mut **self.tx).await.map_err(map_sqlx)?;
         }
         Ok(())

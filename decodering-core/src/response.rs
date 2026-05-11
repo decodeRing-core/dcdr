@@ -129,6 +129,7 @@ pub enum AppResponse {
     CreatePrincipalCredential(CreatePrincipalCredentialResponse),
     CreatePrincipalToken(CreatePrincipalTokenResponse),
     CreatePrincipalAppGrant(CreatePrincipalAppGrantResponse),
+    CreatePrincipalAppGrants(Vec<CreatePrincipalAppGrantResponse>),
     SystemInit(SystemInitResponse),
     CreateAppUser(CreateAppUserResponse),
     CreateTpmChallenge(CreateTpmChallengeResponse),
@@ -216,6 +217,13 @@ impl fmt::Display for AppResponse {
                     f,
                     "CreatePrincipalAppGrant(principal_id={}, app_id={})",
                     principal_app_grant.principal_id, principal_app_grant.app_id
+                )
+            }
+            Self::CreatePrincipalAppGrants(principal_app_grants) => {
+                write!(
+                    f,
+                    "CreatePrincipalAppGrants(total={})",
+                    principal_app_grants.len()
                 )
             }
             Self::CreateAppUser(_) => write!(f, "CreateAppUser()"),

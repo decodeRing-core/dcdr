@@ -20,13 +20,17 @@ impl ApiCreateAppResponse {
 #[derive(Serialize)]
 pub struct ApiCreateAppUserResponse {
     pub(crate) token: String,
+    pub(crate) principal_id: String,
 }
 
 impl ApiCreateAppUserResponse {
-    pub(crate) fn new(token: String) -> ApiResponse<Self> {
+    pub(crate) fn new(token: String, principal_id: String) -> ApiResponse<Self> {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
-            Some(Self { token }),
+            Some(Self {
+                token,
+                principal_id,
+            }),
         )
     }
 }
@@ -63,5 +67,14 @@ impl ApiTpmChallengeResponse {
                 expires_at,
             }),
         )
+    }
+}
+
+#[derive(Serialize)]
+pub struct ApiCreateAppGrantResponse {}
+
+impl ApiCreateAppGrantResponse {
+    pub(crate) fn new() -> ApiResponse<Self> {
+        ApiResponse::new(ApiStatus::Success(SuccessStatus::OperationCompleted), None)
     }
 }
