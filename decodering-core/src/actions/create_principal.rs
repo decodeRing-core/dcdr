@@ -13,7 +13,6 @@ use crate::tx::Tx;
 pub struct CreatePrincipal {
     pub principal_id: String,
     pub name: String,
-    pub app_id: String,
     pub kind: PrincipalKind,
     pub status: PrincipalStatus,
     pub created_at: i64,
@@ -26,7 +25,6 @@ impl From<CreatePrincipal> for PrincipalEntry {
         Self {
             principal_id: c.principal_id,
             name: c.name,
-            app_id: c.app_id,
             kind: c.kind,
             status: c.status,
             created_at: c.created_at,
@@ -41,7 +39,6 @@ impl From<PrincipalEntry> for CreatePrincipalResponse {
         Self {
             principal_id: e.principal_id,
             name: e.name,
-            app_id: e.app_id,
             kind: e.kind,
             status: e.status,
             created_at: e.created_at,

@@ -5,18 +5,21 @@ pub fn map_sqlx(e: sqlx::Error) -> DbError {
         sqlx::Error::RowNotFound => DbError::NotFound,
         sqlx::Error::Database(db_err) => {
             let constraint = db_err.constraint().map(str::to_owned);
+            let table = db_err.table().map(str::to_owned);
             let msg = db_err.message().to_owned();
             let code = db_err.code().map(std::borrow::Cow::into_owned);
+
+            let detailed = match &table {
+                Some(t) => format!("{msg} [table={t}]"),
+                None => msg,
+            };
+
             match code.as_deref() {
-                // SQLite 2067/1555 = unique, Postgres 23505 = unique_violation
                 Some("2067" | "1555" | "23505") => DbError::UniqueViolation { constraint },
-                // SQLite 787, Postgres 23503 = foreign_key_violation
                 Some("787" | "23503") => DbError::ForeignKeyViolation { constraint },
-                // SQLite 275, Postgres 23514 = check_violation
                 Some("275" | "23514") => DbError::CheckViolation { constraint },
-                // SQLite 5/6 (busy/locked), Postgres 40001/40P01 (serialization/deadlock)
                 Some("5" | "6" | "40001" | "40P01") => DbError::SerializationFailure,
-                _ => DbError::Other(msg),
+                _ => DbError::Other(detailed),
             }
         }
         sqlx::Error::PoolClosed

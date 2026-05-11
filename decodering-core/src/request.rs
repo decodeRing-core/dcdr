@@ -82,8 +82,8 @@ impl fmt::Display for AppRequest {
             Self::CreatePrincipal(create_principal) => {
                 write!(
                     f,
-                    "CreatePrincipal(name={}, app_id={})",
-                    create_principal.name, create_principal.app_id
+                    "CreatePrincipal(name={}, principal_id={})",
+                    create_principal.name, create_principal.principal_id
                 )
             }
             Self::CreatePrincipalCredential(create_principal_credential) => {

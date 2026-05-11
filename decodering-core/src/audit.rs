@@ -21,6 +21,7 @@ pub enum Target {
     ShamirConfiguration(i64),
     Principal(String),
     PrincipalCredential(String),
+    PrincipalAppGrant(String),
     PrincipalToken(String),
     TpmChallenge(String),
     AuditEntry(i64),
@@ -39,6 +40,7 @@ impl Target {
             Self::PrincipalCredential(_) => "principal_credential",
             Self::PrincipalToken(_) => "principal_token",
             Self::TpmChallenge(_) => "tpm_challenge",
+            Self::PrincipalAppGrant(_) => "principal_app_grant",
         }
     }
 
@@ -56,6 +58,7 @@ impl Target {
             }
             Self::PrincipalToken(principal_token_id) => principal_token_id.to_owned(),
             Self::TpmChallenge(tpm_challenge_id) => tpm_challenge_id.to_owned(),
+            Self::PrincipalAppGrant(principal_app_grant) => principal_app_grant.to_owned(),
         }
     }
 }
@@ -68,6 +71,7 @@ pub enum ActionKind {
     PrincipalCreate,
     PrincipalCredentialCreate,
     PrincipalTokenCreate,
+    PrincipalAppGrantCreate,
     SecretMappingCreate,
     SecretMappingDelete,
     SecretMappingGet,
@@ -95,6 +99,7 @@ impl ActionKind {
             Self::AppUserCreate => "app_user.create",
             Self::TpmChallengeCreate => "tpm_challenge.create",
             Self::TpmChallengeConsume => "tpm_challenge.consume",
+            Self::PrincipalAppGrantCreate => "principal_app_grant.create",
         }
     }
 }

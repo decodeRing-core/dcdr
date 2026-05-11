@@ -52,6 +52,17 @@ impl TpmChallengeRepository for PostgresTpmChallengeRepository<'_> {
         Ok(id)
     }
 
+    async fn delete_expired(&mut self) -> Result<u64, DbError> {
+        let result = sqlx::query(
+            "DELETE FROM tpm_challenges
+              WHERE expires_at <= EXTRACT(EPOCH FROM NOW())::BIGINT",
+        )
+        .execute(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(result.rows_affected())
+    }
+
     async fn get_active(&mut self, challenge_id: &str) -> Result<Option<TpmChallenge>, DbError> {
         let tpm_challenge = sqlx::query_as::<_, TpmChallengeRow>(
             "SELECT challenge_id, nonce, ek_pubkey_hash, issued_at, expires_at, consumed_at

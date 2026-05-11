@@ -16,11 +16,10 @@ pub struct SqlitePrincipalRepository<'a> {
 impl PrincipalRepository for SqlitePrincipalRepository<'_> {
     async fn insert(&mut self, params: &PrincipalEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
-            "INSERT INTO principals (principal_id, name, app_id, kind, status, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING principal_id",
+            "INSERT INTO principals (principal_id, name, kind, status, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING principal_id",
         )
         .bind(&params.principal_id)
         .bind(&params.name)
-        .bind(&params.app_id)
         .bind(params.kind.as_str())
         .bind(params.status.as_str())
         .bind(params.created_at)
@@ -39,11 +38,11 @@ impl PrincipalRepository for SqlitePrincipalRepository<'_> {
         status: PrincipalStatus,
     ) -> Result<Option<Principal>, DbError> {
         let principal: Option<PrincipalRow> = sqlx::query_as::<_, PrincipalRow>(
-            "SELECT pc.credential_id, p.principal_id, p.name, p.app_id, p.kind, p.status, p.created_at, p.updated_at, p.deleted_at
+            "SELECT pc.credential_id, p.principal_id, p.name, p.kind, p.status, p.created_at, p.updated_at, p.deleted_at
                 FROM principals p
                 INNER JOIN principal_credentials pc ON pc.principal_id = p.principal_id
-                WHERE p.app_id = ?
-                  AND pc.lookup_key = ?
+                INNER JOIN principal_grants pg ON pg.principal_id = p.principal_id and pg.app_id = ?
+                WHERE pc.lookup_key = ?
                   AND pc.status = ?
                   AND p.status = ?
                   AND p.deleted_at IS NULL
@@ -65,7 +64,7 @@ impl PrincipalRepository for SqlitePrincipalRepository<'_> {
         token_hash: &str,
     ) -> Result<Option<Principal>, DbError> {
         let principal: Option<PrincipalRow> = sqlx::query_as::<_, PrincipalRow>(
-            "SELECT pc.credential_id, p.principal_id, p.name, p.app_id, p.kind, p.status, p.created_at, p.updated_at, p.deleted_at
+            "SELECT pc.credential_id, p.principal_id, p.name, p.kind, p.status, p.created_at, p.updated_at, p.deleted_at
              FROM principal_tokens t
              INNER JOIN principals p ON p.principal_id = t.principal_id
              INNER JOIN principal_credentials pc ON pc.credential_id = t.credential_id

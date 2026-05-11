@@ -3,6 +3,7 @@ use actix_web::web::{Data, Json};
 use decodering_core::actions::create_app::CreateApp;
 use decodering_core::actions::create_app_user::CreateAppUser;
 use decodering_core::actions::create_principal::CreatePrincipal;
+use decodering_core::actions::create_principal_app_grant::CreatePrincipalAppGrant;
 use decodering_core::actions::create_principal_credential::CreatePrincipalCredential;
 use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
@@ -48,24 +49,23 @@ pub async fn create_app_user<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::Internal);
     };
 
-    let application = match db.app().get_by_app_id(&req.app_id).await {
-        Ok(Some(app)) => app,
-        Ok(None) => {
-            tracing::error!("Application not found {}", req.app_id);
-            return ApiResponse::error(ErrorStatus::Internal);
-        }
-        Err(e) => {
-            tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::Internal);
-        }
-    };
+    // let application = match db.app().get_by_app_id(&req.app_id).await {
+    //     Ok(Some(app)) => app,
+    //     Ok(None) => {
+    //         tracing::error!("Application not found {}", req.app_id);
+    //         return ApiResponse::error(ErrorStatus::Internal);
+    //     }
+    //     Err(e) => {
+    //         tracing::error!(err=?e, "Failed to query database");
+    //         return ApiResponse::error(ErrorStatus::Internal);
+    //     }
+    // };
 
     let timestamp = now_ts();
     let principal_id = Uuid::now_v7().to_string();
     let principal = CreatePrincipal {
         principal_id: principal_id.clone(),
         name: req.0.name,
-        app_id: application.app_id,
         kind: req.0.kind,
         status: PrincipalStatus::Active,
         created_at: timestamp,
@@ -113,7 +113,7 @@ pub async fn create_app_user<D: Database + 'static>(
                 }
             }
 
-            (String::new(), ek_hash)
+            ("TPM key added".to_owned(), ek_hash)
         }
         PrincipalCredentialKind::AwsIdentity => {
             return ApiResponse::error(ErrorStatus::Unimplemented);
@@ -142,7 +142,7 @@ pub async fn create_app_user<D: Database + 'static>(
 
     let principal_credential = CreatePrincipalCredential {
         credential_id: Uuid::now_v7().to_string(),
-        principal_id,
+        principal_id: principal_id.clone(),
         kind: req.0.credential_kind,
         lookup_key,
         secret_material: secret_material.to_string(),
@@ -153,12 +153,29 @@ pub async fn create_app_user<D: Database + 'static>(
         revoked_at: None,
     };
 
-    let request = CreateAppUser::request(auth.user.id, principal, principal_credential);
+    let mut principal_app_grants = vec![];
+    for app_id in req.0.apps.unwrap_or_default() {
+        let app_grant = CreatePrincipalAppGrant {
+            principal_id: principal_id.clone(),
+            app_id: app_id.clone(),
+            granted_at: timestamp,
+            granted_by: Some(auth.user.id),
+            revoked_at: None,
+            revoked_by: None,
+        };
+        principal_app_grants.push(app_grant);
+    }
+    let request = CreateAppUser::request(
+        auth.user.id,
+        principal,
+        principal_credential,
+        principal_app_grants,
+    );
     match app.submit(request).await {
         Ok(resp) => match resp {
-            AppResponse::CreateAppUser(_) => ApiCreateAppUserResponse::new(token),
+            AppResponse::CreateAppUser(r) => ApiCreateAppUserResponse::new(token),
             AppResponse::Error(e) => {
-                tracing::error!(%e, "Failed to create app");
+                tracing::error!(%e, "Failed to create app user");
                 ApiResponse::error(ErrorStatus::Internal)
             }
             other_api_response => {
@@ -344,5 +361,15 @@ pub async fn tpm_challenge_app_user<D: Database + 'static>(
 }
 
 pub async fn auth_aws_iam_app_user<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
+    ApiResponse::<()>::error(ErrorStatus::Unimplemented)
+}
+
+pub async fn grant_app_access_user<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
+    ApiResponse::<()>::error(ErrorStatus::Unimplemented)
+}
+
+pub async fn revoke_app_access_user<D: Database + 'static>(
+    app: Data<AppData<D>>,
+) -> impl Responder {
     ApiResponse::<()>::error(ErrorStatus::Unimplemented)
 }

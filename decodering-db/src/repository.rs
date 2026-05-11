@@ -95,7 +95,6 @@ pub struct PrincipalRow {
     pub credential_id: String,
     pub principal_id: String,
     pub name: String,
-    pub app_id: String,
     pub kind: String,
     pub status: String,
     pub created_at: i64,
@@ -107,7 +106,6 @@ impl From<PrincipalRow> for Principal {
     fn from(r: PrincipalRow) -> Self {
         Self {
             credential_id: r.credential_id,
-            app_id: r.app_id,
             principal_id: r.principal_id,
             name: r.name,
             kind: PrincipalKind::from_str(r.kind.as_str()).unwrap_or(PrincipalKind::Human),

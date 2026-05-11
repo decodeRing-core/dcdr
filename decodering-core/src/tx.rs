@@ -3,6 +3,7 @@ use crate::repository::ApiKeyRepository;
 use crate::repository::AppRepository;
 use crate::repository::AuditRepository;
 use crate::repository::MetaRepository;
+use crate::repository::PrincipalAppGrantRepository;
 use crate::repository::PrincipalCredentialRepository;
 use crate::repository::PrincipalRepository;
 use crate::repository::PrincipalTokenRepository;
@@ -42,8 +43,12 @@ pub trait Tx: Send {
     type TpmChallengeRepo<'a>: TpmChallengeRepository
     where
         Self: 'a;
+    type PrincipalAppGrantRepo<'a>: PrincipalAppGrantRepository
+    where
+        Self: 'a;
 
     fn tpm_challenge(&mut self) -> Self::TpmChallengeRepo<'_>;
+    fn principal_app_grant(&mut self) -> Self::PrincipalAppGrantRepo<'_>;
     fn principal_token(&mut self) -> Self::PrincipalTokenRepo<'_>;
     fn principal_credential(&mut self) -> Self::PrincipalCredentialRepo<'_>;
     fn principal(&mut self) -> Self::PrincipalRepo<'_>;

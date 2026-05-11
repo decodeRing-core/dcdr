@@ -2,16 +2,17 @@ use std::collections::HashMap;
 
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalKind};
 use serde::Deserialize;
-use serde_with::{base64::Base64, serde_as};
+use serde_with::base64::Base64;
+use serde_with::serde_as;
 
 #[derive(Deserialize, Debug)]
 pub struct CreateAppUserData {
-    pub app_id: String,
     pub name: String,
     pub kind: PrincipalKind,
     pub credential_kind: PrincipalCredentialKind,
     pub tpm: Option<TrustedPlatformModuleData>,
     pub expires_at: Option<i64>,
+    pub apps: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Debug)]

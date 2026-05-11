@@ -56,7 +56,6 @@ pub struct SystemInitResponse {
 pub struct CreatePrincipalResponse {
     pub principal_id: String,
     pub name: String,
-    pub app_id: String,
     pub kind: PrincipalKind,
     pub status: PrincipalStatus,
     pub created_at: i64,
@@ -75,6 +74,16 @@ pub struct CreatePrincipalCredentialResponse {
     pub last_used_at: Option<i64>,
     pub created_at: i64,
     pub revoked_at: Option<i64>,
+}
+
+#[derive(Serialize, Debug, Deserialize)]
+pub struct CreatePrincipalAppGrantResponse {
+    pub principal_id: String,
+    pub app_id: String,
+    pub granted_at: i64,
+    pub granted_by: Option<i64>,
+    pub revoked_at: Option<i64>,
+    pub revoked_by: Option<i64>,
 }
 
 #[derive(Serialize, Debug, Deserialize)]
@@ -119,6 +128,7 @@ pub enum AppResponse {
     CreatePrincipal(CreatePrincipalResponse),
     CreatePrincipalCredential(CreatePrincipalCredentialResponse),
     CreatePrincipalToken(CreatePrincipalTokenResponse),
+    CreatePrincipalAppGrant(CreatePrincipalAppGrantResponse),
     SystemInit(SystemInitResponse),
     CreateAppUser(CreateAppUserResponse),
     CreateTpmChallenge(CreateTpmChallengeResponse),
@@ -199,6 +209,13 @@ impl fmt::Display for AppResponse {
                     f,
                     "ConsumeTpmChallenge(challenge_id={})",
                     consume_tpm_challenge.challenge_id
+                )
+            }
+            Self::CreatePrincipalAppGrant(principal_app_grant) => {
+                write!(
+                    f,
+                    "CreatePrincipalAppGrant(principal_id={}, app_id={})",
+                    principal_app_grant.principal_id, principal_app_grant.app_id
                 )
             }
             Self::CreateAppUser(_) => write!(f, "CreateAppUser()"),

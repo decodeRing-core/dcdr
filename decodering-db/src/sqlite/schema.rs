@@ -56,16 +56,22 @@ pub const SCHEMA: &str = r#"
     CREATE TABLE IF NOT EXISTS principals (
         principal_id TEXT PRIMARY KEY,
         name         TEXT NOT NULL,
-        app_id       TEXT NOT NULL REFERENCES applications(app_id),
         kind         TEXT NOT NULL CHECK (kind IN ('human', 'machine', 'service')),
         status TEXT NOT NULL DEFAULT 'active',
         created_at   INTEGER NOT NULL,
         updated_at   INTEGER NOT NULL,
-        deleted_at   INTEGER,
-        UNIQUE (app_id, name)
+        deleted_at   INTEGER
     );
 
-    CREATE INDEX IF NOT EXISTS idx_principals_app_id ON principals(app_id);
+    CREATE TABLE principal_app_grants (
+        principal_id  TEXT NOT NULL REFERENCES principals(principal_id) ON DELETE CASCADE,
+        app_id        TEXT NOT NULL REFERENCES applications(app_id) ON DELETE CASCADE,
+        granted_at    INTEGER NOT NULL,
+        granted_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        revoked_at    INTEGER,
+        revoked_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        PRIMARY KEY (principal_id, app_id)
+    );
 
     -- Each row is one way a principal can authenticate.
     -- Supports vTPM (EK hash), AWS IAM (role ARN), and future identity types

@@ -4,6 +4,37 @@ use crate::domain::{AuditOutcome, PrincipalCredentialKind, PrincipalKind, Princi
 use crate::error::DbError;
 
 #[derive(Debug, Clone)]
+pub struct PrincipalAppGrant {
+    pub principal_id: String,
+    pub app_id: String,
+    pub granted_at: i64,
+    pub granted_by: Option<i64>,
+    pub revoked_at: Option<i64>,
+    pub revoked_by: Option<i64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrincipalAppGrantEntry {
+    pub principal_id: String,
+    pub app_id: String,
+    pub granted_at: i64,
+    pub granted_by: Option<i64>,
+    pub revoked_at: Option<i64>,
+    pub revoked_by: Option<i64>,
+}
+
+pub trait PrincipalAppGrantRepository: Send {
+    fn insert_many(
+        &mut self,
+        principal_app_grants: &[PrincipalAppGrantEntry],
+    ) -> impl Future<Output = Result<(), DbError>> + Send;
+    fn insert(
+        &mut self,
+        principal_app_grant: &PrincipalAppGrantEntry,
+    ) -> impl Future<Output = Result<String, DbError>> + Send;
+}
+
+#[derive(Debug, Clone)]
 pub struct TpmChallenge {
     pub challenge_id: String,
     pub nonce: Vec<u8>,
@@ -37,6 +68,7 @@ pub trait TpmChallengeRepository: Send {
         &mut self,
         challenge_id: &str,
     ) -> impl Future<Output = Result<Option<TpmChallenge>, DbError>> + Send;
+    fn delete_expired(&mut self) -> impl Future<Output = Result<u64, DbError>> + Send;
 }
 
 #[derive(Debug, Clone)]
@@ -83,7 +115,6 @@ pub struct Principal {
     pub credential_id: String,
     pub principal_id: String,
     pub name: String,
-    pub app_id: String,
     pub kind: PrincipalKind,
     pub status: PrincipalStatus,
     pub created_at: i64,
@@ -95,7 +126,6 @@ pub struct Principal {
 pub struct PrincipalEntry {
     pub principal_id: String,
     pub name: String,
-    pub app_id: String,
     pub kind: PrincipalKind,
     pub status: PrincipalStatus,
     pub created_at: i64,

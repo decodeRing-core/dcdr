@@ -15,7 +15,7 @@ pub struct SqliteTpmChallengeRepository<'a> {
 impl TpmChallengeRepository for SqliteTpmChallengeRepository<'_> {
     async fn insert(&mut self, params: &TpmChallengeEntry) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
-            "INSERT INTO tpm_challenge (
+            "INSERT INTO tpm_challenges (
                 challenge_id, nonce, ek_pubkey_hash, issued_at, expires_at,
                 consumed_at
             ) VALUES (?, ?, ?, ?, ?, ?)
@@ -39,7 +39,7 @@ impl TpmChallengeRepository for SqliteTpmChallengeRepository<'_> {
         consumed_at: i64,
     ) -> Result<String, DbError> {
         let id = sqlx::query_scalar(
-            "UPDATE tpm_challenge
+            "UPDATE tpm_challenges
              SET consumed_at = ?
              WHERE challenge_id = ?
              RETURNING challenge_id",
@@ -50,6 +50,17 @@ impl TpmChallengeRepository for SqliteTpmChallengeRepository<'_> {
         .await
         .map_err(map_sqlx)?;
         Ok(id)
+    }
+
+    async fn delete_expired(&mut self) -> Result<u64, DbError> {
+        let result = sqlx::query(
+            "DELETE FROM tpm_challenges
+              WHERE expires_at <= unixepoch()",
+        )
+        .execute(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(result.rows_affected())
     }
 
     async fn get_active(&mut self, challenge_id: &str) -> Result<Option<TpmChallenge>, DbError> {

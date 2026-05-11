@@ -10,6 +10,7 @@ use crate::postgres::api_key::PostgresApiKeysRepository;
 use crate::postgres::app::PostgresAppRepository;
 use crate::postgres::audit::PostgresAuditRepository;
 use crate::postgres::principal::PostgresPrincipalRepository;
+use crate::postgres::principal_app_grant::PostgresPrincipalAppGrantRepository;
 use crate::postgres::principal_credential::PostgresPrincipalCredentialRepository;
 use crate::postgres::principal_token::PostgresPrincipalTokenRepository;
 use crate::postgres::secret_mapping::PostgresSecretMappingRepository;
@@ -21,6 +22,7 @@ mod api_key;
 mod app;
 mod audit;
 mod principal;
+mod principal_app_grant;
 mod principal_credential;
 mod principal_token;
 mod secret_mapping;
@@ -73,6 +75,14 @@ impl Tx for PostgresTx {
         = PostgresTpmChallengeRepository<'a>
     where
         Self: 'a;
+    type PrincipalAppGrantRepo<'a>
+        = PostgresPrincipalAppGrantRepository<'a>
+    where
+        Self: 'a;
+
+    fn principal_app_grant(&mut self) -> PostgresPrincipalAppGrantRepository<'_> {
+        PostgresPrincipalAppGrantRepository { tx: &mut self.tx }
+    }
 
     fn tpm_challenge(&mut self) -> PostgresTpmChallengeRepository<'_> {
         PostgresTpmChallengeRepository { tx: &mut self.tx }

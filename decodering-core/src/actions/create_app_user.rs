@@ -2,13 +2,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::action::Action;
 use crate::actions::create_principal::CreatePrincipal;
+use crate::actions::create_principal_app_grant::CreatePrincipalAppGrant;
 use crate::actions::create_principal_credential::CreatePrincipalCredential;
 use crate::audit::{ActionKind, Target};
 use crate::audit::{ActionOutput, Actor, AuditDescriptor};
 use crate::error::ExecutionError;
-use crate::repository::PrincipalCredentialEntry;
-use crate::repository::PrincipalCredentialRepository;
 use crate::repository::PrincipalRepository;
+use crate::repository::{PrincipalAppGrantEntry, PrincipalCredentialEntry};
+use crate::repository::{PrincipalAppGrantRepository, PrincipalCredentialRepository};
 use crate::request::AppRequest;
 use crate::response::{AppResponse, CreateAppUserResponse};
 use crate::tx::Tx;
@@ -18,6 +19,7 @@ pub struct CreateAppUser {
     pub user_id: i64,
     pub principal: CreatePrincipal,
     pub principal_credential: CreatePrincipalCredential,
+    pub principal_app_grants: Vec<CreatePrincipalAppGrant>,
 }
 
 impl CreateAppUser {
@@ -25,11 +27,13 @@ impl CreateAppUser {
         user_id: i64,
         principal: CreatePrincipal,
         principal_credential: CreatePrincipalCredential,
+        principal_app_grants: Vec<CreatePrincipalAppGrant>,
     ) -> AppRequest {
         let app_user = Self {
             user_id,
             principal,
             principal_credential,
+            principal_app_grants,
         };
         AppRequest::CreateAppUser(app_user)
     }
@@ -55,13 +59,23 @@ impl Action for CreateAppUser {
 
         let mut principal_credential_entry: PrincipalCredentialEntry =
             self.principal_credential.into();
-        principal_credential_entry.principal_id = principal_id;
+        principal_credential_entry
+            .principal_id
+            .clone_from(&principal_id);
         let _ = tx
             .principal_credential()
             .insert(&principal_credential_entry)
             .await?;
 
         let principal_credential_response = principal_credential_entry.into();
+
+        let mut grants: Vec<PrincipalAppGrantEntry> = vec![];
+        for mut principal_app_grant in self.principal_app_grants {
+            principal_app_grant.principal_id.clone_from(&principal_id);
+            grants.push(principal_app_grant.into());
+        }
+
+        tx.principal_app_grant().insert_many(&grants).await?;
 
         let response = CreateAppUserResponse {
             principal: principal_response,

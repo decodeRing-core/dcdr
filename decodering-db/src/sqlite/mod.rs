@@ -11,6 +11,7 @@ use crate::sqlite::app::SqliteAppRepository;
 use crate::sqlite::audit::SqliteAuditRepository;
 use crate::sqlite::meta::SqliteMetaRepository;
 use crate::sqlite::principal::SqlitePrincipalRepository;
+use crate::sqlite::principal_app_grant::SqlitePrincipalAppGrantRepository;
 use crate::sqlite::principal_credential::SqlitePrincipalCredentialRepository;
 use crate::sqlite::principal_token::SqlitePrincipalTokenRepository;
 use crate::sqlite::schema::SCHEMA;
@@ -24,6 +25,7 @@ mod app;
 mod audit;
 mod meta;
 mod principal;
+mod principal_app_grant;
 mod principal_credential;
 mod principal_token;
 mod schema;
@@ -77,9 +79,17 @@ impl Tx for SqliteTx {
         = SqliteTpmChallengeRepository<'a>
     where
         Self: 'a;
+    type PrincipalAppGrantRepo<'a>
+        = SqlitePrincipalAppGrantRepository<'a>
+    where
+        Self: 'a;
 
     fn tpm_challenge(&mut self) -> SqliteTpmChallengeRepository<'_> {
         SqliteTpmChallengeRepository { tx: &mut self.tx }
+    }
+
+    fn principal_app_grant(&mut self) -> SqlitePrincipalAppGrantRepository<'_> {
+        SqlitePrincipalAppGrantRepository { tx: &mut self.tx }
     }
 
     fn principal_token(&mut self) -> SqlitePrincipalTokenRepository<'_> {
