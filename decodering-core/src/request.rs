@@ -6,15 +6,14 @@ use crate::actions::create_api_key::CreateApiKey;
 use crate::actions::create_app::CreateApp;
 use crate::actions::create_app_user::CreateAppUser;
 use crate::actions::create_principal::CreatePrincipal;
-use crate::actions::create_principal_app_grant::{
-    CreatePrincipalAppGrant, CreatePrincipalAppGrants,
-};
+use crate::actions::create_principal_app_grant::CreatePrincipalAppGrants;
 use crate::actions::create_principal_credential::CreatePrincipalCredential;
 use crate::actions::create_principal_token::CreatePrincipalToken;
 use crate::actions::create_secret_mapping::CreateSecretMapping;
 use crate::actions::create_shamir_configuration::CreateShamirConfiguration;
 use crate::actions::create_tpm_challenge::CreateTpmChallenge;
 use crate::actions::create_user::CreateUser;
+use crate::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use crate::actions::delete_secret_mapping::DeleteSecretMapping;
 use crate::actions::system_init::SystemInit;
 use crate::error::ActionError;
@@ -34,6 +33,7 @@ pub enum AppRequest {
     CreatePrincipalCredential(CreatePrincipalCredential),
     CreatePrincipalToken(CreatePrincipalToken),
     CreatePrincipalAppGrants(CreatePrincipalAppGrants),
+    DeletePrincipalAppGrant(DeletePrincipalAppGrant),
     CreateAppUser(CreateAppUser),
     CreateTpmChallenge(CreateTpmChallenge),
     SystemInit(SystemInit),
@@ -119,6 +119,13 @@ impl fmt::Display for AppRequest {
                     create_principal_app_grants.0.len(),
                 )
             }
+            Self::DeletePrincipalAppGrant(delete_principal_app_grant) => {
+                write!(
+                    f,
+                    "DeletePrincipalAppGrant(app_id={}, principal_id={})",
+                    delete_principal_app_grant.app_id, delete_principal_app_grant.principal_id
+                )
+            }
             Self::CreatePrincipalToken(_) => {
                 write!(f, "CreatePrincipalToken()")
             }
@@ -132,47 +139,28 @@ impl AppRequest {
         D: Database,
     {
         match self {
-            Self::CreateApiKey(create_api_key) => {
-                Ok(run_action_direct(db, create_api_key).await?.response)
+            Self::CreateApiKey(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::CreateUser(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::CreateApp(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::CreateAppUser(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::CreateShamirConfiguration(action) => {
+                Ok(run_action_direct(db, action).await?.response)
             }
-            Self::CreateUser(create_user) => Ok(run_action_direct(db, create_user).await?.response),
-            Self::CreateApp(create_app) => Ok(run_action_direct(db, create_app).await?.response),
-            Self::CreateAppUser(create_app_user) => {
-                Ok(run_action_direct(db, create_app_user).await?.response)
+            Self::CreateSecretMapping(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::SystemInit(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::CreatePrincipal(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::CreatePrincipalCredential(action) => {
+                Ok(run_action_direct(db, action).await?.response)
             }
-            Self::CreateShamirConfiguration(create_shamir_configuration) => {
-                Ok(run_action_direct(db, create_shamir_configuration)
-                    .await?
-                    .response)
+            Self::DeleteSecretMapping(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::CreatePrincipalToken(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::CreatePrincipalAppGrants(action) => {
+                Ok(run_action_direct(db, action).await?.response)
             }
-            Self::CreateSecretMapping(create_secret_mapping) => {
-                Ok(run_action_direct(db, create_secret_mapping).await?.response)
+            Self::DeletePrincipalAppGrant(action) => {
+                Ok(run_action_direct(db, action).await?.response)
             }
-            Self::SystemInit(system_init) => Ok(run_action_direct(db, system_init).await?.response),
-            Self::CreatePrincipal(create_principal) => {
-                Ok(run_action_direct(db, create_principal).await?.response)
-            }
-            Self::CreatePrincipalCredential(create_principal_credential) => {
-                Ok(run_action_direct(db, create_principal_credential)
-                    .await?
-                    .response)
-            }
-            Self::DeleteSecretMapping(delete_secret_mapping) => {
-                Ok(run_action_direct(db, delete_secret_mapping).await?.response)
-            }
-            Self::CreatePrincipalToken(create_principal_token) => {
-                Ok(run_action_direct(db, create_principal_token)
-                    .await?
-                    .response)
-            }
-            Self::CreatePrincipalAppGrants(create_principal_app_grants) => {
-                Ok(run_action_direct(db, create_principal_app_grants)
-                    .await?
-                    .response)
-            }
-            Self::CreateTpmChallenge(create_tpm_challenge) => {
-                Ok(run_action_direct(db, create_tpm_challenge).await?.response)
-            }
+            Self::CreateTpmChallenge(action) => Ok(run_action_direct(db, action).await?.response),
         }
     }
 }

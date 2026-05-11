@@ -1,4 +1,5 @@
 use decodering_core::error::DbError;
+use decodering_core::repository::PrincipalAppGrant;
 use decodering_core::repository::PrincipalAppGrantEntry;
 use decodering_core::repository::PrincipalAppGrantRepository;
 use sqlx::QueryBuilder;
@@ -6,6 +7,7 @@ use sqlx::Sqlite;
 use sqlx::Transaction;
 
 use crate::error::map_sqlx;
+use crate::repository::PrincipalAppGrantRow;
 
 pub struct SqlitePrincipalAppGrantRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
@@ -56,5 +58,38 @@ impl PrincipalAppGrantRepository for SqlitePrincipalAppGrantRepository<'_> {
         .await
         .map_err(map_sqlx)?;
         Ok(id)
+    }
+
+    async fn delete(&mut self, app_id: &str, principal_id: &str) -> Result<u64, DbError> {
+        let rows_affected = sqlx::query(
+            "DELETE FROM principal_app_grants
+             WHERE app_id = ? AND principal_id = ?",
+        )
+        .bind(app_id)
+        .bind(principal_id)
+        .execute(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?
+        .rows_affected();
+        Ok(rows_affected)
+    }
+
+    async fn get_by_app_id_and_principal_id(
+        &mut self,
+        app_id: &str,
+        principal_id: &str,
+    ) -> Result<Option<PrincipalAppGrant>, DbError> {
+        let principal_app_grant: Option<PrincipalAppGrantRow> =
+            sqlx::query_as::<_, PrincipalAppGrantRow>(
+                "SELECT principal_id, app_id, granted_at, granted_by, revoked_at, revoked_by
+                FROM principal_app_grants
+                WHERE app_id = ? AND principal_id = ?",
+            )
+            .bind(app_id)
+            .bind(principal_id)
+            .fetch_optional(&mut **self.tx)
+            .await
+            .map_err(map_sqlx)?;
+        Ok(principal_app_grant.map(Into::into))
     }
 }

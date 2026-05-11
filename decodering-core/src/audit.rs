@@ -75,6 +75,7 @@ pub enum ActionKind {
     PrincipalCredentialCreate,
     PrincipalTokenCreate,
     PrincipalAppGrantCreate,
+    PrincipalAppGrantDelete,
     SecretMappingCreate,
     SecretMappingDelete,
     SecretMappingGet,
@@ -103,6 +104,7 @@ impl ActionKind {
             Self::TpmChallengeCreate => "tpm_challenge.create",
             Self::TpmChallengeConsume => "tpm_challenge.consume",
             Self::PrincipalAppGrantCreate => "principal_app_grant.create",
+            Self::PrincipalAppGrantDelete => "principal_app_grant.delete",
         }
     }
 }

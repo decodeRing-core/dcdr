@@ -78,3 +78,12 @@ impl ApiCreateAppGrantResponse {
         ApiResponse::new(ApiStatus::Success(SuccessStatus::OperationCompleted), None)
     }
 }
+
+#[derive(Serialize)]
+pub struct ApiDeleteAppGrantResponse {}
+
+impl ApiDeleteAppGrantResponse {
+    pub(crate) fn new() -> ApiResponse<Self> {
+        ApiResponse::new(ApiStatus::Success(SuccessStatus::OperationCompleted), None)
+    }
+}

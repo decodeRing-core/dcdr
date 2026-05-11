@@ -51,3 +51,9 @@ pub struct AppGrantData {
     pub apps: Vec<String>,
     pub principal_id: String,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct RevokeAppData {
+    pub app_id: String,
+    pub principal_id: String,
+}

@@ -9,10 +9,13 @@ use decodering_core::actions::create_principal_app_grant::{
 use decodering_core::actions::create_principal_credential::CreatePrincipalCredential;
 use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
+use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
 use decodering_core::crypto::{encode_hex, pem_to_der, sha256_hex};
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
-use decodering_core::repository::{AppRepository, PrincipalRepository};
+use decodering_core::repository::{
+    AppRepository, PrincipalAppGrantRepository, PrincipalRepository,
+};
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
 use decodering_core::time::{CHALLENGE_TTL_SECS, now_ts, now_ts_plus};
@@ -25,10 +28,11 @@ use crate::app_data::AppData;
 use crate::config::get_config;
 use crate::extractor::AuthAdminMiddleware;
 use crate::handlers::app::payload::{
-    AppGrantData, AuthTpmData, AuthUserData, CreateAppData, CreateAppUserData,
+    AppGrantData, AuthTpmData, AuthUserData, CreateAppData, CreateAppUserData, RevokeAppData,
 };
 use crate::handlers::app::response::{
-    ApiAuthAppUserResponse, ApiCreateAppGrantResponse, ApiTpmChallengeResponse,
+    ApiAuthAppUserResponse, ApiCreateAppGrantResponse, ApiDeleteAppGrantResponse,
+    ApiTpmChallengeResponse,
 };
 use crate::handlers::app::response::{ApiCreateAppResponse, ApiCreateAppUserResponse};
 use crate::handlers::response::{ApiResponse, ErrorStatus};
@@ -423,6 +427,64 @@ pub async fn grant_app_access_user<D: Database + 'static>(
 
 pub async fn revoke_app_access_user<D: Database + 'static>(
     app: Data<AppData<D>>,
+    req: Json<RevokeAppData>,
+    auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
-    ApiResponse::<()>::error(ErrorStatus::Unimplemented)
+    if let Some(raft_bits) = &app.raft {
+        let is_initialized = raft_bits.raft.is_initialized().await;
+        if !matches!(is_initialized, Ok(true)) {
+            return ApiResponse::error(ErrorStatus::NotInitialized);
+        }
+        if !raft_bits.raft.is_leader() {
+            return ApiResponse::error(ErrorStatus::NotLeader);
+        }
+    }
+
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::Internal);
+    };
+
+    let principal_app_grant = match db
+        .principal_app_grant()
+        .get_by_app_id_and_principal_id(&req.0.app_id, &req.0.principal_id)
+        .await
+    {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            tracing::error!(
+                principal_id = req.0.principal_id,
+                "No principal app grant found"
+            );
+            return ApiResponse::error(ErrorStatus::Internal);
+        }
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::Internal);
+        }
+    };
+
+    let delete_app_grant = DeletePrincipalAppGrant {
+        principal_id: principal_app_grant.principal_id,
+        app_id: principal_app_grant.app_id,
+    };
+    let request = AppRequest::DeletePrincipalAppGrant(delete_app_grant);
+    match app.submit(request).await {
+        Ok(resp) => match resp {
+            AppResponse::DeletePrincipalAppGrant(_) => ApiDeleteAppGrantResponse::new(),
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to delete app grant");
+                ApiResponse::error(ErrorStatus::Internal)
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                ApiResponse::error(ErrorStatus::Internal)
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            ApiResponse::error(ErrorStatus::Internal)
+        }
+    }
 }

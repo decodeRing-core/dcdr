@@ -130,6 +130,7 @@ pub enum AppResponse {
     CreatePrincipalToken(CreatePrincipalTokenResponse),
     CreatePrincipalAppGrant(CreatePrincipalAppGrantResponse),
     CreatePrincipalAppGrants(Vec<CreatePrincipalAppGrantResponse>),
+    DeletePrincipalAppGrant(bool),
     SystemInit(SystemInitResponse),
     CreateAppUser(CreateAppUserResponse),
     CreateTpmChallenge(CreateTpmChallengeResponse),
@@ -226,6 +227,7 @@ impl fmt::Display for AppResponse {
                     principal_app_grants.len()
                 )
             }
+            Self::DeletePrincipalAppGrant(r) => write!(f, "DeleteSecretMapping(deleted={r})"),
             Self::CreateAppUser(_) => write!(f, "CreateAppUser()"),
             Self::Noop => write!(f, "Noop"),
             Self::Error(e) => write!(f, "Error({e})"),

@@ -1,7 +1,32 @@
 use std::str::FromStr;
 
 use decodering_core::domain::{PrincipalKind, PrincipalStatus};
-use decodering_core::repository::{App, Principal, SecretMapping, Shamir, TpmChallenge, User};
+use decodering_core::repository::{
+    App, Principal, PrincipalAppGrant, SecretMapping, Shamir, TpmChallenge, User,
+};
+
+#[derive(sqlx::FromRow)]
+pub struct PrincipalAppGrantRow {
+    pub principal_id: String,
+    pub app_id: String,
+    pub granted_at: i64,
+    pub granted_by: Option<i64>,
+    pub revoked_at: Option<i64>,
+    pub revoked_by: Option<i64>,
+}
+
+impl From<PrincipalAppGrantRow> for PrincipalAppGrant {
+    fn from(r: PrincipalAppGrantRow) -> Self {
+        Self {
+            principal_id: r.principal_id,
+            app_id: r.app_id,
+            granted_at: r.granted_at,
+            granted_by: r.granted_by,
+            revoked_at: r.revoked_at,
+            revoked_by: r.revoked_by,
+        }
+    }
+}
 
 #[derive(sqlx::FromRow)]
 pub struct SecretMappingRow {

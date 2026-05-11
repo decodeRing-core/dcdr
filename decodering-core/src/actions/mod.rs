@@ -10,5 +10,6 @@ pub mod create_secret_mapping;
 pub mod create_shamir_configuration;
 pub mod create_tpm_challenge;
 pub mod create_user;
+pub mod delete_principal_app_grant;
 pub mod delete_secret_mapping;
 pub mod system_init;

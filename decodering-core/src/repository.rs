@@ -3,7 +3,7 @@ use serde::Serialize;
 use crate::domain::{AuditOutcome, PrincipalCredentialKind, PrincipalKind, PrincipalStatus};
 use crate::error::DbError;
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct PrincipalAppGrant {
     pub principal_id: String,
     pub app_id: String,
@@ -32,6 +32,16 @@ pub trait PrincipalAppGrantRepository: Send {
         &mut self,
         principal_app_grant: &PrincipalAppGrantEntry,
     ) -> impl Future<Output = Result<String, DbError>> + Send;
+    fn delete(
+        &mut self,
+        app_id: &str,
+        principal_id: &str,
+    ) -> impl Future<Output = Result<u64, DbError>> + Send;
+    fn get_by_app_id_and_principal_id(
+        &mut self,
+        app_id: &str,
+        principal_id: &str,
+    ) -> impl Future<Output = Result<Option<PrincipalAppGrant>, DbError>> + Send;
 }
 
 #[derive(Debug, Clone)]
