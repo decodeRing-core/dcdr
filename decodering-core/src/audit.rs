@@ -61,7 +61,7 @@ impl Target {
             Self::PrincipalAppGrant(principal_app_grant) => principal_app_grant
                 .as_deref()
                 .unwrap_or_default()
-                .to_string(),
+                .to_owned(),
         }
     }
 }

@@ -428,7 +428,7 @@ pub async fn grant_app_access_user<D: Database + 'static>(
 pub async fn revoke_app_access_user<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<RevokeAppData>,
-    auth: AuthAdminMiddleware<D>,
+    _auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
     if let Some(raft_bits) = &app.raft {
         let is_initialized = raft_bits.raft.is_initialized().await;

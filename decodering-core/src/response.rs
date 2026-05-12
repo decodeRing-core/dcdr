@@ -227,12 +227,12 @@ impl fmt::Display for AppResponse {
                     principal_app_grants.len()
                 )
             }
-            Self::DeletePrincipalAppGrant(r) => write!(f, "DeleteSecretMapping(deleted={r})"),
+            Self::DeletePrincipalAppGrant(r) => write!(f, "DeletePrincipalAppGrant(deleted={r})"),
+            Self::DeleteSecretMapping(r) => write!(f, "DeleteSecretMapping(deleted={r})"),
             Self::CreateAppUser(_) => write!(f, "CreateAppUser()"),
             Self::Noop => write!(f, "Noop"),
             Self::Error(e) => write!(f, "Error({e})"),
             Self::SystemInit(_) => write!(f, "SystemInit()"),
-            Self::DeleteSecretMapping(r) => write!(f, "DeleteSecretMapping(deleted={r})"),
         }
     }
 }
