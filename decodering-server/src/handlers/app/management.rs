@@ -3,19 +3,18 @@ use actix_web::web::{Data, Json};
 use decodering_core::actions::create_app::CreateApp;
 use decodering_core::actions::create_app_user::CreateAppUser;
 use decodering_core::actions::create_principal::CreatePrincipal;
-use decodering_core::actions::create_principal_app_grant::{
-    CreatePrincipalAppGrant, CreatePrincipalAppGrants,
-};
+use decodering_core::actions::create_principal_app_grant::CreatePrincipalAppGrant;
+use decodering_core::actions::create_principal_app_grant::CreatePrincipalAppGrants;
 use decodering_core::actions::create_principal_credential::CreatePrincipalCredential;
 use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
-use decodering_core::crypto::{encode_hex, pem_to_der, sha256_hex};
+use decodering_core::crypto::{encode_hex, pem_to_der, sha256_hex, sha256_hex_pem};
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
-use decodering_core::repository::{
-    AppRepository, PrincipalAppGrantRepository, PrincipalRepository,
-};
+use decodering_core::repository::AppRepository;
+use decodering_core::repository::PrincipalAppGrantRepository;
+use decodering_core::repository::PrincipalRepository;
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
 use decodering_core::time::{CHALLENGE_TTL_SECS, now_ts, now_ts_plus};
@@ -27,15 +26,19 @@ use uuid::Uuid;
 use crate::app_data::AppData;
 use crate::config::get_config;
 use crate::extractor::AuthAdminMiddleware;
-use crate::handlers::app::payload::{
-    AppGrantData, AuthTpmData, AuthUserData, CreateAppData, CreateAppUserData, RevokeAppData,
-};
-use crate::handlers::app::response::{
-    ApiAuthAppUserResponse, ApiCreateAppGrantResponse, ApiDeleteAppGrantResponse,
-    ApiTpmChallengeResponse,
-};
+use crate::handlers::app::payload::AuthTpmData;
+use crate::handlers::app::payload::AuthUserData;
+use crate::handlers::app::payload::CreateAppData;
+use crate::handlers::app::payload::CreateAppUserData;
+use crate::handlers::app::payload::RevokeAppData;
+use crate::handlers::app::payload::{AppGrantData, AuthTpmUserData};
+use crate::handlers::app::response::ApiAuthAppUserResponse;
+use crate::handlers::app::response::ApiCreateAppGrantResponse;
+use crate::handlers::app::response::ApiDeleteAppGrantResponse;
+use crate::handlers::app::response::ApiTpmChallengeResponse;
 use crate::handlers::app::response::{ApiCreateAppResponse, ApiCreateAppUserResponse};
 use crate::handlers::response::{ApiResponse, ErrorStatus};
+use base64::{Engine, engine::general_purpose::STANDARD};
 
 pub async fn create_app_user<D: Database + 'static>(
     app: Data<AppData<D>>,
@@ -241,6 +244,15 @@ pub async fn auth_app_user<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<AuthUserData>,
 ) -> impl Responder {
+    if let Some(raft_bits) = &app.raft {
+        let is_initialized = raft_bits.raft.is_initialized().await;
+        if !matches!(is_initialized, Ok(true)) {
+            return ApiResponse::error(ErrorStatus::NotInitialized);
+        }
+        if !raft_bits.raft.is_leader() {
+            return ApiResponse::error(ErrorStatus::NotLeader);
+        }
+    }
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -305,7 +317,47 @@ pub async fn auth_app_user<D: Database + 'static>(
     }
 }
 
-pub async fn auth_tpm_app_user<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
+pub async fn auth_tpm_app_user<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    req: Json<AuthTpmUserData>,
+) -> impl Responder {
+    if let Some(raft_bits) = &app.raft {
+        let is_initialized = raft_bits.raft.is_initialized().await;
+        if !matches!(is_initialized, Ok(true)) {
+            return ApiResponse::error(ErrorStatus::NotInitialized);
+        }
+        if !raft_bits.raft.is_leader() {
+            return ApiResponse::error(ErrorStatus::NotLeader);
+        }
+    }
+    let req = req.into_inner();
+    let decoded = (|| -> Result<_, base64::DecodeError> {
+        let quote = STANDARD.decode(&req.quote)?;
+        let signature = STANDARD.decode(&req.signature)?;
+        let pcrs = req
+            .pcrs
+            .as_deref()
+            .map(|s| STANDARD.decode(s))
+            .transpose()?;
+        Ok((quote, signature, pcrs))
+    })();
+
+    let (quote_bytes, signature_bytes, pcrs_bytes) = match decoded {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::warn!("invalid base64 in auth_tpm request: {e}");
+            return ApiResponse::<()>::error(ErrorStatus::Internal);
+        }
+    };
+
+    let ek_pubkey_hash = sha256_hex_pem(&req.ek_pubkey_pem);
+
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::Internal);
+    };
+
     ApiResponse::<()>::error(ErrorStatus::Unimplemented)
 }
 

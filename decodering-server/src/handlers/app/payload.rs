@@ -42,6 +42,17 @@ pub struct AuthUserData {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct AuthTpmUserData {
+    pub app_id: String,
+    pub challenge_id: String,
+    pub ek_pubkey_pem: String,
+    pub ak_pubkey_pem: String,
+    pub quote: String,
+    pub signature: String,
+    pub pcrs: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct AuthTpmData {
     pub ek_pubkey_hash: Option<String>,
 }

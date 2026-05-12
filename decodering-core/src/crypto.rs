@@ -17,6 +17,10 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
     s
 }
 
+pub fn sha256_hex_pem(pem: &str) -> Option<String> {
+    pem_to_der(pem).ok().map(|der| sha256_hex(&der))
+}
+
 pub fn encode_hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);
