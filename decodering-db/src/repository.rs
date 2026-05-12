@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
-use decodering_core::domain::{PrincipalKind, PrincipalStatus};
+use decodering_core::domain::{PrincipalCredentialKind, PrincipalKind, PrincipalStatus};
 use decodering_core::repository::{
-    App, Principal, PrincipalAppGrant, SecretMapping, Shamir, TpmChallenge, User,
+    App, Principal, PrincipalAppGrant, PrincipalCredential, SecretMapping, Shamir, TpmChallenge,
+    User,
 };
 
 #[derive(sqlx::FromRow)]
@@ -147,7 +148,7 @@ impl From<PrincipalRow> for Principal {
 pub struct TpmChallengeRow {
     challenge_id: String,
     nonce: Vec<u8>,
-    ek_pubkey_hash: String,
+    ek_pubkey_hash: Option<String>,
     issued_at: i64,
     expires_at: i64,
     consumed_at: Option<i64>,
@@ -162,6 +163,38 @@ impl From<TpmChallengeRow> for TpmChallenge {
             issued_at: r.issued_at,
             expires_at: r.expires_at,
             consumed_at: r.consumed_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct PrincipalCredentialRow {
+    pub credential_id: String,
+    pub principal_id: String,
+    pub kind: String,
+    pub lookup_key: String,
+    pub secret_material: String,
+    pub status: String,
+    pub expires_at: Option<i64>,
+    pub last_used_at: Option<i64>,
+    pub created_at: i64,
+    pub revoked_at: Option<i64>,
+}
+
+impl From<PrincipalCredentialRow> for PrincipalCredential {
+    fn from(r: PrincipalCredentialRow) -> Self {
+        Self {
+            credential_id: r.credential_id,
+            principal_id: r.principal_id,
+            kind: PrincipalCredentialKind::from_str(&r.kind)
+                .unwrap_or(PrincipalCredentialKind::ApiKey),
+            lookup_key: r.lookup_key,
+            secret_material: r.secret_material,
+            status: PrincipalStatus::from_str(&r.status).unwrap_or(PrincipalStatus::Disabled),
+            expires_at: r.expires_at,
+            last_used_at: r.last_used_at,
+            created_at: r.created_at,
+            revoked_at: r.revoked_at,
         }
     }
 }

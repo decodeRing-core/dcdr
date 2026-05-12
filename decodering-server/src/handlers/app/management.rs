@@ -11,13 +11,14 @@ use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
 use decodering_core::crypto::{encode_hex, pem_to_der, sha256_hex, sha256_hex_pem};
-use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
-use decodering_core::repository::AppRepository;
-use decodering_core::repository::PrincipalAppGrantRepository;
+use decodering_core::domain::{PrincipalCredentialKind, PrincipalKind, PrincipalStatus};
 use decodering_core::repository::PrincipalRepository;
+use decodering_core::repository::{AppRepository, TpmChallengeRepository};
+use decodering_core::repository::{PrincipalAppGrantRepository, PrincipalCredentialRepository};
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
 use decodering_core::time::{CHALLENGE_TTL_SECS, now_ts, now_ts_plus};
+use decodering_core::tpm::TpmMaterial;
 use decodering_core::tx::{Database, Tx};
 use rand::Rng;
 use rand::distr::{Alphanumeric, SampleString};
@@ -262,16 +263,12 @@ pub async fn auth_app_user<D: Database + 'static>(
     let key_hash = sha256_hex(req.key.as_bytes());
     let principal = match db
         .principal()
-        .get_by_app_id_and_key(&req.app_id, &key_hash, PrincipalStatus::Active)
+        .get_active_by_key(&key_hash, PrincipalStatus::Active)
         .await
     {
         Ok(Some(app)) => app,
         Ok(None) => {
-            tracing::error!(
-                "Principal not found {} with lookup key {}",
-                req.app_id,
-                key_hash
-            );
+            tracing::error!(lookup_key=%key_hash,"Principal not found with lookup key");
             return ApiResponse::error(ErrorStatus::Internal);
         }
         Err(e) => {
@@ -345,18 +342,75 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
     let (quote_bytes, signature_bytes, pcrs_bytes) = match decoded {
         Ok(t) => t,
         Err(e) => {
-            tracing::warn!("invalid base64 in auth_tpm request: {e}");
+            tracing::warn!("Invalid base64 in auth_tpm request: {e}");
             return ApiResponse::<()>::error(ErrorStatus::Internal);
         }
     };
 
     let ek_pubkey_hash = sha256_hex_pem(&req.ek_pubkey_pem);
+    let Some(ek_pubkey_hash) = ek_pubkey_hash else {
+        tracing::warn!("Invalid ek_pubkey_pem hash");
+        return ApiResponse::<()>::error(ErrorStatus::Internal);
+    };
 
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
         return ApiResponse::error(ErrorStatus::Internal);
     };
+
+    println!("req.challenge = {:#?}", req.challenge_id);
+    let tpm_challenge = match db.tpm_challenge().get_active(&req.challenge_id).await {
+        Ok(Some(app)) => app,
+        Ok(None) => {
+            tracing::error!(
+                challenge_id = req.challenge_id,
+                "TPM Challenge not found, already consumed, or expired"
+            );
+            return ApiResponse::error(ErrorStatus::Unauthorized);
+        }
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::Internal);
+        }
+    };
+
+    if let Some(hint) = &tpm_challenge.ek_pubkey_hash
+        && hint != &ek_pubkey_hash
+    {
+        return ApiResponse::error(ErrorStatus::ChallengeMismatch);
+    }
+
+    let credential = match db
+        .principal_credential()
+        .get_active_by_kind_and_lookup_key(
+            PrincipalCredentialKind::TrustedPlatformModule,
+            &ek_pubkey_hash,
+        )
+        .await
+    {
+        Ok(Some(x)) => x,
+        Ok(None) => {
+            tracing::error!("Active credential not found");
+            return ApiResponse::error(ErrorStatus::Internal);
+        }
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::Internal);
+        }
+    };
+
+    if credential.status != PrincipalStatus::Active || credential.revoked_at.is_some() {
+        tracing::error!(
+            status=credential.status.as_str(),
+            revoked_at=?credential.revoked_at,
+            "Invalid credential"
+        );
+        return ApiResponse::error(ErrorStatus::Internal);
+    }
+
+    let material = serde_json::from_str::<TpmMaterial>(&credential.secret_material);
+    println!("material = {:#?}", material);
 
     ApiResponse::<()>::error(ErrorStatus::Unimplemented)
 }

@@ -65,6 +65,7 @@ pub enum ErrorStatus {
     Unauthorized,
     Unimplemented,
     DuplicatedApp,
+    ChallengeMismatch,
 }
 
 impl ErrorStatus {
@@ -82,6 +83,7 @@ impl ErrorStatus {
             Self::Unauthorized => "unauthorized",
             Self::Unimplemented => "not-implemented",
             Self::DuplicatedApp => "duplicated-app",
+            Self::ChallengeMismatch => "challenge-mismatch",
         }
     }
 
@@ -99,6 +101,7 @@ impl ErrorStatus {
             Self::Unauthorized => "Unauthorized access.",
             Self::Unimplemented => "Not implemented.",
             Self::DuplicatedApp => "App with the same name already exists.",
+            Self::ChallengeMismatch => "Challenge mismatch.",
         }
     }
 
@@ -112,6 +115,7 @@ impl ErrorStatus {
             Self::UnsupportedBackend | Self::Unimplemented => StatusCode::NOT_IMPLEMENTED,
             Self::SecretNotFound => StatusCode::NOT_FOUND,
             Self::DuplicatedApp => StatusCode::CONFLICT,
+            Self::ChallengeMismatch => StatusCode::BAD_REQUEST,
         }
     }
 }

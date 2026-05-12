@@ -44,7 +44,7 @@ impl PrincipalRepository for PostgresPrincipalRepository<'_> {
                   AND pc.status = $2
                   AND p.status = $2
                   AND p.deleted_at IS NULL
-                  AND (pc.expires_at IS NULL OR pc.expires_at > unixepoch())
+                  AND (pc.expires_at IS NULL OR pc.expires_at > EXTRACT(EPOCH FROM NOW())::BIGINT)
                   AND pc.revoked_at IS NULL",
         )
         .bind(principal_id)
@@ -56,9 +56,8 @@ impl PrincipalRepository for PostgresPrincipalRepository<'_> {
         Ok(principal.map(Into::into))
     }
 
-    async fn get_by_app_id_and_key(
+    async fn get_active_by_key(
         &mut self,
-        app_id: &str,
         key_hash: &str,
         status: PrincipalStatus,
     ) -> Result<Option<Principal>, DbError> {
@@ -66,16 +65,14 @@ impl PrincipalRepository for PostgresPrincipalRepository<'_> {
             "SELECT pc.credential_id, p.principal_id, p.name, p.kind, p.status, p.created_at, p.updated_at, p.deleted_at
             FROM principals p
             INNER JOIN principal_credentials pc ON pc.principal_id = p.principal_id
-            INNER JOIN principal_grants pg ON pg.principal_id = p.principal_id and pg.app_id = $1
-            WHERE pc.lookup_key = $2
-                AND pc.status = $3
-                AND p.status = $3
+            WHERE pc.lookup_key = $1
+                AND pc.status = $2
+                AND p.status = $2
                 AND pg.revoked_at IS NULL
                 AND p.deleted_at IS NULL
                 AND (pc.expires_at IS NULL OR pc.expires_at > EXTRACT(EPOCH FROM NOW())::BIGINT)
                 AND pc.revoked_at IS NULL",
         )
-        .bind(app_id)
         .bind(key_hash)
         .bind(status.as_str())
         .fetch_optional(&mut **self.tx)

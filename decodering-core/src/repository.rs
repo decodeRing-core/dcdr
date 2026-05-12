@@ -48,7 +48,7 @@ pub trait PrincipalAppGrantRepository: Send {
 pub struct TpmChallenge {
     pub challenge_id: String,
     pub nonce: Vec<u8>,
-    pub ek_pubkey_hash: String,
+    pub ek_pubkey_hash: Option<String>,
     pub issued_at: i64,
     pub expires_at: i64,
     pub consumed_at: Option<i64>,
@@ -100,6 +100,20 @@ pub trait PrincipalTokenRepository: Send {
 }
 
 #[derive(Debug, Clone)]
+pub struct PrincipalCredential {
+    pub credential_id: String,
+    pub principal_id: String,
+    pub kind: PrincipalCredentialKind,
+    pub lookup_key: String,
+    pub secret_material: String,
+    pub status: PrincipalStatus,
+    pub expires_at: Option<i64>,
+    pub last_used_at: Option<i64>,
+    pub created_at: i64,
+    pub revoked_at: Option<i64>,
+}
+
+#[derive(Debug, Clone)]
 pub struct PrincipalCredentialEntry {
     pub credential_id: String,
     pub principal_id: String,
@@ -118,6 +132,11 @@ pub trait PrincipalCredentialRepository: Send {
         &mut self,
         principal_credential: &PrincipalCredentialEntry,
     ) -> impl Future<Output = Result<String, DbError>> + Send;
+    fn get_active_by_kind_and_lookup_key(
+        &mut self,
+        kind: PrincipalCredentialKind,
+        lookup_key: &str,
+    ) -> impl Future<Output = Result<Option<PrincipalCredential>, DbError>> + Send;
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -153,9 +172,8 @@ pub trait PrincipalRepository: Send {
         principal_id: &str,
         status: PrincipalStatus,
     ) -> impl Future<Output = Result<Option<Principal>, DbError>> + Send;
-    fn get_by_app_id_and_key(
+    fn get_active_by_key(
         &mut self,
-        app_id: &str,
         key: &str,
         status: PrincipalStatus,
     ) -> impl Future<Output = Result<Option<Principal>, DbError>> + Send;

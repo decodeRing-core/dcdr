@@ -37,13 +37,11 @@ pub struct CreateAppData {
 
 #[derive(Deserialize, Debug)]
 pub struct AuthUserData {
-    pub app_id: String,
     pub key: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct AuthTpmUserData {
-    pub app_id: String,
     pub challenge_id: String,
     pub ek_pubkey_pem: String,
     pub ak_pubkey_pem: String,
