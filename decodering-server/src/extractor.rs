@@ -17,6 +17,7 @@ use decodering_core::tx::Tx;
 use serde::Serialize;
 
 use crate::app_data::AppData;
+use crate::error::ErrorReason;
 use crate::handlers::response::ErrorStatus;
 
 #[derive(Debug, Serialize)]
@@ -52,7 +53,7 @@ where
             let db = app.db.begin().await;
             let Ok(mut db) = db else {
                 tracing::error!("Failed to get a connection to database");
-                return Err(ErrorStatus::Internal.into());
+                return Err(ErrorStatus::OperationFailed(ErrorReason::Database).into());
             };
 
             let api_key_hash = sha256_hex(access_token.as_bytes());
@@ -64,11 +65,11 @@ where
                         access_token,
                         "Invalid authentication attempt. No user found for token"
                     );
-                    Err(ErrorStatus::Unauthorized.into())
+                    Err(ErrorStatus::OperationFailed(ErrorReason::Unauthorized).into())
                 }
                 Err(e) => {
                     tracing::error!(err=%e, "Failed to query database");
-                    Err(ErrorStatus::Internal.into())
+                    Err(ErrorStatus::OperationFailed(ErrorReason::Database).into())
                 }
             }
         })
@@ -110,14 +111,14 @@ where
             let db = app.db.begin().await;
             let Ok(mut db) = db else {
                 tracing::error!("Failed to get a connection to database");
-                return Err(ErrorStatus::Internal.into());
+                return Err(ErrorStatus::OperationFailed(ErrorReason::Database).into());
             };
 
             let api_key_hash = sha256_hex(access_token.as_bytes());
 
             if let Some(u) = db.user().get_by_api_key(&api_key_hash).await.map_err(|e| {
                 tracing::error!(err=%e, "Failed to query database");
-                ErrorStatus::Internal
+                ErrorStatus::OperationFailed(ErrorReason::Database)
             })? {
                 return Ok(Self::new(Some(u), None));
             }
@@ -128,7 +129,7 @@ where
                 .await
                 .map_err(|e| {
                     tracing::error!(err=%e, "Failed to query database");
-                    ErrorStatus::Internal
+                    ErrorStatus::OperationFailed(ErrorReason::Database)
                 })?
             {
                 return Ok(Self::new(None, Some(p)));
@@ -138,7 +139,7 @@ where
                 access_token,
                 "Invalid authentication attempt. No user or principal found for token"
             );
-            Err(ErrorStatus::Unauthorized.into())
+            Err(ErrorStatus::OperationFailed(ErrorReason::Unauthorized).into())
         })
     }
 }
@@ -146,23 +147,23 @@ where
 pub fn get_authorization(req: &HttpRequest) -> Result<String, Error> {
     let authorization = req.headers().get(header::AUTHORIZATION);
     let Some(authorization) = authorization else {
-        return Err(ErrorStatus::Unauthorized.into());
+        return Err(ErrorStatus::OperationFailed(ErrorReason::Unauthorized).into());
     };
 
     let access_token = authorization.to_str();
     let Ok(access_token) = access_token else {
-        return Err(ErrorStatus::Unauthorized.into());
+        return Err(ErrorStatus::OperationFailed(ErrorReason::Unauthorized).into());
     };
 
     if access_token.split_whitespace().count() != 2 {
-        return Err(ErrorStatus::Unauthorized.into());
+        return Err(ErrorStatus::OperationFailed(ErrorReason::Unauthorized).into());
     }
     let token = access_token
         .strip_prefix("Bearer ")
-        .ok_or(ErrorStatus::Unauthorized)?;
+        .ok_or(ErrorStatus::OperationFailed(ErrorReason::Unauthorized))?;
 
     if token.is_empty() || token.contains(char::is_whitespace) {
-        return Err(ErrorStatus::Unauthorized.into());
+        return Err(ErrorStatus::OperationFailed(ErrorReason::Unauthorized).into());
     }
 
     Ok(token.to_owned())

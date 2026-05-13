@@ -1,4 +1,5 @@
 use crate::app_data::AppData;
+use crate::error::ErrorReason;
 use crate::handlers::app::payload::UnlockData;
 use crate::handlers::response::{ApiResponse, ErrorStatus, SuccessStatus};
 use crate::handlers::system::payloads::InitSystemRequestData;
@@ -26,7 +27,7 @@ pub async fn system_init<D: Database + 'static>(
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::Internal);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
     let shamir_configuration = db.shamir().get_first().await;
     let total_shares = match shamir_configuration {
@@ -34,7 +35,7 @@ pub async fn system_init<D: Database + 'static>(
         Ok(None) => 0,
         Err(e) => {
             tracing::error!(error=%e, "Database error");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
         }
     };
 
@@ -43,18 +44,18 @@ pub async fn system_init<D: Database + 'static>(
 
         let Some(total_shares) = req.total_shares else {
             tracing::error!("Shard data initialization required. Missing total shares.");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingShardData));
         };
         let Some(threshold) = req.threshold else {
             tracing::error!("Shard data initialization required. Missing threshold.");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingShardData));
         };
 
         let shamir_init = match initialize_shamir(total_shares, threshold) {
             Ok(s) => s,
             Err(e) => {
                 tracing::error!(error=%e, "Shamir secret sharing initialization failed");
-                return ApiResponse::error(ErrorStatus::Internal);
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal));
             }
         };
         Some((shamir_init, total_shares, threshold))
@@ -64,7 +65,9 @@ pub async fn system_init<D: Database + 'static>(
 
     let Some((shamir_init, total_shares, threshold)) = shamir_setup else {
         tracing::error!("System already initialized");
-        return ApiResponse::error(ErrorStatus::AlreadyInitialized);
+        return ApiResponse::error(ErrorStatus::OperationFailed(
+            ErrorReason::AlreadyInitialized,
+        ));
     };
 
     let token = format!("pk_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
@@ -90,16 +93,18 @@ pub async fn system_init<D: Database + 'static>(
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to initialize system");
-                ApiResponse::error(ErrorStatus::Internal)
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "initialize system",
+                )))
             }
             other_api_response => {
                 tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::Internal)
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
             }
         },
         Err(e) => {
             tracing::error!(%e, "Failed to initialize system");
-            ApiResponse::error(ErrorStatus::Internal)
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
         }
     }
 }
@@ -115,14 +120,18 @@ pub async fn system_unlock<D: Database + 'static>(
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to DB");
-        return ApiResponse::<()>::error(ErrorStatus::Internal);
+        return ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
     let shamir_configuration = match db.shamir().get_first().await {
         Ok(Some(config)) => config,
-        Ok(None) => return ApiResponse::error(ErrorStatus::Internal),
+        Ok(None) => {
+            return ApiResponse::error(ErrorStatus::OperationFailed(
+                ErrorReason::SystemNotInitialized,
+            ));
+        }
         Err(e) => {
             tracing::error!(error=%e, "Failed to unlock node");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
         }
     };
     let shares = req
@@ -134,12 +143,12 @@ pub async fn system_unlock<D: Database + 'static>(
 
     let Ok(shares) = shares else {
         tracing::error!("Failed to unlock node. Failed to process shards.");
-        return ApiResponse::error(ErrorStatus::Internal);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal));
     };
     let threshold = u8::try_from(shamir_configuration.threshold);
     let Ok(threshold) = threshold else {
         tracing::error!("Shamir configuration threshold out of range");
-        return ApiResponse::error(ErrorStatus::InvalidKeys);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::InvalidKeys));
     };
     match unlock(threshold, &shamir_configuration.validation_hash, &shares) {
         Ok(master_key) => {
@@ -148,20 +157,20 @@ pub async fn system_unlock<D: Database + 'static>(
                 Ok(()) => ApiResponse::empty(SuccessStatus::SystemUnlocked.into()),
                 Err(e) => {
                     tracing::error!(err=?e, "Unlock error");
-                    ApiResponse::error(ErrorStatus::Internal)
+                    ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
                 }
             }
         }
         Err(e) => {
             tracing::error!(error=%e, "Failed to unlock node");
-            ApiResponse::error(ErrorStatus::Internal)
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
         }
     }
 }
 
 pub async fn system_status<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
     if app.master_key.get().is_none() {
-        return ApiResponse::<()>::empty(ErrorStatus::Locked.into());
+        return ApiResponse::<()>::empty(SuccessStatus::SystemLocked.into());
     }
     ApiResponse::<()>::empty(SuccessStatus::SystemUnlocked.into())
 }

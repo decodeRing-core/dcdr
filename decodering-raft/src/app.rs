@@ -21,6 +21,7 @@ use crate::raft_types::{AppendEntriesRequest, RaftError};
 use crate::raft_types::{AppendEntriesResponse, InitializeError};
 use crate::{Raft, StateMachineStore};
 
+#[derive(Clone)]
 pub struct RaftBits {
     pub id: NodeId,
     pub raft: Raft,

@@ -5,6 +5,8 @@ use actix_web::http::StatusCode;
 use actix_web::{HttpRequest, HttpResponse, Responder, ResponseError};
 use serde::Serialize;
 
+use crate::error::ErrorReason;
+
 const OSL_VERSION: &str = "1.0.0";
 
 #[derive(Debug, Clone)]
@@ -18,6 +20,7 @@ pub enum ApiStatus {
 pub enum SuccessStatus {
     SystemInitialized,
     SystemUnlocked,
+    SystemLocked,
     RaftInitialized,
     RaftMetrics,
     RaftAddLearner,
@@ -29,7 +32,8 @@ impl SuccessStatus {
     fn message(&self) -> &'static str {
         match self {
             Self::SystemInitialized => "System initialized",
-            Self::SystemUnlocked => "System is unlocked",
+            Self::SystemUnlocked => "System unlocked",
+            Self::SystemLocked => "System locked",
             Self::RaftInitialized => "Raft initialized",
             Self::RaftMetrics => "Raft node metrics",
             Self::RaftAddLearner => "Raft learner added",
@@ -42,6 +46,7 @@ impl SuccessStatus {
         match self {
             Self::SystemInitialized
             | Self::SystemUnlocked
+            | Self::SystemLocked
             | Self::RaftInitialized
             | Self::RaftMetrics
             | Self::RaftAddLearner
@@ -53,69 +58,31 @@ impl SuccessStatus {
 
 #[derive(Debug, Clone)]
 pub enum ErrorStatus {
-    NotLeader,
-    NotInitialized,
-    AlreadyInitialized,
-    Plugin,
-    Internal,
-    InvalidKeys,
-    Locked,
-    UnsupportedBackend,
-    SecretNotFound,
-    Unauthorized,
-    Unimplemented,
-    DuplicatedApp,
-    ChallengeMismatch,
+    OperationFailed(ErrorReason),
 }
 
 impl ErrorStatus {
     fn code(&self) -> &'static str {
         match self {
-            Self::NotLeader => "not-leader",
-            Self::NotInitialized => "node-not-initialized",
-            Self::AlreadyInitialized => "system-already-initialized",
-            Self::Plugin => "plugin-error",
-            Self::Internal => "internal-error",
-            Self::InvalidKeys => "invalid-keys",
-            Self::Locked => "locked",
-            Self::UnsupportedBackend => "unsupported-backend",
-            Self::SecretNotFound => "secret-not-found",
-            Self::Unauthorized => "unauthorized",
-            Self::Unimplemented => "not-implemented",
-            Self::DuplicatedApp => "duplicated-app",
-            Self::ChallengeMismatch => "challenge-mismatch",
+            Self::OperationFailed(_) => "operation-failed",
         }
     }
 
     fn message(&self) -> &'static str {
         match self {
-            Self::NotLeader => "Node is not the leader.",
-            Self::NotInitialized => "Node is not initialized.",
-            Self::AlreadyInitialized => "System already initialized.",
-            Self::Plugin => "Plugin error.",
-            Self::Internal => "Internal error.",
-            Self::InvalidKeys => "Invalid keys.",
-            Self::Locked => "Node locked.",
-            Self::UnsupportedBackend => "Unsupported backend.",
-            Self::SecretNotFound => "Secret not found.",
-            Self::Unauthorized => "Unauthorized access.",
-            Self::Unimplemented => "Not implemented.",
-            Self::DuplicatedApp => "App with the same name already exists.",
-            Self::ChallengeMismatch => "Challenge mismatch.",
+            Self::OperationFailed(_) => "Operation failed.",
+        }
+    }
+
+    fn detail(&self) -> String {
+        match self {
+            Self::OperationFailed(detail) => detail.to_string(),
         }
     }
 
     fn http_status(&self) -> StatusCode {
         match self {
-            Self::NotLeader => StatusCode::MISDIRECTED_REQUEST,
-            Self::NotInitialized => StatusCode::SERVICE_UNAVAILABLE,
-            Self::AlreadyInitialized | Self::Plugin => StatusCode::BAD_REQUEST,
-            Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::InvalidKeys | Self::Locked | Self::Unauthorized => StatusCode::FORBIDDEN,
-            Self::UnsupportedBackend | Self::Unimplemented => StatusCode::NOT_IMPLEMENTED,
-            Self::SecretNotFound => StatusCode::NOT_FOUND,
-            Self::DuplicatedApp => StatusCode::CONFLICT,
-            Self::ChallengeMismatch => StatusCode::BAD_REQUEST,
+            Self::OperationFailed(reason) => reason.http_status(),
         }
     }
 }
@@ -180,6 +147,7 @@ pub struct ApiResponse<T> {
 pub struct ApiErrorBody {
     code: &'static str,
     message: &'static str,
+    detail: String,
 }
 
 impl<T: Serialize> ApiResponse<T> {
@@ -202,6 +170,7 @@ impl<T: Serialize> ApiResponse<T> {
                 error: Some(ApiErrorBody {
                     code: e.code(),
                     message: e.message(),
+                    detail: e.detail(),
                 }),
             },
         }

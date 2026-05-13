@@ -6,6 +6,7 @@ use decodering_raft::raft_types::{ClientWriteError, RaftError};
 use std::collections::BTreeSet;
 
 use crate::app_data::AppData;
+use crate::error::ErrorReason;
 use crate::handlers::raft::payload::InitRaftRequestData;
 use crate::handlers::response::{ApiResponse, ErrorStatus, SuccessStatus};
 
@@ -16,19 +17,21 @@ pub async fn init_raft<D: Database + 'static>(
     let req = req.into_inner();
     let Some(raft_bits) = &app.raft else {
         tracing::error!("RaftBits not available");
-        return ApiResponse::error(ErrorStatus::Internal);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::RaftNotAvailable));
     };
 
     let is_initialized = raft_bits.raft.is_initialized().await;
     if matches!(is_initialized, Ok(true)) {
-        return ApiResponse::error(ErrorStatus::AlreadyInitialized);
+        return ApiResponse::error(ErrorStatus::OperationFailed(
+            ErrorReason::AlreadyInitialized,
+        ));
     }
 
     match raft_bits.init(app.addr.clone(), req.raft_init).await {
         Ok(()) => ApiResponse::empty(SuccessStatus::RaftInitialized.into()),
         Err(e) => {
             tracing::error!(err=%e, "Raft error");
-            ApiResponse::<()>::error(ErrorStatus::Internal)
+            ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Raft))
         }
     }
 }
@@ -39,7 +42,7 @@ pub async fn metrics_raft<D: Database + 'static>(
 ) -> impl Responder {
     let Some(raft_bits) = &app.raft else {
         tracing::error!("RaftBits not available");
-        return ApiResponse::error(ErrorStatus::Internal);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::RaftNotAvailable));
     };
 
     let result = raft_bits.metrics();
@@ -52,18 +55,18 @@ pub async fn add_learner_raft<D: Database + 'static>(
 ) -> impl Responder {
     let Some(raft_bits) = &app.raft else {
         tracing::error!("RaftBits not available");
-        return ApiResponse::error(ErrorStatus::Internal);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::RaftNotAvailable));
     };
 
     match raft_bits.add_learner(req.0).await {
         Ok(resp) => ApiResponse::new(SuccessStatus::RaftAddLearner.into(), Some(resp)),
         Err(RaftError::APIError(ClientWriteError::ForwardToLeader(fwd))) => {
             tracing::warn!(err=%fwd, "forward to leader");
-            ApiResponse::error(ErrorStatus::NotLeader)
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::RaftNotLeader))
         }
         Err(e) => {
-            tracing::error!(err=%e, "Raft change membership error");
-            ApiResponse::error(ErrorStatus::Internal)
+            tracing::error!(err=%e, "Raft add learner error");
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Raft))
         }
     }
 }
@@ -74,18 +77,18 @@ pub async fn change_membership_raft<D: Database + 'static>(
 ) -> impl Responder {
     let Some(raft_bits) = &app.raft else {
         tracing::error!("RaftBits not available");
-        return ApiResponse::error(ErrorStatus::Internal);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::RaftNotAvailable));
     };
 
     match raft_bits.change_membership(req.0).await {
         Ok(resp) => ApiResponse::new(SuccessStatus::RaftMembership.into(), Some(resp)),
         Err(RaftError::APIError(ClientWriteError::ForwardToLeader(fwd))) => {
             tracing::warn!(err=%fwd, "forward to leader");
-            ApiResponse::error(ErrorStatus::NotLeader)
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::RaftNotLeader))
         }
         Err(e) => {
             tracing::error!(err=%e, "Raft change membership error");
-            ApiResponse::error(ErrorStatus::Internal)
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Raft))
         }
     }
 }

@@ -11,7 +11,7 @@ use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
 use decodering_core::crypto::{encode_hex, pem_to_der, sha256_hex, sha256_hex_pem};
-use decodering_core::domain::{PrincipalCredentialKind, PrincipalKind, PrincipalStatus};
+use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
 use decodering_core::repository::PrincipalRepository;
 use decodering_core::repository::{AppRepository, TpmChallengeRepository};
 use decodering_core::repository::{PrincipalAppGrantRepository, PrincipalCredentialRepository};
@@ -26,6 +26,7 @@ use uuid::Uuid;
 
 use crate::app_data::AppData;
 use crate::config::get_config;
+use crate::error::ErrorReason;
 use crate::extractor::AuthAdminMiddleware;
 use crate::handlers::app::payload::AuthTpmData;
 use crate::handlers::app::payload::AuthUserData;
@@ -46,16 +47,6 @@ pub async fn create_app_user<D: Database + 'static>(
     req: Json<CreateAppUserData>,
     auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
-    if let Some(raft_bits) = &app.raft {
-        let is_initialized = raft_bits.raft.is_initialized().await;
-        if !matches!(is_initialized, Ok(true)) {
-            return ApiResponse::error(ErrorStatus::NotInitialized);
-        }
-        if !raft_bits.raft.is_leader() {
-            return ApiResponse::error(ErrorStatus::NotLeader);
-        }
-    }
-
     let timestamp = now_ts();
     let principal_id = Uuid::now_v7().to_string();
     let principal = CreatePrincipal {
@@ -77,13 +68,17 @@ pub async fn create_app_user<D: Database + 'static>(
         PrincipalCredentialKind::TrustedPlatformModule => {
             let Some(ref tpm_req) = req.0.tpm else {
                 tracing::error!("Missing TPM data");
-                return ApiResponse::error(ErrorStatus::Internal);
+                return ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::MissingTpmData,
+                ));
             };
             let ek_der = match pem_to_der(&tpm_req.ek_pubkey_pem) {
                 Ok(x) => x,
                 Err(e) => {
                     tracing::error!(err=?e, "Invalid EK public key");
-                    return ApiResponse::error(ErrorStatus::Internal);
+                    return ApiResponse::error(ErrorStatus::OperationFailed(
+                        ErrorReason::InvalidPublicKey,
+                    ));
                 }
             };
             let ek_hash = sha256_hex(&ek_der);
@@ -91,27 +86,33 @@ pub async fn create_app_user<D: Database + 'static>(
                 let cert_pem = tpm_req.ek_cert_pem.as_ref();
                 let Some(cert_pem) = cert_pem else {
                     tracing::error!("EK cert required");
-                    return ApiResponse::error(ErrorStatus::Internal);
+                    return ApiResponse::error(ErrorStatus::OperationFailed(
+                        ErrorReason::CertMissing("EK cert"),
+                    ));
                 };
                 let config = get_config();
                 let trust_store = TpmTrustStore::from_directory(&config.tpm_trust_dir);
                 let Ok(trust_store) = trust_store else {
                     tracing::error!("Failed to load trust store");
-                    return ApiResponse::error(ErrorStatus::Internal);
+                    return ApiResponse::error(ErrorStatus::OperationFailed(
+                        ErrorReason::TrustStore,
+                    ));
                 };
                 tracing::info!(count = trust_store.len(), "loaded TPM trust anchors");
 
                 if let Err(e) = verify_ek_cert_chain(cert_pem, &tpm_req.ek_pubkey_pem, &trust_store)
                 {
                     tracing::error!(err=?e, "EK cert verification failed");
-                    return ApiResponse::error(ErrorStatus::Internal);
+                    return ApiResponse::error(ErrorStatus::OperationFailed(
+                        ErrorReason::CertVerification,
+                    ));
                 }
             }
 
             ("TPM key added".to_owned(), ek_hash)
         }
         PrincipalCredentialKind::AwsIdentity => {
-            return ApiResponse::error(ErrorStatus::Unimplemented);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unimplemented));
         }
     };
 
@@ -120,7 +121,9 @@ pub async fn create_app_user<D: Database + 'static>(
         PrincipalCredentialKind::TrustedPlatformModule => {
             let Some(ref tpm_req) = req.0.tpm else {
                 tracing::error!("Missing TPM data");
-                return ApiResponse::error(ErrorStatus::Internal);
+                return ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::MissingTpmData,
+                ));
             };
             let material = serde_json::json!({
                 "ek_pubkey_pem":   tpm_req.ek_pubkey_pem,
@@ -131,7 +134,7 @@ pub async fn create_app_user<D: Database + 'static>(
             material
         }
         PrincipalCredentialKind::AwsIdentity => {
-            return ApiResponse::error(ErrorStatus::Unimplemented);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unimplemented));
         }
     };
 
@@ -171,16 +174,18 @@ pub async fn create_app_user<D: Database + 'static>(
             AppResponse::CreateAppUser(_) => ApiCreateAppUserResponse::new(token, principal_id),
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app user");
-                ApiResponse::error(ErrorStatus::Internal)
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "create app user",
+                )))
             }
             other_api_response => {
-                tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::Internal)
+                tracing::error!(?other_api_response, "Unexpected AppResponse variant");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
             }
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::Internal)
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
         }
     }
 }
@@ -190,20 +195,10 @@ pub async fn create_app<D: Database + 'static>(
     req: Json<CreateAppData>,
     _auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
-    if let Some(raft_bits) = &app.raft {
-        let is_initialized = raft_bits.raft.is_initialized().await;
-        if !matches!(is_initialized, Ok(true)) {
-            return ApiResponse::error(ErrorStatus::NotInitialized);
-        }
-        if !raft_bits.raft.is_leader() {
-            return ApiResponse::error(ErrorStatus::NotLeader);
-        }
-    }
-
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::Internal);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
     match db.app().get_by_app_name(&req.0.app_name).await {
         Ok(Some(a)) => {
@@ -212,12 +207,12 @@ pub async fn create_app<D: Database + 'static>(
                 id = a.app_id,
                 "Cannot create a duplicate app with name"
             );
-            return ApiResponse::error(ErrorStatus::DuplicatedApp);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::DuplicatedApp));
         }
         Ok(None) => (),
         Err(e) => {
             tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
         }
     }
 
@@ -227,16 +222,18 @@ pub async fn create_app<D: Database + 'static>(
             AppResponse::CreateApp(a) => ApiCreateAppResponse::new(a.app_id, a.app_name),
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app");
-                ApiResponse::error(ErrorStatus::Internal)
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "create app",
+                )))
             }
             other_api_response => {
                 tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::Internal)
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
             }
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::Internal)
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
         }
     }
 }
@@ -245,19 +242,10 @@ pub async fn auth_app_user<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<AuthUserData>,
 ) -> impl Responder {
-    if let Some(raft_bits) = &app.raft {
-        let is_initialized = raft_bits.raft.is_initialized().await;
-        if !matches!(is_initialized, Ok(true)) {
-            return ApiResponse::error(ErrorStatus::NotInitialized);
-        }
-        if !raft_bits.raft.is_leader() {
-            return ApiResponse::error(ErrorStatus::NotLeader);
-        }
-    }
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::Internal);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
     let key_hash = sha256_hex(req.key.as_bytes());
@@ -269,11 +257,13 @@ pub async fn auth_app_user<D: Database + 'static>(
         Ok(Some(app)) => app,
         Ok(None) => {
             tracing::error!(lookup_key=%key_hash,"Principal not found with lookup key");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(
+                ErrorReason::PrincipalNotFound,
+            ));
         }
         Err(e) => {
             tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
         }
     };
 
@@ -299,17 +289,19 @@ pub async fn auth_app_user<D: Database + 'static>(
                 ApiAuthAppUserResponse::new(token, r.expires_at)
             }
             AppResponse::Error(e) => {
-                tracing::error!(%e, "Failed to create app");
-                ApiResponse::error(ErrorStatus::Internal)
+                tracing::error!(%e, "Failed to authenticate app user");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "authenticate app user",
+                )))
             }
             other_api_response => {
                 tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::Internal)
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
             }
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::Internal)
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
         }
     }
 }
@@ -318,15 +310,6 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<AuthTpmUserData>,
 ) -> impl Responder {
-    if let Some(raft_bits) = &app.raft {
-        let is_initialized = raft_bits.raft.is_initialized().await;
-        if !matches!(is_initialized, Ok(true)) {
-            return ApiResponse::error(ErrorStatus::NotInitialized);
-        }
-        if !raft_bits.raft.is_leader() {
-            return ApiResponse::error(ErrorStatus::NotLeader);
-        }
-    }
     let req = req.into_inner();
     let decoded = (|| -> Result<_, base64::DecodeError> {
         let quote = STANDARD.decode(&req.quote)?;
@@ -343,23 +326,24 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
         Ok(t) => t,
         Err(e) => {
             tracing::warn!("Invalid base64 in auth_tpm request: {e}");
-            return ApiResponse::<()>::error(ErrorStatus::Internal);
+            return ApiResponse::<()>::error(ErrorStatus::OperationFailed(
+                ErrorReason::Unauthorized,
+            ));
         }
     };
 
     let ek_pubkey_hash = sha256_hex_pem(&req.ek_pubkey_pem);
     let Some(ek_pubkey_hash) = ek_pubkey_hash else {
         tracing::warn!("Invalid ek_pubkey_pem hash");
-        return ApiResponse::<()>::error(ErrorStatus::Internal);
+        return ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
     };
 
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::Internal);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
-    println!("req.challenge = {:#?}", req.challenge_id);
     let tpm_challenge = match db.tpm_challenge().get_active(&req.challenge_id).await {
         Ok(Some(app)) => app,
         Ok(None) => {
@@ -367,18 +351,18 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
                 challenge_id = req.challenge_id,
                 "TPM Challenge not found, already consumed, or expired"
             );
-            return ApiResponse::error(ErrorStatus::Unauthorized);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
         }
         Err(e) => {
             tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
         }
     };
 
     if let Some(hint) = &tpm_challenge.ek_pubkey_hash
         && hint != &ek_pubkey_hash
     {
-        return ApiResponse::error(ErrorStatus::ChallengeMismatch);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::ChallengeMismatch));
     }
 
     let credential = match db
@@ -392,11 +376,11 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
         Ok(Some(x)) => x,
         Ok(None) => {
             tracing::error!("Active credential not found");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
         }
         Err(e) => {
             tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
         }
     };
 
@@ -406,13 +390,12 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
             revoked_at=?credential.revoked_at,
             "Invalid credential"
         );
-        return ApiResponse::error(ErrorStatus::Internal);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
     }
 
     let material = serde_json::from_str::<TpmMaterial>(&credential.secret_material);
-    println!("material = {:#?}", material);
 
-    ApiResponse::<()>::error(ErrorStatus::Unimplemented)
+    ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Unimplemented))
 }
 
 pub async fn tpm_challenge_app_user<D: Database + 'static>(
@@ -442,23 +425,25 @@ pub async fn tpm_challenge_app_user<D: Database + 'static>(
                 ApiTpmChallengeResponse::new(r.challenge_id, nonce_hex, expires_at)
             }
             AppResponse::Error(e) => {
-                tracing::error!(%e, "Failed to create app");
-                ApiResponse::error(ErrorStatus::Internal)
+                tracing::error!(%e, "Failed to generate tpm challenge");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "generate tpm challenge",
+                )))
             }
             other_api_response => {
                 tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::Internal)
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
             }
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::Internal)
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database))
         }
     }
 }
 
 pub async fn auth_aws_iam_app_user<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
-    ApiResponse::<()>::error(ErrorStatus::Unimplemented)
+    ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Unimplemented))
 }
 
 pub async fn grant_app_access_user<D: Database + 'static>(
@@ -466,20 +451,10 @@ pub async fn grant_app_access_user<D: Database + 'static>(
     req: Json<AppGrantData>,
     auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
-    if let Some(raft_bits) = &app.raft {
-        let is_initialized = raft_bits.raft.is_initialized().await;
-        if !matches!(is_initialized, Ok(true)) {
-            return ApiResponse::error(ErrorStatus::NotInitialized);
-        }
-        if !raft_bits.raft.is_leader() {
-            return ApiResponse::error(ErrorStatus::NotLeader);
-        }
-    }
-
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::Internal);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
     let principal = match db
@@ -490,11 +465,13 @@ pub async fn grant_app_access_user<D: Database + 'static>(
         Ok(Some(p)) => p,
         Ok(None) => {
             tracing::error!(principal_id = req.0.principal_id, "No principal found");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(
+                ErrorReason::PrincipalNotFound,
+            ));
         }
         Err(e) => {
             tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
         }
     };
 
@@ -517,16 +494,18 @@ pub async fn grant_app_access_user<D: Database + 'static>(
             AppResponse::CreatePrincipalAppGrants(_) => ApiCreateAppGrantResponse::new(),
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app grants");
-                ApiResponse::error(ErrorStatus::Internal)
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "create app grant",
+                )))
             }
             other_api_response => {
                 tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::Internal)
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
             }
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::Internal)
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
         }
     }
 }
@@ -536,20 +515,10 @@ pub async fn revoke_app_access_user<D: Database + 'static>(
     req: Json<RevokeAppData>,
     _auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
-    if let Some(raft_bits) = &app.raft {
-        let is_initialized = raft_bits.raft.is_initialized().await;
-        if !matches!(is_initialized, Ok(true)) {
-            return ApiResponse::error(ErrorStatus::NotInitialized);
-        }
-        if !raft_bits.raft.is_leader() {
-            return ApiResponse::error(ErrorStatus::NotLeader);
-        }
-    }
-
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::Internal);
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
     let principal_app_grant = match db
@@ -563,11 +532,13 @@ pub async fn revoke_app_access_user<D: Database + 'static>(
                 principal_id = req.0.principal_id,
                 "No principal app grant found"
             );
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(
+                ErrorReason::PrincipalNotFound,
+            ));
         }
         Err(e) => {
             tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::Internal);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
         }
     };
 
@@ -580,17 +551,19 @@ pub async fn revoke_app_access_user<D: Database + 'static>(
         Ok(resp) => match resp {
             AppResponse::DeletePrincipalAppGrant(_) => ApiDeleteAppGrantResponse::new(),
             AppResponse::Error(e) => {
-                tracing::error!(%e, "Failed to delete app grant");
-                ApiResponse::error(ErrorStatus::Internal)
+                tracing::error!(%e, "Failed to revoke app grant");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "revoke app grant",
+                )))
             }
             other_api_response => {
                 tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::Internal)
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
             }
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::Internal)
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
         }
     }
 }
