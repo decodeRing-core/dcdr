@@ -436,6 +436,7 @@ where
         AppRequest::CreateTpmChallenge(x) => run_action_raft(tx, index, x).await,
         AppRequest::CreatePrincipalAppGrants(x) => run_action_raft(tx, index, x).await,
         AppRequest::DeletePrincipalAppGrant(x) => run_action_raft(tx, index, x).await,
+        AppRequest::ConsumeTpmChallenge(x) => run_action_raft(tx, index, x).await,
     }
 }
 

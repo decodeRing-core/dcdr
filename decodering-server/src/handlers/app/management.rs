@@ -1,5 +1,6 @@
 use actix_web::Responder;
 use actix_web::web::{Data, Json};
+use decodering_core::actions::consume_tpm_challenge::ConsumeTpmChallenge;
 use decodering_core::actions::create_app::CreateApp;
 use decodering_core::actions::create_app_user::CreateAppUser;
 use decodering_core::actions::create_principal::CreatePrincipal;
@@ -323,16 +324,14 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
         Ok(t) => t,
         Err(e) => {
             tracing::warn!("Invalid base64 in auth_tpm request: {e}");
-            return ApiResponse::<()>::error(ErrorStatus::OperationFailed(
-                ErrorReason::Unauthorized,
-            ));
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
         }
     };
 
     let ek_pubkey_hash = sha256_hex_pem(&req.ek_pubkey_pem);
     let Some(ek_pubkey_hash) = ek_pubkey_hash else {
         tracing::warn!("Invalid ek_pubkey_pem hash");
-        return ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
     };
 
     let db = app.db.begin().await;
@@ -438,7 +437,71 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
         }
     }
 
-    ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Unimplemented))
+    let consumed_tpm_challenge = ConsumeTpmChallenge {
+        challenge_id: req.challenge_id,
+        consumed_at: now_ts(),
+    };
+
+    let request = AppRequest::ConsumeTpmChallenge(consumed_tpm_challenge);
+    match app.submit(request).await {
+        Ok(resp) => match resp {
+            AppResponse::ConsumeTpmChallenge(r) => {
+                // Consumed
+            }
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to consume tpm challenge");
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "consume tpm challenge",
+                )));
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected));
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+        }
+    };
+
+    let token = format!("tok_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
+    let token_hash = sha256_hex(token.as_bytes());
+
+    let timestamp = now_ts();
+    let expires = now_ts_plus(3600);
+    let principal_token = CreatePrincipalToken {
+        token_id: Uuid::now_v7().to_string(),
+        token_hash,
+        principal_id: credential.principal_id,
+        credential_id: credential.credential_id,
+        issued_at: timestamp,
+        expires_at: expires,
+        revoked_at: None,
+    };
+
+    let request = AppRequest::CreatePrincipalToken(principal_token);
+    match app.submit(request).await {
+        Ok(resp) => match resp {
+            AppResponse::CreatePrincipalToken(r) => {
+                ApiAuthAppUserResponse::new(token, r.expires_at)
+            }
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to authenticate app user");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "authenticate app user",
+                )))
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+        }
+    }
 }
 
 pub async fn tpm_challenge_app_user<D: Database + 'static>(

@@ -2,6 +2,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::actions::consume_tpm_challenge::ConsumeTpmChallenge;
 use crate::actions::create_api_key::CreateApiKey;
 use crate::actions::create_app::CreateApp;
 use crate::actions::create_app_user::CreateAppUser;
@@ -36,6 +37,7 @@ pub enum AppRequest {
     DeletePrincipalAppGrant(DeletePrincipalAppGrant),
     CreateAppUser(CreateAppUser),
     CreateTpmChallenge(CreateTpmChallenge),
+    ConsumeTpmChallenge(ConsumeTpmChallenge),
     SystemInit(SystemInit),
 }
 
@@ -129,6 +131,9 @@ impl fmt::Display for AppRequest {
             Self::CreatePrincipalToken(_) => {
                 write!(f, "CreatePrincipalToken()")
             }
+            Self::ConsumeTpmChallenge(_) => {
+                write!(f, "ConsumeTpmChallenge()")
+            }
         }
     }
 }
@@ -161,6 +166,7 @@ impl AppRequest {
                 Ok(run_action_direct(db, action).await?.response)
             }
             Self::CreateTpmChallenge(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::ConsumeTpmChallenge(action) => Ok(run_action_direct(db, action).await?.response),
         }
     }
 }
