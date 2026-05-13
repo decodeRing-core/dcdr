@@ -24,7 +24,8 @@ decodering-plugins = { path = "decodering-plugins" }
 serde_with = { version = "3.20.0", features = ["base64", "macros"] }
 # Targeting a specific rusqlite version to match the same libsqlite3-sys version used by sqlx
 # Using backup API to install a new snapshot. Not supported by sqlx 0.8.x.
-rusqlite = { version = "0.32.1", features = ["bundled", "backup"] }
+# Pin to sync with sqlx
+rusqlite = { version = "~0.32.1", features = ["bundled", "backup"] }
 
 serde = "1.0.228"
 serde_json = "1.0.149"
@@ -57,7 +58,8 @@ sqlx = { version = "0.8.6", features = [
     "postgres",
 ] }
 blahaj = "0.6"
-sha2 = { version = "0.10.9", features = ["oid"] }
+# Pin to sync with rsa
+sha2 = { version = "~0.10.9", features = ["oid"] }
 base64 = "0.22.1"
 zeroize = "1.8.2"
 uuid = { version = "1", features = ["v7", "serde"] }
