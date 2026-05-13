@@ -1,8 +1,9 @@
 use actix_web::web;
 use decodering_core::tx::Database;
 
-use crate::handlers::osl::api::{
-    api_destroy_secret, api_get_secret, api_list_secret, api_put_secret,
+use crate::{
+    handlers::osl::api::{api_destroy_secret, api_get_secret, api_list_secret, api_put_secret},
+    middleware::RaftLeaderHelper,
 };
 
 pub fn read_osl_routes<D: Database + 'static>(cfg: &mut web::ServiceConfig) {
@@ -11,6 +12,16 @@ pub fn read_osl_routes<D: Database + 'static>(cfg: &mut web::ServiceConfig) {
 }
 
 pub fn write_osl_routes<D: Database + 'static>(cfg: &mut web::ServiceConfig) {
-    cfg.route("/secrets/put", web::post().to(api_put_secret::<D>))
-        .route("/secrets/destroy", web::post().to(api_destroy_secret::<D>));
+    cfg.route(
+        "/secrets/put",
+        web::post()
+            .to(api_put_secret::<D>)
+            .wrap(RaftLeaderHelper::<D>::new()),
+    )
+    .route(
+        "/secrets/destroy",
+        web::post()
+            .to(api_destroy_secret::<D>)
+            .wrap(RaftLeaderHelper::<D>::new()),
+    );
 }

@@ -13,12 +13,8 @@ pub fn config_app<D: Database + 'static>(cfg: &mut web::ServiceConfig) {
         web::scope("/osl/v1")
             .wrap(LockState::<D>::new())
             .wrap(RaftInitializedHelper::<D>::new())
-            .service(
-                web::scope("")
-                    .wrap(RaftLeaderHelper::<D>::new())
-                    .configure(write_osl_routes::<D>),
-            )
-            .configure(read_osl_routes::<D>),
+            .configure(read_osl_routes::<D>)
+            .configure(write_osl_routes::<D>),
     )
     .service(app_management_routes::<D>())
     .service(app_system_routes::<D>())
