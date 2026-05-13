@@ -2,6 +2,35 @@ use std::error::Error;
 use std::fmt;
 
 #[derive(Debug)]
+pub enum TpmVerifyError {
+    InvalidAkPubkey,
+    InvalidSignature,
+    SignatureVerificationFailed,
+    UnsupportedSigAlg,
+    InvalidQuote,
+    NonceMismatch,
+    PcrMismatch,
+    InvalidPcrSelection,
+}
+
+impl std::fmt::Display for TpmVerifyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidAkPubkey => write!(f, "invalid AK public key"),
+            Self::InvalidSignature => write!(f, "invalid signature encoding"),
+            Self::SignatureVerificationFailed => write!(f, "signature verification failed"),
+            Self::UnsupportedSigAlg => write!(f, "unsupported signature algorithm"),
+            Self::InvalidQuote => write!(f, "invalid quote structure"),
+            Self::NonceMismatch => write!(f, "nonce mismatch"),
+            Self::PcrMismatch => write!(f, "PCR mismatch"),
+            Self::InvalidPcrSelection => write!(f, "PCR bitmap exceeds 32 bytes"),
+        }
+    }
+}
+
+impl std::error::Error for TpmVerifyError {}
+
+#[derive(Debug)]
 pub enum DbError {
     NotFound,
     UniqueViolation { constraint: Option<String> },

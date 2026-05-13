@@ -10,7 +10,9 @@ use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
-use decodering_core::crypto::{encode_hex, pem_to_der, sha256_hex, sha256_hex_pem};
+use decodering_core::crypto::{
+    encode_hex, pem_to_der, sha256_hex, sha256_hex_pem, verify_quote_signature,
+};
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
 use decodering_core::repository::PrincipalRepository;
 use decodering_core::repository::{AppRepository, TpmChallengeRepository};
@@ -18,7 +20,7 @@ use decodering_core::repository::{PrincipalAppGrantRepository, PrincipalCredenti
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
 use decodering_core::time::{CHALLENGE_TTL_SECS, now_ts, now_ts_plus};
-use decodering_core::tpm::TpmMaterial;
+use decodering_core::tpm::{TpmMaterial, parse_tpms_attest, verify_pcrs};
 use decodering_core::tx::{Database, Tx};
 use rand::Rng;
 use rand::distr::{Alphanumeric, SampleString};
@@ -314,15 +316,10 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
     let decoded = (|| -> Result<_, base64::DecodeError> {
         let quote = STANDARD.decode(&req.quote)?;
         let signature = STANDARD.decode(&req.signature)?;
-        let pcrs = req
-            .pcrs
-            .as_deref()
-            .map(|s| STANDARD.decode(s))
-            .transpose()?;
-        Ok((quote, signature, pcrs))
+        Ok((quote, signature))
     })();
 
-    let (quote_bytes, signature_bytes, pcrs_bytes) = match decoded {
+    let (quote_bytes, signature_bytes) = match decoded {
         Ok(t) => t,
         Err(e) => {
             tracing::warn!("Invalid base64 in auth_tpm request: {e}");
@@ -394,6 +391,52 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
     }
 
     let material = serde_json::from_str::<TpmMaterial>(&credential.secret_material);
+    let Ok(material) = material else {
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+    };
+
+    if material.ek_pubkey_pem.trim() != req.ek_pubkey_pem.trim() {
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+    }
+
+    let verification = verify_quote_signature(&quote_bytes, &signature_bytes, &req.ak_pubkey_pem);
+    if let Err(e) = verification {
+        tracing::error!(
+            err=%e,
+            "Verification failed"
+        );
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+    }
+
+    let quoted = match parse_tpms_attest(&quote_bytes) {
+        Ok(quoted) => quoted,
+        Err(e) => {
+            tracing::error!(
+                err=%e,
+                "TPM attest failed"
+            );
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+        }
+    };
+
+    if quoted.extra_data != tpm_challenge.nonce.as_slice() {
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+    }
+
+    if let Some(expected) = material.expected_pcrs {
+        let pcrs = req.pcrs.as_ref();
+        let Some(pcrs) = pcrs else {
+            tracing::error!("PCRs required");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+        };
+        if let Err(e) = verify_pcrs(pcrs, &quoted.pcr_digest, &expected, &quoted.pcr_selections) {
+            tracing::error!(
+                err=%e,
+                "PCRS verification"
+            );
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+        }
+    }
 
     ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Unimplemented))
 }

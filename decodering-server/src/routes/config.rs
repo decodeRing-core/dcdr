@@ -1,7 +1,7 @@
 use actix_web::web;
 use decodering_core::tx::Database;
 
-use crate::middleware::{LockState, RaftBackendOnly, RaftInitializedHelper, RaftLeaderHelper};
+use crate::middleware::{LockState, RaftBackendOnly, RaftInitializedHelper};
 use crate::routes::app::management::app_management_routes;
 use crate::routes::osl::api::{read_osl_routes, write_osl_routes};
 use crate::routes::raft::api::raft_api_routes;

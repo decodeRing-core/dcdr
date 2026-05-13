@@ -47,7 +47,11 @@ pub struct AuthTpmUserData {
     pub ak_pubkey_pem: String,
     pub quote: String,
     pub signature: String,
-    pub pcrs: Option<String>,
+
+    /// PCR index → hex SHA-256 digest. Optional; required only if the
+    /// credential policy pins PCR values.
+    #[serde(default)]
+    pub pcrs: Option<HashMap<u8, String>>,
 }
 
 #[derive(Deserialize, Debug)]

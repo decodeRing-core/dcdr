@@ -148,7 +148,7 @@ pub async fn system_unlock<D: Database + 'static>(
     let threshold = u8::try_from(shamir_configuration.threshold);
     let Ok(threshold) = threshold else {
         tracing::error!("Shamir configuration threshold out of range");
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::InvalidKeys));
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::InvalidShamirKeys));
     };
     match unlock(threshold, &shamir_configuration.validation_hash, &shares) {
         Ok(master_key) => {

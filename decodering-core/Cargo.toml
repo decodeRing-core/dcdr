@@ -16,6 +16,8 @@ pem.workspace = true
 x509-parser.workspace = true
 rustls-webpki.workspace = true
 rustls-pki-types.workspace = true
+rsa.workspace = true
+p256.workspace = true
 
 [lints]
 workspace = true

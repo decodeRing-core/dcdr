@@ -57,7 +57,7 @@ sqlx = { version = "0.8.6", features = [
     "postgres",
 ] }
 blahaj = "0.6"
-sha2 = "0.11.0"
+sha2 = { version = "0.10.9", features = ["oid"] }
 base64 = "0.22.1"
 zeroize = "1.8.2"
 uuid = { version = "1", features = ["v7", "serde"] }
@@ -65,6 +65,8 @@ pem = "3.0.6"
 x509-parser = "0.18.1"
 rustls-webpki = { version = "0.103.13", features = ["alloc", "std", "ring"] }
 rustls-pki-types = "1.14"
+rsa = "0.9.10"
+p256 = { version = "0.13", features = ["ecdsa"] }
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
@@ -85,6 +87,7 @@ exit = "deny"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 multiple_crate_versions = "allow"
+implicit_hasher = "allow"
 
 print_stdout = "warn"       # use logging instead
 print_stderr = "warn"

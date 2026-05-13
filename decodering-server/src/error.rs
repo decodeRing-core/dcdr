@@ -45,7 +45,7 @@ pub enum ErrorReason {
     AlreadyInitialized,
     Plugin,
     Locked,
-    InvalidKeys,
+    InvalidShamirKeys,
     UnsupportedBackend,
     SecretNotFound,
     Unauthorized,
@@ -78,7 +78,7 @@ impl std::fmt::Display for ErrorReason {
             Self::RaftNotInitialized => f.write_str("Node is not initialized."),
             Self::AlreadyInitialized => f.write_str("System already initialized."),
             Self::Plugin => f.write_str("Plugin error."),
-            Self::InvalidKeys => f.write_str("Invalid keys."),
+            Self::InvalidShamirKeys => f.write_str("Invalid shamir keys."),
             Self::UnsupportedBackend => f.write_str("Unsupported backend."),
             Self::SecretNotFound => f.write_str("Secret not found."),
             Self::Unauthorized => f.write_str("Unauthorized access."),
@@ -119,7 +119,7 @@ impl ErrorReason {
             Self::RaftNotInitialized | Self::SystemNotInitialized => {
                 StatusCode::SERVICE_UNAVAILABLE
             }
-            Self::InvalidKeys | Self::Unauthorized | Self::Locked => StatusCode::FORBIDDEN,
+            Self::InvalidShamirKeys | Self::Unauthorized | Self::Locked => StatusCode::FORBIDDEN,
             Self::UnsupportedBackend | Self::Unimplemented => StatusCode::NOT_IMPLEMENTED,
             Self::SecretNotFound => StatusCode::NOT_FOUND,
             Self::DuplicatedApp => StatusCode::CONFLICT,
