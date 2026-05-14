@@ -6,8 +6,8 @@ use sha2::{Digest, Sha256};
 
 pub struct ShamirInit {
     pub shards: Vec<Share>,
-    pub _master_key: Vec<u8>,
-    pub _threshold: u8,
+    _master_key: Vec<u8>,
+    _threshold: u8,
     pub hash: Vec<u8>,
 }
 

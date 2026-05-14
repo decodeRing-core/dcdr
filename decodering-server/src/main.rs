@@ -8,27 +8,15 @@ use decodering_core::plugin::orchestrator::Orchestrator;
 use decodering_core::tx::Database;
 use decodering_db::postgres::PostgresDatabase;
 use decodering_db::sqlite::SqliteDatabase;
+use decodering_server::app_data::AppData;
+use decodering_server::config::{StorageConfig, load_config};
+use decodering_server::logger::init_tracing;
+use decodering_server::middleware::PropagateRequestId;
+use decodering_server::routes::config::config_app;
 use dotenvy::dotenv;
 use tracing_actix_web::TracingLogger;
 
-use crate::app_data::AppData;
-use crate::config::StorageConfig;
-use crate::config::load_config;
-use crate::logger::init_tracing;
-use crate::middleware::PropagateRequestId;
-use crate::routes::config::config_app;
 use clap::Parser;
-
-mod app_data;
-mod auth;
-mod config;
-mod error;
-mod extractor;
-mod handlers;
-mod logger;
-mod middleware;
-mod routes;
-mod shamir;
 
 #[derive(Parser, Clone, Debug)]
 #[clap(author, version, about, long_about = None)]
