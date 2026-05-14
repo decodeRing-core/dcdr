@@ -2,7 +2,6 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::actions::consume_tpm_challenge::ConsumeTpmChallenge;
 use crate::actions::create_api_key::CreateApiKey;
 use crate::actions::create_app::CreateApp;
 use crate::actions::create_app_user::CreateAppUser;
@@ -17,6 +16,8 @@ use crate::actions::create_user::CreateUser;
 use crate::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use crate::actions::delete_secret_mapping::DeleteSecretMapping;
 use crate::actions::system_init::SystemInit;
+use crate::actions::update_consumed_at::UpdateConsumedAt;
+use crate::actions::update_principal_credential_last_used::UpdatePrincipalCredentialLastUsed;
 use crate::error::ActionError;
 use crate::response::AppResponse;
 use crate::runner::run_action_direct;
@@ -37,7 +38,8 @@ pub enum AppRequest {
     DeletePrincipalAppGrant(DeletePrincipalAppGrant),
     CreateAppUser(CreateAppUser),
     CreateTpmChallenge(CreateTpmChallenge),
-    ConsumeTpmChallenge(ConsumeTpmChallenge),
+    UpdateConsumedAt(UpdateConsumedAt),
+    UpdatePrincipalCredentialLastUsed(UpdatePrincipalCredentialLastUsed),
     SystemInit(SystemInit),
 }
 
@@ -128,11 +130,19 @@ impl fmt::Display for AppRequest {
                     delete_principal_app_grant.app_id, delete_principal_app_grant.principal_id
                 )
             }
+            Self::UpdatePrincipalCredentialLastUsed(update_principal_credential_last_used) => {
+                write!(
+                    f,
+                    "UpdatePrincipalCredentialLastUsed(credential_id={}, principal_id={})",
+                    update_principal_credential_last_used.credential_id,
+                    update_principal_credential_last_used.principal_id
+                )
+            }
             Self::CreatePrincipalToken(_) => {
                 write!(f, "CreatePrincipalToken()")
             }
-            Self::ConsumeTpmChallenge(_) => {
-                write!(f, "ConsumeTpmChallenge()")
+            Self::UpdateConsumedAt(_) => {
+                write!(f, "UpdateConsumedAt()")
             }
         }
     }
@@ -166,7 +176,10 @@ impl AppRequest {
                 Ok(run_action_direct(db, action).await?.response)
             }
             Self::CreateTpmChallenge(action) => Ok(run_action_direct(db, action).await?.response),
-            Self::ConsumeTpmChallenge(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::UpdateConsumedAt(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::UpdatePrincipalCredentialLastUsed(action) => {
+                Ok(run_action_direct(db, action).await?.response)
+            }
         }
     }
 }

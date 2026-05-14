@@ -73,6 +73,7 @@ pub enum ActionKind {
     ApiKeyCreate,
     PrincipalCreate,
     PrincipalCredentialCreate,
+    PrincipalCredentialLastUsedUpdate,
     PrincipalTokenCreate,
     PrincipalAppGrantCreate,
     PrincipalAppGrantDelete,
@@ -105,6 +106,7 @@ impl ActionKind {
             Self::TpmChallengeConsume => "tpm_challenge.consume",
             Self::PrincipalAppGrantCreate => "principal_app_grant.create",
             Self::PrincipalAppGrantDelete => "principal_app_grant.delete",
+            Self::PrincipalCredentialLastUsedUpdate => "principal_credential.update",
         }
     }
 }

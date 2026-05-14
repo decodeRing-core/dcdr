@@ -1,6 +1,5 @@
 use actix_web::Responder;
 use actix_web::web::{Data, Json};
-use decodering_core::actions::consume_tpm_challenge::ConsumeTpmChallenge;
 use decodering_core::actions::create_app::CreateApp;
 use decodering_core::actions::create_app_user::CreateAppUser;
 use decodering_core::actions::create_principal::CreatePrincipal;
@@ -10,6 +9,7 @@ use decodering_core::actions::create_principal_credential::CreatePrincipalCreden
 use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
+use decodering_core::actions::update_consumed_at::UpdateConsumedAt;
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
 use decodering_core::crypto::{
     encode_hex, pem_to_der, sha256_hex, sha256_hex_pem, verify_quote_signature,
@@ -437,12 +437,12 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
         }
     }
 
-    let consumed_tpm_challenge = ConsumeTpmChallenge {
+    let consumed_tpm_challenge = UpdateConsumedAt {
         challenge_id: req.challenge_id,
         consumed_at: now_ts(),
     };
 
-    let request = AppRequest::ConsumeTpmChallenge(consumed_tpm_challenge);
+    let request = AppRequest::UpdateConsumedAt(consumed_tpm_challenge);
     match app.submit(request).await {
         Ok(resp) => match resp {
             AppResponse::ConsumeTpmChallenge(_) => {

@@ -72,4 +72,51 @@ impl PrincipalCredentialRepository for SqlitePrincipalCredentialRepository<'_> {
             .map_err(map_sqlx)?;
         Ok(principal_credential.map(Into::into))
     }
+
+    async fn get_by_credential_and_principal(
+        &mut self,
+        credential_id: &str,
+        principal_id: &str,
+    ) -> Result<Option<PrincipalCredential>, DbError> {
+        let principal_credential: Option<PrincipalCredentialRow> =
+            sqlx::query_as::<_, PrincipalCredentialRow>(
+                "SELECT pc.credential_id,
+                    pc.principal_id,
+                    pc.kind,
+                    pc.lookup_key,
+                    pc.secret_material,
+                    pc.status,
+                    pc.expires_at,
+                    pc.last_used_at,
+                    pc.created_at,
+                    pc.revoked_at
+               FROM principal_credentials pc
+               WHERE pc.credential_id = ?
+                  AND pc.principal_id = ?",
+            )
+            .bind(credential_id)
+            .bind(principal_id)
+            .fetch_optional(&mut **self.tx)
+            .await
+            .map_err(map_sqlx)?;
+        Ok(principal_credential.map(Into::into))
+    }
+
+    async fn updated_last_used(
+        &mut self,
+        credential_id: &str,
+        last_used_at: i64,
+    ) -> Result<u64, DbError> {
+        let result = sqlx::query(
+            "UPDATE principal_credentials
+             SET last_used_at = ?
+             WHERE credential_id = ?",
+        )
+        .bind(last_used_at)
+        .bind(credential_id)
+        .execute(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(result.rows_affected())
+    }
 }

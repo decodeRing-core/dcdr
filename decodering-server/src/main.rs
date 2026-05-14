@@ -20,6 +20,7 @@ use crate::routes::config::config_app;
 use clap::Parser;
 
 mod app_data;
+mod auth;
 mod config;
 mod error;
 mod extractor;

@@ -44,7 +44,7 @@ pub trait PrincipalAppGrantRepository: Send {
     ) -> impl Future<Output = Result<Option<PrincipalAppGrant>, DbError>> + Send;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TpmChallenge {
     pub challenge_id: String,
     pub nonce: Vec<u8>,
@@ -99,7 +99,7 @@ pub trait PrincipalTokenRepository: Send {
     ) -> impl Future<Output = Result<String, DbError>> + Send;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PrincipalCredential {
     pub credential_id: String,
     pub principal_id: String,
@@ -137,6 +137,16 @@ pub trait PrincipalCredentialRepository: Send {
         kind: PrincipalCredentialKind,
         lookup_key: &str,
     ) -> impl Future<Output = Result<Option<PrincipalCredential>, DbError>> + Send;
+    fn get_by_credential_and_principal(
+        &mut self,
+        credential_id: &str,
+        principal_id: &str,
+    ) -> impl Future<Output = Result<Option<PrincipalCredential>, DbError>> + Send;
+    fn updated_last_used(
+        &mut self,
+        credential_id: &str,
+        last_used_at: i64,
+    ) -> impl Future<Output = Result<u64, DbError>> + Send;
 }
 
 #[derive(Serialize, Debug, Clone)]

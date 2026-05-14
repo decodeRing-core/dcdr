@@ -116,13 +116,17 @@ where
 
             let api_key_hash = sha256_hex(access_token.as_bytes());
 
+            // User exists and is admin
             if let Some(u) = db.user().get_by_api_key(&api_key_hash).await.map_err(|e| {
                 tracing::error!(err=%e, "Failed to query database");
                 ErrorStatus::OperationFailed(ErrorReason::Database)
-            })? {
+            })? && u.is_admin
+            {
                 return Ok(Self::new(Some(u), None));
             }
 
+            // OR token is from a principal and has been granted access to app id (checked on handler)
+            // Here we only check if the token is valid
             if let Some(p) = db
                 .principal()
                 .get_active_by_token(&api_key_hash)

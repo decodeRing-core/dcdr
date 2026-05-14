@@ -127,6 +127,7 @@ pub enum AppResponse {
     CreateShamirConfiguration(CreateShamirConfigurationResponse),
     CreatePrincipal(CreatePrincipalResponse),
     CreatePrincipalCredential(CreatePrincipalCredentialResponse),
+    UpdatePrincipalCredentialLastUsed(i64),
     CreatePrincipalToken(CreatePrincipalTokenResponse),
     CreatePrincipalAppGrant(CreatePrincipalAppGrantResponse),
     CreatePrincipalAppGrants(Vec<CreatePrincipalAppGrantResponse>),
@@ -229,6 +230,9 @@ impl fmt::Display for AppResponse {
             }
             Self::DeletePrincipalAppGrant(r) => write!(f, "DeletePrincipalAppGrant(deleted={r})"),
             Self::DeleteSecretMapping(r) => write!(f, "DeleteSecretMapping(deleted={r})"),
+            Self::UpdatePrincipalCredentialLastUsed(r) => {
+                write!(f, "UpdatePrincipalCredentialLastUsed(last_used_at={r})")
+            }
             Self::CreateAppUser(_) => write!(f, "CreateAppUser()"),
             Self::Noop => write!(f, "Noop"),
             Self::Error(e) => write!(f, "Error({e})"),

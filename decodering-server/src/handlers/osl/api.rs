@@ -10,6 +10,7 @@ use decodering_core::time::now_ts;
 use decodering_core::tx::{Database, Tx};
 
 use crate::app_data::AppData;
+use crate::auth::require_app_grant_for_principal;
 use crate::error::ErrorReason;
 use crate::extractor::AuthOSLMiddleware;
 use crate::handlers::osl::payload::{DeleteSecretRequestData, PutSecretRequestData};
@@ -19,22 +20,29 @@ use crate::handlers::osl::response::{
 };
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
+#[tracing::instrument(
+    skip_all,
+    fields(
+        user_id = auth.user.as_ref().map(|u| u.id),
+        principal_id = auth.principal.as_ref().map(|p| p.principal_id.as_str()),
+        app_id = %req.app_id,
+    )
+)]
 pub async fn api_put_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<PutSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
-    tracing::debug!(
-        user_id = auth.user.map(|u| u.id),
-        principal_id = auth.principal.map(|p| p.principal_id),
-        "OSL put secret"
-    );
-
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+        Ok(grant) => grant,
+        Err(err) => return ApiResponse::error(err),
     };
 
     let application = match db.app().get_by_app_id(&req.app_id).await {
@@ -113,22 +121,29 @@ pub async fn api_put_secret<D: Database + 'static>(
     }
 }
 
+#[tracing::instrument(
+    skip_all,
+    fields(
+        user_id = auth.user.as_ref().map(|u| u.id),
+        principal_id = auth.principal.as_ref().map(|p| p.principal_id.as_str()),
+        app_id = %req.app_id,
+    )
+)]
 pub async fn api_get_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<GetSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
-    tracing::debug!(
-        user_id = auth.user.map(|u| u.id),
-        principal_id = auth.principal.map(|p| p.principal_id),
-        "OSL get secret"
-    );
-
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+        Ok(grant) => grant,
+        Err(err) => return ApiResponse::error(err),
     };
 
     let secret_mapping = db
@@ -171,22 +186,29 @@ pub async fn api_get_secret<D: Database + 'static>(
     }
 }
 
+#[tracing::instrument(
+    skip_all,
+    fields(
+        user_id = auth.user.as_ref().map(|u| u.id),
+        principal_id = auth.principal.as_ref().map(|p| p.principal_id.as_str()),
+        app_id = %req.app_id,
+    )
+)]
 pub async fn api_destroy_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<DeleteSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
-    tracing::debug!(
-        user_id = auth.user.map(|u| u.id),
-        principal_id = auth.principal.map(|p| p.principal_id),
-        "OSL delete secret"
-    );
-
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+        Ok(grant) => grant,
+        Err(err) => return ApiResponse::error(err),
     };
 
     let secret_mapping = db
@@ -249,21 +271,28 @@ pub async fn api_destroy_secret<D: Database + 'static>(
     }
 }
 
+#[tracing::instrument(
+    skip_all,
+    fields(
+        user_id = auth.user.as_ref().map(|u| u.id),
+        principal_id = auth.principal.as_ref().map(|p| p.principal_id.as_str()),
+        app_id = %req.app_id,
+    )
+)]
 pub async fn api_list_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: web::Json<ListSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
-    tracing::debug!(
-        user_id = auth.user.map(|u| u.id),
-        principal_id = auth.principal.map(|p| p.principal_id),
-        "OSL list secrets"
-    );
-
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+        Ok(grant) => grant,
+        Err(err) => return ApiResponse::error(err),
     };
 
     let secret_mapping = db

@@ -9,12 +9,12 @@ use crate::response::{AppResponse, ConsumeTpmChallengeResponse};
 use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
-pub struct ConsumeTpmChallenge {
+pub struct UpdateConsumedAt {
     pub challenge_id: String,
     pub consumed_at: i64,
 }
 
-impl Action for ConsumeTpmChallenge {
+impl Action for UpdateConsumedAt {
     type Output = ActionOutput<AppResponse>;
 
     fn audit_descriptor(&self) -> AuditDescriptor {
@@ -28,8 +28,8 @@ impl Action for ConsumeTpmChallenge {
     }
 
     async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
-        // Before
-        //
+        let challenge = tx.tpm_challenge().get_active(&self.challenge_id).await?;
+        let before_state = serde_json::json!(challenge);
         let challenge_id = tx
             .tpm_challenge()
             .updated_consumed(&self.challenge_id, self.consumed_at)
@@ -41,7 +41,7 @@ impl Action for ConsumeTpmChallenge {
         let app_response = AppResponse::ConsumeTpmChallenge(tpm_challenge_response);
         Ok(ActionOutput {
             response: app_response,
-            before_state: None,
+            before_state: Some(before_state),
             after_state: Some(after),
             target: Some(Target::TpmChallenge(challenge_id)),
         })
