@@ -445,7 +445,7 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
     let request = AppRequest::ConsumeTpmChallenge(consumed_tpm_challenge);
     match app.submit(request).await {
         Ok(resp) => match resp {
-            AppResponse::ConsumeTpmChallenge(r) => {
+            AppResponse::ConsumeTpmChallenge(_) => {
                 // Consumed
             }
             AppResponse::Error(e) => {
@@ -463,7 +463,7 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
             tracing::error!(?e);
             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
         }
-    };
+    }
 
     let token = format!("tok_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
     let token_hash = sha256_hex(token.as_bytes());

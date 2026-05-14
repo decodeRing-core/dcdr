@@ -2,7 +2,7 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
-use crate::{crypto::encode_hex, error::TpmVerifyError};
+use crate::error::TpmVerifyError;
 
 #[derive(Deserialize, Debug)]
 pub struct TpmMaterial {
