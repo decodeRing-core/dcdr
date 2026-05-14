@@ -12,5 +12,5 @@ pub mod create_user;
 pub mod delete_principal_app_grant;
 pub mod delete_secret_mapping;
 pub mod system_init;
-pub mod update_consumed_at;
 pub mod update_principal_credential_last_used;
+pub mod update_tpm_challenge_consumed_at;

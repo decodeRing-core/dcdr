@@ -16,8 +16,8 @@ use crate::actions::create_user::CreateUser;
 use crate::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use crate::actions::delete_secret_mapping::DeleteSecretMapping;
 use crate::actions::system_init::SystemInit;
-use crate::actions::update_consumed_at::UpdateConsumedAt;
 use crate::actions::update_principal_credential_last_used::UpdatePrincipalCredentialLastUsed;
+use crate::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
 use crate::error::ActionError;
 use crate::response::AppResponse;
 use crate::runner::run_action_direct;
@@ -38,7 +38,7 @@ pub enum AppRequest {
     DeletePrincipalAppGrant(DeletePrincipalAppGrant),
     CreateAppUser(CreateAppUser),
     CreateTpmChallenge(CreateTpmChallenge),
-    UpdateConsumedAt(UpdateConsumedAt),
+    UpdateConsumedAt(UpdateTpmChallengeConsumedAt),
     UpdatePrincipalCredentialLastUsed(UpdatePrincipalCredentialLastUsed),
     SystemInit(SystemInit),
 }

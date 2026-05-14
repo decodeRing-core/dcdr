@@ -9,12 +9,12 @@ use crate::response::{AppResponse, ConsumeTpmChallengeResponse};
 use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
-pub struct UpdateConsumedAt {
+pub struct UpdateTpmChallengeConsumedAt {
     pub challenge_id: String,
     pub consumed_at: i64,
 }
 
-impl Action for UpdateConsumedAt {
+impl Action for UpdateTpmChallengeConsumedAt {
     type Output = ActionOutput<AppResponse>;
 
     fn audit_descriptor(&self) -> AuditDescriptor {

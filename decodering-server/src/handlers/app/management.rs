@@ -9,7 +9,7 @@ use decodering_core::actions::create_principal_credential::CreatePrincipalCreden
 use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
-use decodering_core::actions::update_consumed_at::UpdateConsumedAt;
+use decodering_core::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
 use decodering_core::crypto::{
     encode_hex, pem_to_der, sha256_hex, sha256_hex_pem, verify_quote_signature,
@@ -437,7 +437,7 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
         }
     }
 
-    let consumed_tpm_challenge = UpdateConsumedAt {
+    let consumed_tpm_challenge = UpdateTpmChallengeConsumedAt {
         challenge_id: req.challenge_id,
         consumed_at: now_ts(),
     };
