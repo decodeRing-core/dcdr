@@ -23,12 +23,12 @@ impl AppData<SqliteDatabase> {
     pub async fn init_raft<P: AsRef<Path> + Send + Sync>(
         node_id: NodeId,
         dir: P,
-        addr: String,
+        addr: &str,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let components = setup_raft_node(node_id, dir).await?;
         Ok(Self {
             master_key: OnceLock::new(),
-            addr,
+            addr: addr.to_owned(),
             db: components.db,
             raft: Some(RaftBits {
                 id: node_id,

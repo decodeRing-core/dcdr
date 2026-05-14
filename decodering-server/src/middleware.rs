@@ -19,8 +19,8 @@ use tracing::Instrument;
 use tracing_actix_web::RequestId;
 
 use crate::app_data::AppData;
+use crate::config::Config;
 use crate::config::StorageConfig;
-use crate::config::get_config;
 use crate::error::ErrorReason;
 use crate::handlers::response::ApiResponse;
 use crate::handlers::response::ErrorStatus;
@@ -395,7 +395,17 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let srv = Rc::clone(&self.service);
 
-        if !matches!(get_config().storage, StorageConfig::Raft { .. }) {
+        let Some(config) = req.app_data::<web::Data<Config>>() else {
+            let (http_req, _payload) = req.into_parts();
+            let response = ApiResponse::<()>::error(ErrorStatus::OperationFailed(
+                ErrorReason::RaftNotAvailable,
+            ))
+            .respond_to(&http_req)
+            .map_into_right_body();
+            return Box::pin(async move { Ok(ServiceResponse::new(http_req, response)) });
+        };
+
+        if !matches!(config.storage, StorageConfig::Raft { .. }) {
             let (http_req, _payload) = req.into_parts();
             let response = ApiResponse::<()>::error(ErrorStatus::OperationFailed(
                 ErrorReason::RaftNotAvailable,

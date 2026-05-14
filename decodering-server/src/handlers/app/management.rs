@@ -28,7 +28,7 @@ use rand::distr::{Alphanumeric, SampleString};
 use uuid::Uuid;
 
 use crate::app_data::AppData;
-use crate::config::get_config;
+use crate::config::Config;
 use crate::error::ErrorReason;
 use crate::extractor::AuthAdminMiddleware;
 use crate::handlers::app::payload::AuthTpmData;
@@ -46,6 +46,7 @@ use crate::handlers::response::{ApiResponse, ErrorStatus};
 use base64::{Engine, engine::general_purpose::STANDARD};
 
 pub async fn create_app_user<D: Database + 'static>(
+    config: Data<Config>,
     app: Data<AppData<D>>,
     req: Json<CreateAppUserData>,
     auth: AuthAdminMiddleware<D>,
@@ -93,7 +94,6 @@ pub async fn create_app_user<D: Database + 'static>(
                         ErrorReason::CertMissing("EK cert"),
                     ));
                 };
-                let config = get_config();
                 let trust_store = TpmTrustStore::from_directory(&config.tpm_trust_dir);
                 let Ok(trust_store) = trust_store else {
                     tracing::error!("Failed to load trust store");
@@ -548,7 +548,9 @@ pub async fn tpm_challenge_app_user<D: Database + 'static>(
     }
 }
 
-pub async fn auth_aws_iam_app_user<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
+pub async fn auth_aws_iam_app_user<D: Database + 'static>(
+    _app: Data<AppData<D>>,
+) -> impl Responder {
     ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Unimplemented))
 }
 

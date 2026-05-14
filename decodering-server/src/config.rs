@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::fmt::Display;
 use std::str::FromStr;
-use std::sync::OnceLock;
 
 use serde::Deserialize;
 
@@ -107,16 +106,6 @@ fn init_config() -> Result<Config, ConfigError> {
     })
 }
 
-static CONFIG: OnceLock<Config> = OnceLock::new();
-
-pub fn load_config() -> Result<&'static Config, ConfigError> {
-    let cfg = init_config()?;
-    Ok(CONFIG.get_or_init(|| cfg))
-}
-
-pub fn get_config() -> &'static Config {
-    #[allow(clippy::expect_used)]
-    CONFIG
-        .get()
-        .expect("config not initialized; call load_config() at startup")
+pub fn load_config() -> Result<Config, ConfigError> {
+    init_config()
 }
