@@ -106,7 +106,7 @@ pub async fn api_put_secret<D: Database + 'static>(
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to put secret");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "put secret",
+                    "put secret".into(),
                 )))
             }
             other_api_response => {
@@ -256,7 +256,7 @@ pub async fn api_destroy_secret<D: Database + 'static>(
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to destroy secret");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "destroy secret",
+                    "destroy secret".into(),
                 )))
             }
             other_api_response => {

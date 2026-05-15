@@ -2,6 +2,31 @@ use std::error::Error;
 use std::fmt;
 
 #[derive(Debug)]
+pub enum AwsError {
+    InvalidStsUrl,
+    InvalidStsAction,
+    InvalidInput,
+    StsUnreachable,
+    StsRejected,
+    StsUnavailableClient,
+}
+
+impl std::fmt::Display for AwsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidStsUrl => write!(f, "Invalid STS url"),
+            Self::InvalidStsAction => write!(f, "Invalid STS action"),
+            Self::InvalidInput => write!(f, "Invalid input"),
+            Self::StsUnreachable => write!(f, "STS unreachable"),
+            Self::StsRejected => write!(f, "STS rejected"),
+            Self::StsUnavailableClient => write!(f, "Unavailable client"),
+        }
+    }
+}
+
+impl std::error::Error for AwsError {}
+
+#[derive(Debug)]
 pub enum TpmVerifyError {
     InvalidAkPubkey,
     InvalidSignature,
@@ -16,12 +41,12 @@ pub enum TpmVerifyError {
 impl std::fmt::Display for TpmVerifyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidAkPubkey => write!(f, "invalid AK public key"),
-            Self::InvalidSignature => write!(f, "invalid signature encoding"),
-            Self::SignatureVerificationFailed => write!(f, "signature verification failed"),
-            Self::UnsupportedSigAlg => write!(f, "unsupported signature algorithm"),
-            Self::InvalidQuote => write!(f, "invalid quote structure"),
-            Self::NonceMismatch => write!(f, "nonce mismatch"),
+            Self::InvalidAkPubkey => write!(f, "Invalid AK public key"),
+            Self::InvalidSignature => write!(f, "Invalid signature encoding"),
+            Self::SignatureVerificationFailed => write!(f, "Signature verification failed"),
+            Self::UnsupportedSigAlg => write!(f, "Unsupported signature algorithm"),
+            Self::InvalidQuote => write!(f, "Invalid quote structure"),
+            Self::NonceMismatch => write!(f, "Nonce mismatch"),
             Self::PcrMismatch => write!(f, "PCR mismatch"),
             Self::InvalidPcrSelection => write!(f, "PCR bitmap exceeds 32 bytes"),
         }

@@ -40,7 +40,7 @@ pub async fn require_app_grant_for_principal<D: Database>(
                         AppResponse::Error(e) => {
                             tracing::error!(%e, "Failed to update credential last used timestamp");
                             return Err(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                                "update credential",
+                                "update credential".into(),
                             )));
                         }
                         other_api_response => {

@@ -1344,6 +1344,7 @@ dependencies = [
  "extism",
  "p256",
  "pem",
+ "reqwest",
  "rsa",
  "rustls-pki-types",
  "rustls-webpki",

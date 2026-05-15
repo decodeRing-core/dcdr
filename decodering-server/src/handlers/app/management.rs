@@ -10,7 +10,9 @@ use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use decodering_core::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
-use decodering_core::aws::{normalize_role_arn, parse_role_arn};
+use decodering_core::aws::{
+    call_sts_get_caller_identity, normalize_role_arn, parse_role_arn, validate_sts_request,
+};
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
 use decodering_core::crypto::{
     encode_hex, pem_to_der, sha256_hex, sha256_hex_pem, verify_quote_signature,
@@ -32,12 +34,12 @@ use crate::app_data::AppData;
 use crate::config::Config;
 use crate::error::ErrorReason;
 use crate::extractor::AuthAdminMiddleware;
-use crate::handlers::app::payload::AuthTpmData;
 use crate::handlers::app::payload::AuthUserData;
 use crate::handlers::app::payload::CreateAppData;
 use crate::handlers::app::payload::CreateAppUserData;
 use crate::handlers::app::payload::RevokeAppData;
 use crate::handlers::app::payload::{AppGrantData, AuthTpmUserData};
+use crate::handlers::app::payload::{AuthAwsUserData, AuthTpmData};
 use crate::handlers::app::response::ApiAuthAppUserResponse;
 use crate::handlers::app::response::ApiCreateAppGrantResponse;
 use crate::handlers::app::response::ApiDeleteAppGrantResponse;
@@ -154,14 +156,14 @@ pub async fn create_app_user<D: Database + 'static>(
             let Some(normalized) = normalized else {
                 tracing::error!("Failed to normalize role");
                 return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "Unsupported or invalid role",
+                    "Unsupported or invalid role".into(),
                 )));
             };
             let parts = parse_role_arn(&normalized);
             let Some(parts) = parts else {
                 tracing::error!("Failed to parse role");
                 return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "Unsupported or invalid role",
+                    "Unsupported or invalid role".into(),
                 )));
             };
             serde_json::json!({
@@ -208,7 +210,7 @@ pub async fn create_app_user<D: Database + 'static>(
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app user");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "create app user",
+                    "create app user".into(),
                 )))
             }
             other_api_response => {
@@ -256,7 +258,7 @@ pub async fn create_app<D: Database + 'static>(
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "create app",
+                    "create app".into(),
                 )))
             }
             other_api_response => {
@@ -324,7 +326,102 @@ pub async fn auth_app_user<D: Database + 'static>(
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to authenticate app user");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "authenticate app user",
+                    "authenticate app user".into(),
+                )))
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+        }
+    }
+}
+
+pub async fn auth_aws_app_user<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    req: Json<AuthAwsUserData>,
+) -> impl Responder {
+    let req = req.into_inner();
+
+    let validation = validate_sts_request(&req.method, &req.url, &req.body, &req.headers);
+    if validation.is_err() {
+        tracing::error!("AWS Auth request is not valid");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+            "validate aws request params".into(),
+        )));
+    }
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let identity = call_sts_get_caller_identity(&req.url, req.body, req.headers).await;
+    let identity = match identity {
+        Ok(x) => x,
+        Err(e) => {
+            tracing::error!("STS identity verification failed");
+            let err = e.to_string();
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                err.into(),
+            )));
+        }
+    };
+    let role_arn = normalize_role_arn(&identity.arn);
+    let Some(role_arn) = role_arn else {
+        tracing::error!("Failed to get role arn");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+            "get role arn".into(),
+        )));
+    };
+
+    let principal = match db
+        .principal()
+        .get_active_by_key(&role_arn, PrincipalStatus::Active)
+        .await
+    {
+        Ok(Some(app)) => app,
+        Ok(None) => {
+            tracing::error!(lookup_key=%role_arn,"Principal not found with lookup key");
+            return ApiResponse::error(ErrorStatus::OperationFailed(
+                ErrorReason::PrincipalNotFound,
+            ));
+        }
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+        }
+    };
+
+    let token = format!("tok_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
+    let token_hash = sha256_hex(token.as_bytes());
+
+    let timestamp = now_ts();
+    let expires = now_ts_plus(3600);
+    let principal_token = CreatePrincipalToken {
+        token_id: Uuid::now_v7().to_string(),
+        token_hash,
+        principal_id: principal.principal_id,
+        credential_id: principal.credential_id,
+        issued_at: timestamp,
+        expires_at: expires,
+        revoked_at: None,
+    };
+
+    let request = AppRequest::CreatePrincipalToken(principal_token);
+    match app.submit(request).await {
+        Ok(resp) => match resp {
+            AppResponse::CreatePrincipalToken(r) => {
+                ApiAuthAppUserResponse::new(token, r.expires_at)
+            }
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to authenticate app user");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "authenticate app user".into(),
                 )))
             }
             other_api_response => {
@@ -481,7 +578,7 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to consume tpm challenge");
                 return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "consume tpm challenge",
+                    "consume tpm challenge".into(),
                 )));
             }
             other_api_response => {
@@ -519,7 +616,7 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to authenticate app user");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "authenticate app user",
+                    "authenticate app user".into(),
                 )))
             }
             other_api_response => {
@@ -563,7 +660,7 @@ pub async fn tpm_challenge_app_user<D: Database + 'static>(
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to generate tpm challenge");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "generate tpm challenge",
+                    "generate tpm challenge".into(),
                 )))
             }
             other_api_response => {
@@ -633,7 +730,7 @@ pub async fn grant_app_access_user<D: Database + 'static>(
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app grants");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "create app grant",
+                    "create app grant".into(),
                 )))
             }
             other_api_response => {
@@ -691,7 +788,7 @@ pub async fn revoke_app_access_user<D: Database + 'static>(
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to revoke app grant");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "revoke app grant",
+                    "revoke app grant".into(),
                 )))
             }
             other_api_response => {

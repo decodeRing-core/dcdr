@@ -3,6 +3,7 @@ use actix_web::web;
 use decodering_core::tx::Database;
 
 use crate::handlers::app::management::auth_app_user;
+use crate::handlers::app::management::auth_aws_app_user;
 use crate::handlers::app::management::auth_aws_iam_app_user;
 use crate::handlers::app::management::auth_tpm_app_user;
 use crate::handlers::app::management::create_app;
@@ -24,6 +25,7 @@ pub fn app_management_routes<D: Database + 'static>() -> impl HttpServiceFactory
         .route("/user/create", web::post().to(create_app_user::<D>))
         .route("/user/auth", web::post().to(auth_app_user::<D>))
         .route("/user/auth/tpm", web::post().to(auth_tpm_app_user::<D>))
+        .route("/user/auth/aws", web::post().to(auth_aws_app_user::<D>))
         .route(
             "/user/auth/aws-iam",
             web::post().to(auth_aws_iam_app_user::<D>),

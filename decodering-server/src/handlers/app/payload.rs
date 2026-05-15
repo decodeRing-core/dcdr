@@ -66,6 +66,21 @@ pub struct AuthTpmData {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct AuthAwsUserData {
+    /// The HTTP method the client used to sign (always "POST" for `GetCallerIdentity`).
+    pub method: String,
+    /// The URL the request was signed for. MUST be sts.amazonaws.com (or a
+    /// pinned regional STS endpoint). Rejected otherwise.
+    pub url: String,
+    /// The signed request body, typically:
+    /// "Action=GetCallerIdentity&Version=2011-06-15"
+    pub body: String,
+    /// All headers from the signed request, including Authorization,
+    /// X-Amz-Date, Host, X-Amz-Security-Token (if temp creds), etc.
+    pub headers: HashMap<String, String>,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct AppGrantData {
     pub apps: Vec<String>,
     pub principal_id: String,

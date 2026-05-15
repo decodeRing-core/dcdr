@@ -1,6 +1,7 @@
 use actix_web::http::StatusCode;
 use decodering_core::error::ActionError;
 use decodering_raft::raft_types::{ClientWriteError, RaftError};
+use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
 
@@ -27,10 +28,10 @@ impl From<ActionError> for AppError {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorReason {
     Unexpected,
-    GenericFail(&'static str),
+    GenericFail(Cow<'static, str>),
     Database,
     MissingData(&'static str),
     CertVerification,

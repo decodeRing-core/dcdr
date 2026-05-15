@@ -98,7 +98,7 @@ pub async fn system_init<D: Database + 'static>(
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to initialize system");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "initialize system",
+                    "initialize system".into(),
                 )))
             }
             other_api_response => {

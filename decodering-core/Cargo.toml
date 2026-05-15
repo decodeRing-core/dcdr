@@ -18,6 +18,7 @@ rustls-webpki.workspace = true
 rustls-pki-types.workspace = true
 rsa.workspace = true
 p256.workspace = true
+reqwest.workspace = true
 
 [lints]
 workspace = true
