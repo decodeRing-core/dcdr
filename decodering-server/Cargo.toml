@@ -29,5 +29,9 @@ serde_with.workspace = true
 zeroize.workspace = true
 uuid.workspace = true
 
+[dev-dependencies]
+actix-http = "3.12.1"
+reqwest = "0.13.3"
+
 [lints]
 workspace = true

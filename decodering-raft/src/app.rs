@@ -1,10 +1,10 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::io::Cursor;
 
 use openraft::error::Infallible;
 use openraft::error::decompose::DecomposeResult;
 use openraft::rt::WatchReceiver;
-use openraft::{BasicNode, Snapshot};
+use openraft::{BasicNode, ChangeMembers, Snapshot};
 
 use crate::NodeId;
 use crate::raft_types::ClientWriteError;
@@ -60,7 +60,7 @@ impl RaftBits {
 
     pub async fn change_membership(
         &self,
-        req: BTreeSet<NodeId>,
+        req: ChangeMembers<NodeId, Node>,
     ) -> Result<ClientWriteResponse, RaftError<ClientWriteError>> {
         self.raft.change_membership(req, true).await
     }

@@ -1388,6 +1388,7 @@ name = "decodering-server"
 version = "0.1.0"
 dependencies = [
  "actix-cors",
+ "actix-http",
  "actix-web",
  "base64",
  "blahaj",
@@ -1398,6 +1399,7 @@ dependencies = [
  "dotenvy",
  "futures-util",
  "rand 0.10.1",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_with",

@@ -93,7 +93,7 @@ impl Connection {
         let body_str = String::from_utf8_lossy(&body_bytes);
 
         if !status.is_success() {
-            tracing::error!("Node {} returned HTTP {}: {}", url, status, body_str);
+            tracing::warn!("Node {} returned HTTP {}: {}", url, status, body_str);
         }
 
         let res: Result<Resp, openraft::errors::RaftError<TypeConfig>> =
@@ -112,7 +112,7 @@ impl Connection {
 }
 
 impl RaftNetworkV2<TypeConfig> for Connection {
-    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    #[tracing::instrument(level = "debug", skip_all)]
     async fn append_entries(
         &mut self,
         req: AppendEntriesRequest,
@@ -122,7 +122,7 @@ impl RaftNetworkV2<TypeConfig> for Connection {
         Ok(resp)
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    #[tracing::instrument(level = "debug", skip_all)]
     async fn vote(
         &mut self,
         req: VoteRequest,
@@ -132,7 +132,7 @@ impl RaftNetworkV2<TypeConfig> for Connection {
         Ok(resp)
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    #[tracing::instrument(level = "debug", skip_all)]
     async fn full_snapshot(
         &mut self,
         vote: Vote,

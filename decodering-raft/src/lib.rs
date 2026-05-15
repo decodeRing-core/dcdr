@@ -32,6 +32,8 @@ pub type LogStore = RocksLogStore<TypeConfig>;
 pub type StateMachineStore = store::state_machine::StateMachineStore<SqliteDatabase>;
 pub type Raft = openraft::Raft<TypeConfig, StateMachineStore>;
 
+pub use openraft::ChangeMembers;
+
 pub struct RaftComponents {
     pub raft: Raft,
     pub state_machine: StateMachineStore,

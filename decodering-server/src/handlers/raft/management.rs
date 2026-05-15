@@ -1,9 +1,8 @@
 use actix_web::Responder;
 use actix_web::web::{Data, Json};
 use decodering_core::tx::Database;
-use decodering_raft::NodeId;
-use decodering_raft::raft_types::{ClientWriteError, RaftError};
-use std::collections::BTreeSet;
+use decodering_raft::raft_types::{ClientWriteError, Node, RaftError};
+use decodering_raft::{ChangeMembers, NodeId};
 
 use crate::app_data::AppData;
 use crate::error::ErrorReason;
@@ -73,7 +72,7 @@ pub async fn add_learner_raft<D: Database + 'static>(
 
 pub async fn change_membership_raft<D: Database + 'static>(
     app: Data<AppData<D>>,
-    req: Json<BTreeSet<NodeId>>,
+    req: Json<ChangeMembers<NodeId, Node>>,
 ) -> impl Responder {
     let Some(raft_bits) = &app.raft else {
         tracing::error!("RaftBits not available");
