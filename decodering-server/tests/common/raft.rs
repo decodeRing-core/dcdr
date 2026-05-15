@@ -12,9 +12,9 @@ use decodering_server::routes::config::config_app;
 use crate::common::{init_tracing_once, sqlite_raft_storage, test_config};
 
 pub struct Node {
-    _id: u64,
+    pub id: u64,
     pub addr: String,
-    _raft: Raft,
+    pub raft: Raft,
     handle: JoinHandle<std::io::Result<()>>,
 }
 
@@ -67,9 +67,9 @@ pub async fn spawn_node(id: u64) -> Result<Node, Box<dyn std::error::Error + Sen
     }
 
     Ok(Node {
-        _id: id,
+        id,
         addr,
-        _raft: raft,
+        raft,
         handle,
     })
 }

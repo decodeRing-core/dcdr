@@ -25,6 +25,7 @@ pub fn test_config() -> Config {
     }
 }
 
+#[allow(clippy::print_stderr)]
 pub async fn sqlite_raft_storage(
     config: &Config,
     id: u64,
