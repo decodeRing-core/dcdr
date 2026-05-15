@@ -11,6 +11,7 @@ pub struct CreateAppUserData {
     pub kind: PrincipalKind,
     pub credential_kind: PrincipalCredentialKind,
     pub tpm: Option<TrustedPlatformModuleData>,
+    pub aws: Option<AwsData>,
     pub expires_at: Option<i64>,
     pub apps: Option<Vec<String>>,
 }
@@ -21,6 +22,11 @@ pub struct TrustedPlatformModuleData {
     pub ek_cert_pem: Option<String>, // optional EK certificate
     pub expected_pcrs: Option<HashMap<u8, String>>, // optional boot-state pinning
     pub require_ek_cert: bool,       // policy
+}
+
+#[derive(Deserialize, Debug)]
+pub struct AwsData {
+    pub role_arn: String,
 }
 
 #[serde_as]

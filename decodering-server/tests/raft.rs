@@ -35,7 +35,7 @@ async fn test_raft_cluster() -> Result<(), Box<dyn std::error::Error + Send + Sy
         .wait(Some(Duration::from_secs(5)))
         .current_leader(n1.id, "wait for current leader to be applied")
         .await?;
-    let nodes = [(1, n1.addr.as_str()), (2, n2.addr.as_str())];
+    let nodes = [(n1.id, n1.addr.as_str()), (n2.id, n2.addr.as_str())];
     step_metrics_raft_addr(&n2.addr, n2.id, n1.id, &members, &nodes, "Learner").await?;
 
     // Add node 3 to cluster as a learner
@@ -50,6 +50,37 @@ async fn test_raft_cluster() -> Result<(), Box<dyn std::error::Error + Send + Sy
         (3, n3.addr.as_str()),
     ];
     step_metrics_raft_addr(&n3.addr, n3.id, n1.id, &members, &nodes, "Learner").await?;
+
+    // Change membership
+    let payload = "{ \"AddVoterIds\": [1,2, 3] }".to_owned();
+    let expected_voters = [1u64, 2u64, 3u64];
+    let expected_nodes = [
+        (n1.id, n1.addr.as_str()),
+        (n2.id, n2.addr.as_str()),
+        (n3.id, n3.addr.as_str()),
+    ];
+    step_change_membership_raft_addr(&n1.addr, payload, &expected_voters, &expected_nodes).await?;
+
+    let nodes = [
+        (1, n1.addr.as_str()),
+        (2, n2.addr.as_str()),
+        (3, n3.addr.as_str()),
+    ];
+    step_metrics_raft_addr(&n2.addr, n2.id, n1.id, &nodes, &nodes, "Follower").await?;
+
+    let nodes = [
+        (1, n1.addr.as_str()),
+        (2, n2.addr.as_str()),
+        (3, n3.addr.as_str()),
+    ];
+    step_metrics_raft_addr(&n3.addr, n3.id, n1.id, &nodes, &nodes, "Follower").await?;
+
+    let nodes = [
+        (1, n1.addr.as_str()),
+        (2, n2.addr.as_str()),
+        (3, n3.addr.as_str()),
+    ];
+    step_metrics_raft_addr(&n1.addr, n1.id, n1.id, &nodes, &nodes, "Leader").await?;
     Ok(())
 }
 
@@ -212,6 +243,44 @@ async fn step_add_learner_raft_addr(
         );
         let addr = node["addr"].as_str().expect("node.addr should be a string");
         assert!(!addr.is_empty(), "node.addr should not be empty");
+    }
+
+    Ok(())
+}
+
+async fn step_change_membership_raft_addr(
+    addr: &str,
+    payload: String,
+    expected_voters: &[u64],
+    expected_nodes: &[(u64, &str)],
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let resp = reqwest::Client::new()
+        .post(format!("http://{addr}/raft/change-membership"))
+        .json(&serde_json::from_str::<serde_json::Value>(&payload)?)
+        .send()
+        .await?;
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await?;
+
+    assert_eq!(body["osl_version"], "1.0.0");
+    assert_eq!(body["status"], "raft-membership");
+    assert_eq!(body["message"], "Raft membership changes");
+
+    let data = &body["data"];
+    assert!(data["log_id"]["leader_id"].is_number());
+    assert!(data["log_id"]["index"].is_number());
+    assert_eq!(data["data"], "Noop");
+
+    let voters: Vec<u64> = expected_voters.to_vec();
+    assert_eq!(data["membership"]["configs"], serde_json::json!([voters]));
+
+    let nodes = &data["membership"]["nodes"];
+    assert_eq!(
+        nodes.as_object().map_or(0, serde_json::Map::len),
+        expected_nodes.len()
+    );
+    for (id, addr) in expected_nodes {
+        assert_eq!(nodes[id.to_string()]["addr"], *addr);
     }
 
     Ok(())

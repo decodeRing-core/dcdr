@@ -10,6 +10,7 @@ use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use decodering_core::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
+use decodering_core::aws::{normalize_role_arn, parse_role_arn};
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
 use decodering_core::crypto::{
     encode_hex, pem_to_der, sha256_hex, sha256_hex_pem, verify_quote_signature,
@@ -72,9 +73,9 @@ pub async fn create_app_user<D: Database + 'static>(
         PrincipalCredentialKind::TrustedPlatformModule => {
             let Some(ref tpm_req) = req.0.tpm else {
                 tracing::error!("Missing TPM data");
-                return ApiResponse::error(ErrorStatus::OperationFailed(
-                    ErrorReason::MissingTpmData,
-                ));
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
+                    "TPM",
+                )));
             };
             let ek_der = match pem_to_der(&tpm_req.ek_pubkey_pem) {
                 Ok(x) => x,
@@ -115,7 +116,13 @@ pub async fn create_app_user<D: Database + 'static>(
             ("TPM key added".to_owned(), ek_hash)
         }
         PrincipalCredentialKind::AwsIdentity => {
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unimplemented));
+            let Some(ref aws_req) = req.0.aws else {
+                tracing::error!("Missing AWS data");
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
+                    "role",
+                )));
+            };
+            ("AWS role added".to_owned(), aws_req.role_arn.clone())
         }
     };
 
@@ -124,9 +131,9 @@ pub async fn create_app_user<D: Database + 'static>(
         PrincipalCredentialKind::TrustedPlatformModule => {
             let Some(ref tpm_req) = req.0.tpm else {
                 tracing::error!("Missing TPM data");
-                return ApiResponse::error(ErrorStatus::OperationFailed(
-                    ErrorReason::MissingTpmData,
-                ));
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
+                    "TPM",
+                )));
             };
             let material = serde_json::json!({
                 "ek_pubkey_pem":   tpm_req.ek_pubkey_pem,
@@ -137,7 +144,30 @@ pub async fn create_app_user<D: Database + 'static>(
             material
         }
         PrincipalCredentialKind::AwsIdentity => {
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unimplemented));
+            let Some(ref aws_req) = req.0.aws else {
+                tracing::error!("Missing AWS data");
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
+                    "role",
+                )));
+            };
+            let normalized = normalize_role_arn(&aws_req.role_arn);
+            let Some(normalized) = normalized else {
+                tracing::error!("Failed to normalize role");
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "Unsupported or invalid role",
+                )));
+            };
+            let parts = parse_role_arn(&normalized);
+            let Some(parts) = parts else {
+                tracing::error!("Failed to parse role");
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "Unsupported or invalid role",
+                )));
+            };
+            serde_json::json!({
+                "account_id": parts.account_id,
+                "role_name":  parts.role_name,
+            })
         }
     };
 

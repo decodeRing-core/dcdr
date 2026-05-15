@@ -32,7 +32,7 @@ pub enum ErrorReason {
     Unexpected,
     GenericFail(&'static str),
     Database,
-    MissingTpmData,
+    MissingData(&'static str),
     CertVerification,
     CertMissing(&'static str),
     InvalidPublicKey,
@@ -52,7 +52,6 @@ pub enum ErrorReason {
     Unimplemented,
     DuplicatedApp,
     ChallengeMismatch,
-    MissingShardData,
     RaftNotLeader,
     RaftNotInitialized,
     RaftNotAvailable,
@@ -69,7 +68,7 @@ impl std::fmt::Display for ErrorReason {
             Self::CertVerification => f.write_str("Certification verification failed."),
             Self::TrustStore => f.write_str("Failed to load trust store."),
             Self::CertMissing(name) => write!(f, "Missing cert {name}."),
-            Self::MissingTpmData => f.write_str("Missing TPM data."),
+            Self::MissingData(name) => write!(f, "Missing {name} data."),
             Self::InvalidPublicKey => f.write_str("Invalid public key."),
             Self::PrincipalNotFound => f.write_str("Principal not found."),
             Self::ApplicationNotFound => f.write_str("Application not found."),
@@ -87,7 +86,6 @@ impl std::fmt::Display for ErrorReason {
             Self::ChallengeMismatch => f.write_str("Challenge mismatch."),
             Self::RaftNotAvailable => f.write_str("Raft not configured."),
             Self::Raft => f.write_str("Raft error."),
-            Self::MissingShardData => f.write_str("Missing shard data."),
             Self::Locked => f.write_str("System locked."),
             Self::SystemNotInitialized => f.write_str("System not initialized."),
         }
@@ -103,7 +101,7 @@ impl ErrorReason {
             | Self::Internal
             | Self::TrustStore
             | Self::Raft => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::MissingTpmData
+            Self::MissingData(_)
             | Self::CertVerification
             | Self::CertMissing(_)
             | Self::InvalidPublicKey
@@ -113,8 +111,7 @@ impl ErrorReason {
             | Self::AlreadyInitialized
             | Self::Plugin
             | Self::ChallengeMismatch
-            | Self::RaftNotAvailable
-            | Self::MissingShardData => StatusCode::BAD_REQUEST,
+            | Self::RaftNotAvailable => StatusCode::BAD_REQUEST,
             Self::RaftNotLeader => StatusCode::MISDIRECTED_REQUEST,
             Self::RaftNotInitialized | Self::SystemNotInitialized => {
                 StatusCode::SERVICE_UNAVAILABLE

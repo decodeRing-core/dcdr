@@ -44,11 +44,15 @@ pub async fn system_init<D: Database + 'static>(
 
         let Some(total_shares) = req.total_shares else {
             tracing::error!("Shard data initialization required. Missing total shares.");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingShardData));
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
+                "total shares",
+            )));
         };
         let Some(threshold) = req.threshold else {
             tracing::error!("Shard data initialization required. Missing threshold.");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingShardData));
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
+                "threshold",
+            )));
         };
 
         let shamir_init = match initialize_shamir(total_shares, threshold) {
