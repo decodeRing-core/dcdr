@@ -4,13 +4,20 @@ use reqwest::Client;
 
 use crate::error::AwsError;
 
-pub struct RoleArn {
+#[derive(Debug)]
+pub struct ParsedArn {
     pub account_id: String,
-    pub role_name: String,
+    pub kind: ArnKind,
+    pub name: String,
 }
 
-pub fn parse_role_arn(arn: &str) -> Option<RoleArn> {
-    // Accepts: arn:aws:iam::123456789012:role/payments-service
+#[derive(Debug, Clone, Copy)]
+pub enum ArnKind {
+    Role,
+    User,
+}
+
+pub fn parse_iam_arn(arn: &str) -> Option<ParsedArn> {
     let mut parts = arn.split(':');
     if parts.next()? != "arn" {
         return None;
@@ -21,27 +28,49 @@ pub fn parse_role_arn(arn: &str) -> Option<RoleArn> {
     if parts.next()? != "iam" {
         return None;
     }
-    let _region = parts.next()?; // empty for IAM
+    let _region = parts.next()?;
     let account_id = parts.next()?.to_owned();
     let resource = parts.next()?;
-    let role_name = resource.strip_prefix("role/")?.to_owned();
-    Some(RoleArn {
-        account_id,
-        role_name,
-    })
+
+    if let Some(name) = resource.strip_prefix("role/") {
+        return Some(ParsedArn {
+            account_id,
+            kind: ArnKind::Role,
+            name: name.to_owned(),
+        });
+    }
+    if let Some(name) = resource.strip_prefix("user/") {
+        return Some(ParsedArn {
+            account_id,
+            kind: ArnKind::User,
+            name: name.to_owned(),
+        });
+    }
+    None
 }
 
-/// Canonicalize: store role ARNs in their iam:role form, regardless of
-/// whether the input came as an iam: or sts:assumed-role variant.
-pub fn normalize_role_arn(arn: &str) -> Option<String> {
-    // Already iam:role form
-    if let Some(parts) = parse_role_arn(arn) {
+pub fn normalize_arn(arn: &str) -> Option<String> {
+    // Already in iam:role or iam:user form
+    if let Some(parsed) = parse_iam_arn(arn) {
+        let resource = match parsed.kind {
+            ArnKind::Role => "role",
+            ArnKind::User => "user",
+        };
         return Some(format!(
-            "arn:aws:iam::{}:role/{}",
-            parts.account_id, parts.role_name
+            "arn:aws:iam::{}:{}/{}",
+            parsed.account_id, resource, parsed.name
         ));
     }
-    // sts:assumed-role form: arn:aws:sts::123:assumed-role/payments-service/i-abc123
+
+    // sts:assumed-role form — rewrite to iam:role
+    if let Some((account_id, role_name)) = parse_assumed_role_arn(arn) {
+        return Some(format!("arn:aws:iam::{account_id}:role/{role_name}"));
+    }
+
+    None
+}
+
+fn parse_assumed_role_arn(arn: &str) -> Option<(String, String)> {
     let mut parts = arn.split(':');
     if parts.next()? != "arn" {
         return None;
@@ -53,15 +82,15 @@ pub fn normalize_role_arn(arn: &str) -> Option<String> {
         return None;
     }
     let _region = parts.next()?;
-    let account_id = parts.next()?;
+    let account_id = parts.next()?.to_owned();
     let resource = parts.next()?;
     let mut res_parts = resource.split('/');
     if res_parts.next()? != "assumed-role" {
         return None;
     }
-    let role_name = res_parts.next()?;
+    let role_name = res_parts.next()?.to_owned();
     let _session = res_parts.next();
-    Some(format!("arn:aws:iam::{account_id}:role/{role_name}"))
+    Some((account_id, role_name))
 }
 
 pub fn validate_sts_request(

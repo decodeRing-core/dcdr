@@ -10,9 +10,8 @@ use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use decodering_core::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
-use decodering_core::aws::{
-    call_sts_get_caller_identity, normalize_role_arn, parse_role_arn, validate_sts_request,
-};
+use decodering_core::aws::call_sts_get_caller_identity;
+use decodering_core::aws::{normalize_arn, parse_iam_arn, validate_sts_request};
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
 use decodering_core::crypto::{
     encode_hex, pem_to_der, sha256_hex, sha256_hex_pem, verify_quote_signature,
@@ -152,23 +151,23 @@ pub async fn create_app_user<D: Database + 'static>(
                     "role",
                 )));
             };
-            let normalized = normalize_role_arn(&aws_req.role_arn);
+            let normalized = normalize_arn(&aws_req.role_arn);
             let Some(normalized) = normalized else {
                 tracing::error!("Failed to normalize role");
-                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "Unsupported or invalid role".into(),
-                )));
+                return ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::UnsupportedOrInvalidRoleArn,
+                ));
             };
-            let parts = parse_role_arn(&normalized);
+            let parts = parse_iam_arn(&normalized);
             let Some(parts) = parts else {
                 tracing::error!("Failed to parse role");
-                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "Unsupported or invalid role".into(),
-                )));
+                return ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::UnsupportedOrInvalidRoleArn,
+                ));
             };
             serde_json::json!({
                 "account_id": parts.account_id,
-                "role_name":  parts.role_name,
+                "role_name":  parts.name,
             })
         }
     };
@@ -371,8 +370,8 @@ pub async fn auth_aws_app_user<D: Database + 'static>(
             )));
         }
     };
-    let role_arn = normalize_role_arn(&identity.arn);
-    let Some(role_arn) = role_arn else {
+    let normalized = normalize_arn(&identity.arn);
+    let Some(normalized) = normalized else {
         tracing::error!("Failed to get role arn");
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
             "get role arn".into(),
@@ -381,12 +380,12 @@ pub async fn auth_aws_app_user<D: Database + 'static>(
 
     let principal = match db
         .principal()
-        .get_active_by_key(&role_arn, PrincipalStatus::Active)
+        .get_active_by_key(&normalized, PrincipalStatus::Active)
         .await
     {
         Ok(Some(app)) => app,
         Ok(None) => {
-            tracing::error!(lookup_key=%role_arn,"Principal not found with lookup key");
+            tracing::error!(lookup_key=%normalized,"Principal not found with lookup key");
             return ApiResponse::error(ErrorStatus::OperationFailed(
                 ErrorReason::PrincipalNotFound,
             ));

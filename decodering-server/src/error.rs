@@ -48,6 +48,7 @@ pub enum ErrorReason {
     Locked,
     InvalidShamirKeys,
     UnsupportedBackend,
+    UnsupportedOrInvalidRoleArn,
     SecretNotFound,
     Unauthorized,
     Unimplemented,
@@ -89,6 +90,7 @@ impl std::fmt::Display for ErrorReason {
             Self::Raft => f.write_str("Raft error."),
             Self::Locked => f.write_str("System locked."),
             Self::SystemNotInitialized => f.write_str("System not initialized."),
+            Self::UnsupportedOrInvalidRoleArn => f.write_str("Unsupported or invalid role"),
         }
     }
 }
@@ -112,6 +114,7 @@ impl ErrorReason {
             | Self::AlreadyInitialized
             | Self::Plugin
             | Self::ChallengeMismatch
+            | Self::UnsupportedOrInvalidRoleArn
             | Self::RaftNotAvailable => StatusCode::BAD_REQUEST,
             Self::RaftNotLeader => StatusCode::MISDIRECTED_REQUEST,
             Self::RaftNotInitialized | Self::SystemNotInitialized => {
