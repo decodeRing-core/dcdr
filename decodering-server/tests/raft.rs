@@ -11,7 +11,7 @@ use actix_web::{App, test};
 use decodering_db::sqlite::SqliteDatabase;
 use decodering_server::routes::config::config_app;
 
-use crate::common::raft::spawn_node;
+use crate::common::raft::{spawn_node, step_init_raft_addr, step_metrics_raft_addr};
 use crate::common::{init_tracing_once, sqlite_raft_storage, test_config};
 
 mod common;
@@ -116,76 +116,6 @@ async fn test_raft_lifecycle() -> Result<(), Box<dyn std::error::Error + Send + 
         .applied_index(Some(1), "wait for init to be applied")
         .await?;
     step_metrics_raft(&app).await?;
-
-    Ok(())
-}
-
-async fn step_init_raft_addr(addr: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let resp = reqwest::Client::new()
-        .post(format!("http://{addr}/raft/init"))
-        .json(&serde_json::json!({ "raft_init": [] }))
-        .send()
-        .await?;
-    assert_eq!(resp.status(), 200);
-    Ok(())
-}
-
-async fn step_metrics_raft_addr(
-    addr: &str,
-    node_id: u64,
-    leader_id: u64,
-    members: &[(u64, &str)],
-    nodes: &[(u64, &str)],
-    state: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let resp = reqwest::Client::new()
-        .post(format!("http://{addr}/raft/metrics"))
-        .json(&serde_json::json!([]))
-        .send()
-        .await?;
-    assert_eq!(resp.status(), 200);
-    let body: serde_json::Value = resp.json().await?;
-
-    assert_eq!(body["osl_version"], "1.0.0");
-    assert_eq!(body["status"], "raft-metrics");
-    assert_eq!(body["message"], "Raft node metrics");
-
-    let data = &body["data"];
-    assert_eq!(data["id"], node_id);
-    assert_eq!(data["current_term"], 1);
-    assert_eq!(data["current_leader"], leader_id);
-    assert_eq!(data["state"], state);
-
-    assert!(data["running_state"]["Ok"].is_null());
-
-    assert_eq!(data["vote"]["leader_id"]["term"], 1);
-    assert_eq!(data["vote"]["leader_id"]["voted_for"], leader_id);
-    assert_eq!(data["vote"]["committed"], true);
-
-    // assert!(data["millis_since_quorum_ack"].is_number());
-    // assert!(data["last_quorum_acked"].is_number());
-
-    let membership = &data["membership_config"];
-    let expected_voters: Vec<u64> = members.iter().map(|(id, _)| *id).collect();
-    assert_eq!(
-        membership["membership"]["configs"],
-        serde_json::json!([expected_voters])
-    );
-    for (id, addr) in nodes {
-        assert_eq!(
-            membership["membership"]["nodes"][id.to_string()]["addr"],
-            *addr
-        );
-    }
-
-    if node_id == leader_id {
-        for (id, _) in members {
-            let key = id.to_string();
-            assert!(data["heartbeat"][&key].is_number());
-            assert_eq!(data["replication"][&key]["leader_id"], leader_id);
-            assert!(data["replication"][&key]["index"].is_number());
-        }
-    }
 
     Ok(())
 }
