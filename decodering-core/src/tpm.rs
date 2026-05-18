@@ -122,7 +122,6 @@ pub fn verify_pcrs(
     expected_pcrs: &HashMap<u8, String>,
     pcr_selections: &[PcrSelection],
 ) -> Result<(), TpmVerifyError> {
-    // Only SHA-256 is supported here; extend if you need SHA-1 or SHA-384.
     const SHA256_LEN: usize = 32;
     const TPM_ALG_SHA256: u16 = 0x000B;
 
@@ -168,7 +167,7 @@ pub fn verify_pcrs(
         concatenated.extend_from_slice(&bytes);
     }
 
-    // Check 1: recomputed digest matches what the TPM signed.
+    // Recomputed digest matches what the TPM signed.
     let recomputed_digest = Sha256::digest(&concatenated);
     if recomputed_digest.as_slice() != expected_digest {
         tracing::error!(
@@ -178,7 +177,7 @@ pub fn verify_pcrs(
         return Err(TpmVerifyError::PcrMismatch);
     }
 
-    // Check 2: each PCR pinned by the policy matches the sent value.
+    // Each PCR pinned by the policy matches the sent value.
     for (&pcr_index, expected_hex) in expected_pcrs {
         let actual_hex = pcrs.get(&pcr_index).ok_or_else(|| {
             tracing::error!(
@@ -262,4 +261,523 @@ fn hex_decode(s: &str) -> Option<Vec<u8>> {
         .step_by(2)
         .map(|i| u8::from_str_radix(s.get(i..i + 2)?, 16).ok())
         .collect()
+}
+
+#[allow(
+    clippy::unwrap_used,
+    clippy::indexing_slicing,
+    clippy::cast_possible_truncation
+)]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+    use std::collections::HashMap;
+
+    fn build_tpms_attest(
+        magic: u32,
+        ty: u16,
+        qualified_signer: &[u8],
+        extra_data: &[u8],
+        pcr_selections: &[(u16, &[u8], &[u8])],
+        pcr_digest: &[u8],
+    ) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&magic.to_be_bytes());
+        buf.extend_from_slice(&ty.to_be_bytes());
+        buf.extend_from_slice(&(qualified_signer.len() as u16).to_be_bytes());
+        buf.extend_from_slice(qualified_signer);
+        buf.extend_from_slice(&(extra_data.len() as u16).to_be_bytes());
+        buf.extend_from_slice(extra_data);
+        buf.extend_from_slice(&[0u8; 17]);
+        buf.extend_from_slice(&[0u8; 8]);
+        buf.extend_from_slice(&(pcr_selections.len() as u32).to_be_bytes());
+        for (hash_alg, size_of_select, bitmap) in pcr_selections {
+            buf.extend_from_slice(&hash_alg.to_be_bytes());
+            buf.push(size_of_select[0]);
+            buf.extend_from_slice(bitmap);
+        }
+        buf.extend_from_slice(&(pcr_digest.len() as u16).to_be_bytes());
+        buf.extend_from_slice(pcr_digest);
+        buf
+    }
+
+    fn pcr_bitmap_for(indices: &[u8]) -> (Vec<u8>, u8) {
+        let max = indices.iter().copied().max().unwrap_or(0);
+        let size = (max / 8 + 1) as usize;
+        let mut bitmap = vec![0u8; size];
+        for &idx in indices {
+            bitmap[(idx / 8) as usize] |= 1 << (idx % 8);
+        }
+        (bitmap, size as u8)
+    }
+
+    #[test]
+    fn parse_tpms_attest_valid_quote() {
+        let (bitmap, size) = pcr_bitmap_for(&[0, 7]);
+        let quote = build_tpms_attest(
+            TPM_GENERATED_VALUE,
+            TPM_ST_ATTEST_QUOTE,
+            b"signer-name",
+            b"nonce-123",
+            &[(0x000B, &[size], &bitmap)],
+            &[0xAB; 32],
+        );
+        let parsed = parse_tpms_attest(&quote).unwrap();
+        assert_eq!(parsed.extra_data, b"nonce-123");
+        assert_eq!(parsed.pcr_digest, vec![0xAB; 32]);
+        assert_eq!(parsed.pcr_selections.len(), 1);
+        assert_eq!(parsed.pcr_selections[0].hash_alg, 0x000B);
+        assert_eq!(parsed.pcr_selections[0].indices, vec![0, 7]);
+    }
+
+    #[test]
+    fn parse_tpms_attest_multiple_selections() {
+        let (bitmap_a, size_a) = pcr_bitmap_for(&[0, 1, 2]);
+        let (bitmap_b, size_b) = pcr_bitmap_for(&[10, 15]);
+        let quote = build_tpms_attest(
+            TPM_GENERATED_VALUE,
+            TPM_ST_ATTEST_QUOTE,
+            b"signer",
+            b"nonce",
+            &[
+                (0x000B, &[size_a], &bitmap_a),
+                (0x000B, &[size_b], &bitmap_b),
+            ],
+            &[0x11; 32],
+        );
+        let parsed = parse_tpms_attest(&quote).unwrap();
+        assert_eq!(parsed.pcr_selections.len(), 2);
+        assert_eq!(parsed.pcr_selections[0].indices, vec![0, 1, 2]);
+        assert_eq!(parsed.pcr_selections[1].indices, vec![10, 15]);
+    }
+
+    #[test]
+    fn parse_tpms_attest_empty_extra_data() {
+        let (bitmap, size) = pcr_bitmap_for(&[0]);
+        let quote = build_tpms_attest(
+            TPM_GENERATED_VALUE,
+            TPM_ST_ATTEST_QUOTE,
+            b"signer",
+            b"",
+            &[(0x000B, &[size], &bitmap)],
+            &[0x00; 32],
+        );
+        let parsed = parse_tpms_attest(&quote).unwrap();
+        assert!(parsed.extra_data.is_empty());
+    }
+
+    #[test]
+    fn parse_tpms_attest_no_selections() {
+        let quote = build_tpms_attest(
+            TPM_GENERATED_VALUE,
+            TPM_ST_ATTEST_QUOTE,
+            b"signer",
+            b"nonce",
+            &[],
+            &[0x00; 32],
+        );
+        let parsed = parse_tpms_attest(&quote).unwrap();
+        assert!(parsed.pcr_selections.is_empty());
+    }
+
+    #[test]
+    fn parse_tpms_attest_rejects_bad_magic() {
+        let (bitmap, size) = pcr_bitmap_for(&[0]);
+        let quote = build_tpms_attest(
+            0xDEAD_BEEF,
+            TPM_ST_ATTEST_QUOTE,
+            b"signer",
+            b"nonce",
+            &[(0x000B, &[size], &bitmap)],
+            &[0x00; 32],
+        );
+        assert!(matches!(
+            parse_tpms_attest(&quote),
+            Err(TpmVerifyError::InvalidQuote)
+        ));
+    }
+
+    #[test]
+    fn parse_tpms_attest_rejects_non_quote_type() {
+        let (bitmap, size) = pcr_bitmap_for(&[0]);
+        let quote = build_tpms_attest(
+            TPM_GENERATED_VALUE,
+            0x8017,
+            b"signer",
+            b"nonce",
+            &[(0x000B, &[size], &bitmap)],
+            &[0x00; 32],
+        );
+        assert!(matches!(
+            parse_tpms_attest(&quote),
+            Err(TpmVerifyError::InvalidQuote)
+        ));
+    }
+
+    #[test]
+    fn parse_tpms_attest_rejects_truncated() {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&TPM_GENERATED_VALUE.to_be_bytes());
+        buf.extend_from_slice(&TPM_ST_ATTEST_QUOTE.to_be_bytes());
+        assert!(matches!(
+            parse_tpms_attest(&buf),
+            Err(TpmVerifyError::InvalidQuote)
+        ));
+    }
+
+    #[test]
+    fn parse_tpms_attest_rejects_empty() {
+        assert!(matches!(
+            parse_tpms_attest(&[]),
+            Err(TpmVerifyError::InvalidQuote)
+        ));
+    }
+
+    #[test]
+    fn parse_tpms_attest_rejects_truncated_extra_data() {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&TPM_GENERATED_VALUE.to_be_bytes());
+        buf.extend_from_slice(&TPM_ST_ATTEST_QUOTE.to_be_bytes());
+        buf.extend_from_slice(&0u16.to_be_bytes());
+        buf.extend_from_slice(&100u16.to_be_bytes());
+        buf.extend_from_slice(b"short");
+        assert!(matches!(
+            parse_tpms_attest(&buf),
+            Err(TpmVerifyError::InvalidQuote)
+        ));
+    }
+
+    #[test]
+    fn parse_tpms_attest_bitmap_decodes_high_pcr_index() {
+        let (bitmap, size) = pcr_bitmap_for(&[23]);
+        let quote = build_tpms_attest(
+            TPM_GENERATED_VALUE,
+            TPM_ST_ATTEST_QUOTE,
+            b"signer",
+            b"nonce",
+            &[(0x000B, &[size], &bitmap)],
+            &[0x00; 32],
+        );
+        let parsed = parse_tpms_attest(&quote).unwrap();
+        assert_eq!(parsed.pcr_selections[0].indices, vec![23]);
+    }
+
+    #[test]
+    fn verify_pcrs_succeeds_with_valid_digest() {
+        let pcr0 = [0xAAu8; 32];
+        let pcr7 = [0xBBu8; 32];
+        let mut hasher = Sha256::new();
+        hasher.update(pcr0);
+        hasher.update(pcr7);
+        let digest = hasher.finalize();
+
+        let mut pcrs = HashMap::new();
+        pcrs.insert(0, "aa".repeat(32));
+        pcrs.insert(7, "bb".repeat(32));
+
+        let selections = vec![PcrSelection {
+            hash_alg: 0x000B,
+            indices: vec![0, 7],
+        }];
+
+        let expected_pcrs = HashMap::new();
+        assert!(verify_pcrs(&pcrs, &digest, &expected_pcrs, &selections).is_ok());
+    }
+
+    #[test]
+    fn verify_pcrs_succeeds_with_policy_match() {
+        let pcr0 = [0xAAu8; 32];
+        let digest = Sha256::digest(pcr0);
+
+        let mut pcrs = HashMap::new();
+        pcrs.insert(0, "aa".repeat(32));
+
+        let mut expected = HashMap::new();
+        expected.insert(0, "aa".repeat(32));
+
+        let selections = vec![PcrSelection {
+            hash_alg: 0x000B,
+            indices: vec![0],
+        }];
+
+        assert!(verify_pcrs(&pcrs, &digest, &expected, &selections).is_ok());
+    }
+
+    #[test]
+    fn verify_pcrs_policy_match_case_insensitive() {
+        let pcr0 = [0xAAu8; 32];
+        let digest = Sha256::digest(pcr0);
+
+        let mut pcrs = HashMap::new();
+        pcrs.insert(0, "AA".repeat(32));
+
+        let mut expected = HashMap::new();
+        expected.insert(0, "aa".repeat(32));
+
+        let selections = vec![PcrSelection {
+            hash_alg: 0x000B,
+            indices: vec![0],
+        }];
+
+        assert!(verify_pcrs(&pcrs, &digest, &expected, &selections).is_ok());
+    }
+
+    #[test]
+    fn verify_pcrs_rejects_wrong_digest() {
+        let mut pcrs = HashMap::new();
+        pcrs.insert(0, "aa".repeat(32));
+
+        let selections = vec![PcrSelection {
+            hash_alg: 0x000B,
+            indices: vec![0],
+        }];
+
+        let wrong_digest = [0u8; 32];
+        let result = verify_pcrs(&pcrs, &wrong_digest, &HashMap::new(), &selections);
+        assert!(matches!(result, Err(TpmVerifyError::PcrMismatch)));
+    }
+
+    #[test]
+    fn verify_pcrs_rejects_unsupported_hash_alg() {
+        let pcrs = HashMap::new();
+        let selections = vec![PcrSelection {
+            hash_alg: 0x0004,
+            indices: vec![0],
+        }];
+        let result = verify_pcrs(&pcrs, &[0u8; 32], &HashMap::new(), &selections);
+        assert!(matches!(result, Err(TpmVerifyError::PcrMismatch)));
+    }
+
+    #[test]
+    fn verify_pcrs_rejects_missing_quoted_pcr() {
+        let pcrs = HashMap::new();
+        let selections = vec![PcrSelection {
+            hash_alg: 0x000B,
+            indices: vec![0],
+        }];
+        let result = verify_pcrs(&pcrs, &[0u8; 32], &HashMap::new(), &selections);
+        assert!(matches!(result, Err(TpmVerifyError::PcrMismatch)));
+    }
+
+    #[test]
+    fn verify_pcrs_rejects_invalid_hex() {
+        let mut pcrs = HashMap::new();
+        pcrs.insert(0, "zz".repeat(32));
+
+        let selections = vec![PcrSelection {
+            hash_alg: 0x000B,
+            indices: vec![0],
+        }];
+        let result = verify_pcrs(&pcrs, &[0u8; 32], &HashMap::new(), &selections);
+        assert!(matches!(result, Err(TpmVerifyError::PcrMismatch)));
+    }
+
+    #[test]
+    fn verify_pcrs_rejects_wrong_length() {
+        let mut pcrs = HashMap::new();
+        pcrs.insert(0, "aabb".to_owned());
+
+        let selections = vec![PcrSelection {
+            hash_alg: 0x000B,
+            indices: vec![0],
+        }];
+        let result = verify_pcrs(&pcrs, &[0u8; 32], &HashMap::new(), &selections);
+        assert!(matches!(result, Err(TpmVerifyError::PcrMismatch)));
+    }
+
+    #[test]
+    fn verify_pcrs_rejects_policy_mismatch() {
+        let pcr0 = [0xAAu8; 32];
+        let digest = Sha256::digest(pcr0);
+
+        let mut pcrs = HashMap::new();
+        pcrs.insert(0, "aa".repeat(32));
+
+        let mut expected = HashMap::new();
+        expected.insert(0, "bb".repeat(32));
+
+        let selections = vec![PcrSelection {
+            hash_alg: 0x000B,
+            indices: vec![0],
+        }];
+
+        let result = verify_pcrs(&pcrs, &digest, &expected, &selections);
+        assert!(matches!(result, Err(TpmVerifyError::PcrMismatch)));
+    }
+
+    #[test]
+    fn verify_pcrs_rejects_policy_pcr_not_sent() {
+        let pcr0 = [0xAAu8; 32];
+        let digest = Sha256::digest(pcr0);
+
+        let mut pcrs = HashMap::new();
+        pcrs.insert(0, "aa".repeat(32));
+
+        let mut expected = HashMap::new();
+        expected.insert(7, "bb".repeat(32));
+
+        let selections = vec![PcrSelection {
+            hash_alg: 0x000B,
+            indices: vec![0],
+        }];
+
+        let result = verify_pcrs(&pcrs, &digest, &expected, &selections);
+        assert!(matches!(result, Err(TpmVerifyError::PcrMismatch)));
+    }
+
+    #[test]
+    fn verify_pcrs_ordering_matters() {
+        let pcr0 = [0xAAu8; 32];
+        let pcr7 = [0xBBu8; 32];
+        let mut hasher = Sha256::new();
+        hasher.update(pcr7);
+        hasher.update(pcr0);
+        let digest_reversed = hasher.finalize();
+
+        let mut pcrs = HashMap::new();
+        pcrs.insert(0, "aa".repeat(32));
+        pcrs.insert(7, "bb".repeat(32));
+
+        let selections = vec![PcrSelection {
+            hash_alg: 0x000B,
+            indices: vec![0, 7],
+        }];
+
+        let result = verify_pcrs(&pcrs, &digest_reversed, &HashMap::new(), &selections);
+        assert!(matches!(result, Err(TpmVerifyError::PcrMismatch)));
+    }
+
+    #[test]
+    fn verify_pcrs_concatenates_across_selections() {
+        let pcr0 = [0xAAu8; 32];
+        let pcr10 = [0xCCu8; 32];
+        let mut hasher = Sha256::new();
+        hasher.update(pcr0);
+        hasher.update(pcr10);
+        let digest = hasher.finalize();
+
+        let mut pcrs = HashMap::new();
+        pcrs.insert(0, "aa".repeat(32));
+        pcrs.insert(10, "cc".repeat(32));
+
+        let selections = vec![
+            PcrSelection {
+                hash_alg: 0x000B,
+                indices: vec![0],
+            },
+            PcrSelection {
+                hash_alg: 0x000B,
+                indices: vec![10],
+            },
+        ];
+
+        assert!(verify_pcrs(&pcrs, &digest, &HashMap::new(), &selections).is_ok());
+    }
+
+    #[test]
+    fn verify_pcrs_empty_selections_with_empty_digest() {
+        let pcrs = HashMap::new();
+        let digest = Sha256::digest([]);
+        let result = verify_pcrs(&pcrs, &digest, &HashMap::new(), &[]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn hex_decode_valid() {
+        assert_eq!(hex_decode("00").unwrap(), vec![0x00]);
+        assert_eq!(hex_decode("ff").unwrap(), vec![0xff]);
+        assert_eq!(hex_decode("FF").unwrap(), vec![0xff]);
+        assert_eq!(hex_decode("dead").unwrap(), vec![0xde, 0xad]);
+        assert_eq!(hex_decode("").unwrap(), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn hex_decode_rejects_odd_length() {
+        assert!(hex_decode("a").is_none());
+        assert!(hex_decode("abc").is_none());
+    }
+
+    #[test]
+    fn hex_decode_rejects_non_hex() {
+        assert!(hex_decode("zz").is_none());
+        assert!(hex_decode("0g").is_none());
+    }
+
+    #[test]
+    fn cursor_read_u8() {
+        let mut c = Cursor::new(&[0x42, 0x43]);
+        assert_eq!(c.read_u8().unwrap(), 0x42);
+        assert_eq!(c.read_u8().unwrap(), 0x43);
+        assert!(c.read_u8().is_err());
+    }
+
+    #[test]
+    fn cursor_read_u16_be() {
+        let mut c = Cursor::new(&[0x12, 0x34]);
+        assert_eq!(c.read_u16().unwrap(), 0x1234);
+    }
+
+    #[test]
+    fn cursor_read_u32_be() {
+        let mut c = Cursor::new(&[0x12, 0x34, 0x56, 0x78]);
+        assert_eq!(c.read_u32().unwrap(), 0x1234_5678);
+    }
+
+    #[test]
+    fn cursor_read_u16_truncated() {
+        let mut c = Cursor::new(&[0x12]);
+        assert!(c.read_u16().is_err());
+    }
+
+    #[test]
+    fn cursor_read_u32_truncated() {
+        let mut c = Cursor::new(&[0x12, 0x34, 0x56]);
+        assert!(c.read_u32().is_err());
+    }
+
+    #[test]
+    fn cursor_read_bytes() {
+        let mut c = Cursor::new(&[1, 2, 3, 4, 5]);
+        assert_eq!(c.read_bytes(3).unwrap(), &[1, 2, 3]);
+        assert_eq!(c.read_bytes(2).unwrap(), &[4, 5]);
+        assert!(c.read_bytes(1).is_err());
+    }
+
+    #[test]
+    fn cursor_read_bytes_zero() {
+        let mut c = Cursor::new(&[1, 2, 3]);
+        assert_eq!(c.read_bytes(0).unwrap(), &[] as &[u8]);
+    }
+
+    #[test]
+    fn cursor_skip() {
+        let mut c = Cursor::new(&[1, 2, 3, 4, 5]);
+        c.skip(2).unwrap();
+        assert_eq!(c.read_u8().unwrap(), 3);
+    }
+
+    #[test]
+    fn cursor_skip_too_far() {
+        let mut c = Cursor::new(&[1, 2]);
+        assert!(c.skip(5).is_err());
+    }
+
+    #[test]
+    fn cursor_read_sized_2b() {
+        let mut c = Cursor::new(&[0x00, 0x03, b'a', b'b', b'c']);
+        assert_eq!(c.read_sized_2b().unwrap(), b"abc");
+    }
+
+    #[test]
+    fn cursor_read_sized_2b_empty() {
+        let mut c = Cursor::new(&[0x00, 0x00]);
+        assert_eq!(c.read_sized_2b().unwrap(), b"");
+    }
+
+    #[test]
+    fn cursor_read_sized_2b_truncated_payload() {
+        let mut c = Cursor::new(&[0x00, 0x05, b'a', b'b']);
+        assert!(c.read_sized_2b().is_err());
+    }
 }
