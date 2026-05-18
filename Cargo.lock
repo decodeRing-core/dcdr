@@ -1724,32 +1724,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "extism-pdk"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "352fcb5a66eb74145a1c4a01f2bd15d59c62c85be73aac8471880c65b26b798f"
-dependencies = [
- "anyhow",
- "base64",
- "extism-convert",
- "extism-manifest",
- "extism-pdk-derive",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "extism-pdk-derive"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d086daea5fd844e3c5ac69ddfe36df4a9a43e7218cf7d1f888182b089b09806c"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.117",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3040,15 +3014,6 @@ name = "once_cell_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
-
-[[package]]
-name = "openbao-rs"
-version = "0.1.0"
-dependencies = [
- "extism-pdk",
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "openraft"

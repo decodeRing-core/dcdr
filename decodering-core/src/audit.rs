@@ -1,10 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::AuditOutcome,
-    error::{DenyReason, ExecutionError},
-    repository::AuditEntry,
-};
+use crate::domain::AuditOutcome;
+use crate::error::{DenyReason, ExecutionError};
+use crate::repository::AuditEntry;
 
 pub enum Actor {
     User { user_id: i64 },
@@ -235,5 +233,153 @@ impl<R> AuditCapture for ActionOutput<R> {
     }
     fn target(&self) -> Option<Target> {
         self.target.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    struct StubCapture {
+        before: Option<String>,
+        after: Option<String>,
+        target: Option<Target>,
+    }
+
+    impl AuditCapture for StubCapture {
+        fn before_state(&self) -> Option<String> {
+            self.before.clone()
+        }
+        fn after_state(&self) -> Option<String> {
+            self.after.clone()
+        }
+        fn target(&self) -> Option<Target> {
+            self.target.clone()
+        }
+    }
+
+    fn descriptor(actor: Actor) -> AuditDescriptor {
+        AuditDescriptor {
+            actor,
+            action_kind: ActionKind::AppCreate,
+            revertible: true,
+            undoes: Some(42),
+            metadata: Some(json!({"k": "v"})),
+        }
+    }
+
+    #[test]
+    fn id_str_secret_mapping_uses_colon_separator() {
+        let t = Target::SecretMapping("app-1".to_owned(), "DB_PASSWORD".to_owned());
+        assert_eq!(t.id_str(), "app-1:DB_PASSWORD");
+    }
+
+    #[test]
+    fn id_str_principal_app_grant_some() {
+        let t = Target::PrincipalAppGrant(Some("grant-xyz".to_owned()));
+        assert_eq!(t.id_str(), "grant-xyz");
+    }
+
+    #[test]
+    fn id_str_principal_app_grant_none_is_empty() {
+        let t = Target::PrincipalAppGrant(None);
+        assert_eq!(t.id_str(), "");
+    }
+
+    #[test]
+    fn audit_allowed_populates_target_and_state_from_capture() {
+        let desc = descriptor(Actor::User { user_id: 7 });
+        let capture = StubCapture {
+            before: Some("{\"x\":1}".to_owned()),
+            after: Some("{\"x\":2}".to_owned()),
+            target: Some(Target::App("app-1".to_owned())),
+        };
+
+        let entry = audit_allowed(&desc, 100, &capture, 1_700_000_000);
+
+        assert_eq!(entry.raft_index, 100);
+        assert_eq!(entry.timestamp, 1_700_000_000);
+        assert_eq!(entry.user_id, Some(7));
+        assert_eq!(entry.principal_id, None);
+        assert_eq!(entry.action_type, "app.create");
+        assert_eq!(entry.target_type.as_deref(), Some("app"));
+        assert_eq!(entry.target_id.as_deref(), Some("app-1"));
+        assert!(matches!(entry.outcome, AuditOutcome::Allowed));
+        assert_eq!(entry.reason, None);
+        assert_eq!(entry.before_state.as_deref(), Some("{\"x\":1}"));
+        assert_eq!(entry.after_state.as_deref(), Some("{\"x\":2}"));
+        assert!(entry.revertible);
+        assert_eq!(entry.undoes, Some(42));
+    }
+
+    #[test]
+    fn audit_allowed_with_no_target_yields_none_target_fields() {
+        let desc = descriptor(Actor::Principal {
+            principal_id: "p-1".to_owned(),
+        });
+        let capture = StubCapture {
+            before: None,
+            after: None,
+            target: None,
+        };
+
+        let entry = audit_allowed(&desc, 1, &capture, 0);
+
+        assert_eq!(entry.user_id, None);
+        assert_eq!(entry.principal_id.as_deref(), Some("p-1"));
+        assert_eq!(entry.target_type, None);
+        assert_eq!(entry.target_id, None);
+        assert_eq!(entry.before_state, None);
+        assert_eq!(entry.after_state, None);
+    }
+
+    #[test]
+    fn audit_denied_forces_non_revertible_and_strips_target_and_state() {
+        let desc = AuditDescriptor {
+            actor: Actor::User { user_id: 3 },
+            action_kind: ActionKind::SecretMappingGet,
+            revertible: true,
+            undoes: Some(99),
+            metadata: Some(json!({"reason": "policy"})),
+        };
+        let reason = DenyReason("denied".to_owned());
+
+        let entry = audit_denied(&desc, 10, &reason, 1);
+
+        assert!(matches!(entry.outcome, AuditOutcome::Denied));
+        assert_eq!(entry.target_type, None);
+        assert_eq!(entry.target_id, None);
+        assert_eq!(entry.before_state, None);
+        assert_eq!(entry.after_state, None);
+        assert!(!entry.revertible);
+        assert_eq!(entry.undoes, None);
+        assert_eq!(entry.reason, Some(reason.to_string()));
+        assert!(entry.metadata.is_some());
+    }
+
+    #[test]
+    fn audit_errored_forces_non_revertible_and_strips_target_and_state() {
+        let desc = AuditDescriptor {
+            actor: Actor::None,
+            action_kind: ActionKind::SystemInit,
+            revertible: true,
+            undoes: Some(99),
+            metadata: None,
+        };
+        let err = ExecutionError::Other("other".to_owned());
+
+        let entry = audit_errored(&desc, 5, &err, 2);
+
+        assert!(matches!(entry.outcome, AuditOutcome::Error));
+        assert_eq!(entry.user_id, None);
+        assert_eq!(entry.principal_id, None);
+        assert_eq!(entry.target_type, None);
+        assert_eq!(entry.target_id, None);
+        assert_eq!(entry.before_state, None);
+        assert_eq!(entry.after_state, None);
+        assert!(!entry.revertible);
+        assert_eq!(entry.undoes, None);
+        assert_eq!(entry.reason, Some(err.to_string()));
     }
 }
