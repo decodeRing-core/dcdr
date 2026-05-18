@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::sync::Once;
 
 use decodering_core::plugin::orchestrator::Orchestrator;
@@ -7,6 +8,7 @@ use decodering_server::config::{Config, StorageConfig};
 use decodering_server::logger::{LogOutput, init_tracing};
 
 pub mod raft;
+pub mod system;
 
 pub fn test_config() -> Config {
     Config {

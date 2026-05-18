@@ -23,6 +23,11 @@ async fn test_raft_cluster() -> Result<(), Box<dyn std::error::Error + Send + Sy
     let n3 = spawn_node(3).await?;
 
     step_init_raft_addr(&n1.addr).await?;
+    n1.raft
+        .wait(Some(Duration::from_secs(5)))
+        .current_leader(n1.id, "wait for current leader to be applied")
+        .await?;
+
     let members = [(1, n1.addr.as_str())];
     let nodes = [(1, n1.addr.as_str())];
     step_metrics_raft_addr(&n1.addr, 1, 1, &members, &nodes, "Leader").await?;
