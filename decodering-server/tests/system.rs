@@ -118,6 +118,8 @@ async fn test_system_unlock_success_all_shards()
     // Init system
     let shards = init_system_addr_success(&n1.addr, 5, 2).await?;
     unlock_system_addr_success(&n1.addr, &shards).await?;
+
+    status_system_addr_unlocked(&n1.addr).await?;
     Ok(())
 }
 
@@ -140,6 +142,8 @@ async fn test_system_unlock_success_minimum_shards()
     let shards = init_system_addr_success(&n1.addr, 5, 2).await?;
     let picks: Vec<String> = shards.iter().cloned().sample(&mut rand::rng(), 2);
     unlock_system_addr_success(&n1.addr, &picks).await?;
+
+    status_system_addr_unlocked(&n1.addr).await?;
     Ok(())
 }
 
@@ -152,6 +156,19 @@ pub async fn status_system_addr_locked(
     assert_eq!(body["osl_version"], "1.0.0");
     assert_eq!(body["status"], "system-locked");
     assert_eq!(body["message"], "System locked");
+
+    Ok(())
+}
+
+pub async fn status_system_addr_unlocked(
+    addr: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let resp = status_system_addr(addr).await?;
+
+    let body: serde_json::Value = resp.json().await?;
+    assert_eq!(body["osl_version"], "1.0.0");
+    assert_eq!(body["status"], "system-unlocked");
+    assert_eq!(body["message"], "System unlocked");
 
     Ok(())
 }
