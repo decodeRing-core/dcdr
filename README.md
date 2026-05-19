@@ -6,39 +6,36 @@ The project is organized into the following workspaces:
 
 #### **decodering-cli**
 
-`A command-line tool that lets operators interact with decodering-server without calling the REST API directly.`
+A command-line tool that lets operators interact with decodering-server without calling the REST API directly.
 
 #### **decodering-core**
 
-`Contains the abstractions shared across the codebase: plugins, actions, requests, responses, and other core logic.` _This workspace must not depend on any other workspace in the project._
+Contains the abstractions shared across the codebase: plugins, actions, requests, responses, and other core logic. _This workspace must not depend on any other workspace in the project._
 
 #### **decodering-db**
 
-`Concrete implementations of the storage backends. Currently supports SQLite and PostgreSQL. Depends on decodering-core.`
+Concrete implementations of the storage backends. Currently supports SQLite and PostgreSQL. Depends on decodering-core.
 
 #### **decodering-plugins**
 
-`Plugins maintained by the DecodeRing team that integrate with different vault backends.`
+Plugins maintained by the DecodeRing team that integrate with different vault backends.
 
 #### **decodering-raft**
 
-`Concrete implementation of the Raft consensus protocol for DecodeRing, built on the openraft crate. Depends on decodering-core and decodering-db.`
+Concrete implementation of the Raft consensus protocol for DecodeRing, built on the openraft crate. Depends on decodering-core and decodering-db.
 
 #### decodering-server
 
-`Implements the OSL (Open Secrets Language) REST API and handles Raft node management, system initialization, and ongoing operations. Depends on decodering-core, decodering-db, and decodering-raft.`
+Implements the OSL (Open Secrets Language) REST API and handles Raft node management, system initialization, and ongoing operations. Depends on decodering-core, decodering-db, and decodering-raft.
 
 ## **Getting Started**
 
-\- Install the latest version of Rust (https://rust-lang.org/tools/install/)
+- Install the latest version of Rust (https://rust-lang.org/tools/install/)
+- RocksDB and SQLite bindings require a system C toolchain and LLVM/Clang development libraries to build. On Alpine: `apk add build-base clang-dev clang-libs llvm-dev`. On `Debian/Ubuntu: apt install build-essential clang libclang-dev`.
+- Clone repository
+- Create .env file with configuration. Adjust as needed.
 
-\- RocksDB and SQLite bindings require a system C toolchain and LLVM/Clang development libraries to build. On Alpine: `apk add build-base clang-dev clang-libs llvm-dev`. On `Debian/Ubuntu: apt install build-essential clang libclang-dev`.
-
-\- Clone repository
-
-\- Create .env file with configuration. Adjust as needed.
-
-```
+```.env
 # Only `raft` is supported at this time.
 STORAGE_MODE=raft
 SERVER_LOG_OUTPUT=both
@@ -58,27 +55,27 @@ PLUGIN_DIRECTORY="plugins"
 
 Run:
 
-```
-  rustup target list --installed
+```sh
+rustup target list --installed
 ```
 
 Install the wasm32-unknown-unknown target if you haven't already. The wasm32-unknown-unknown target means the plugin is not tied to any specific operating system or CPU architecture, it will run anywhere a WASM runtime is available.
 
-```
-  rustup target add wasm32-unknown-unknown
+```sh
+rustup target add wasm32-unknown-unknown
 ```
 
 From the decodering-plugins folder, run:
 
-```
-  ./build.sh
+```sh
+./build.sh
 ```
 
 This compiles the plugins to WebAssembly and copies them into a plugins folder inside dcdr-rs (the directory where you cloned the repository). If you set PLUGIN_DIRECTORY to a different path, compile the plugins manually, see build.sh for details.
 If the build succeeds, you should see a compiled/ folder containing **openbao-rust.wasm**.
 Create a **manifests/** folder next to **compiled/** and add a file named **openbao-rust.yaml** with the following contents:
 
-```
+```yaml
 wasm:
   - path: "plugins/compiled/openbao-rust.wasm"
 allowed_hosts:
@@ -91,7 +88,7 @@ config:
 
 The final layout should look like:
 
-```
+```sh
 dcdr-rs
   |- ...
   |- plugins
@@ -105,13 +102,13 @@ dcdr-rs
 
 From the dcdr-rs directory, start a node with:
 
-```
+```sh
 cargo run --bin decodering-server -- --id 1 --addr 127.0.0.1:21001
 ```
 
 You can start additional nodes by incrementing the ID and port:
 
-```
+```sh
 cargo run --bin decodering-server -- --id 2 --addr 127.0.0.1:21002
 ```
 
