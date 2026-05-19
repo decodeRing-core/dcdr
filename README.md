@@ -254,5 +254,7 @@ POST http://127.0.0.1:21001/raft/change-membership
 Request Body
 
 ```json
-{ "AddVoterIds": [1, 2] }
+{
+  "AddVoterIds": [1, 2]
+}
 ```
