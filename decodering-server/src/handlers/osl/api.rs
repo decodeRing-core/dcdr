@@ -172,6 +172,11 @@ pub async fn api_get_secret<D: Database + 'static>(
         }
     };
 
+    if secret_mapping_data.tainted == 1 {
+        tracing::debug!("Secret is tainted and is currently inaccessible");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::TaintedSecret));
+    }
+
     let backend = core.get_backend(&secret_mapping_data.backend);
     let Ok(backend) = backend else {
         tracing::error!("Backend not found {}", secret_mapping_data.backend);

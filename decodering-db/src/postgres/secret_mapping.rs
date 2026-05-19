@@ -113,7 +113,7 @@ impl SecretMappingRespository for PostgresSecretMappingRepository<'_> {
         taint: i16,
     ) -> Result<u64, DbError> {
         let result = sqlx::query(
-            "UPDATE secret_mapping
+            "UPDATE secret_backend_mapping
              SET tainted = $1
              WHERE app_id = $2 and secret_name = $3",
         )

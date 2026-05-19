@@ -111,7 +111,7 @@ impl SecretMappingRespository for SqliteSecretMappingRepository<'_> {
         taint: i16,
     ) -> Result<u64, DbError> {
         let result = sqlx::query(
-            "UPDATE secret_mapping
+            "UPDATE secret_backend_mapping
              SET tainted = ?
              WHERE app_id = ? and secret_name = ?",
         )

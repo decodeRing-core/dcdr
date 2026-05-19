@@ -37,6 +37,7 @@ pub enum ErrorReason {
     CertVerification,
     CertMissing(&'static str),
     InvalidPublicKey,
+    TaintedSecret,
     Internal,
     TrustStore,
     ApplicationNotFound,
@@ -90,7 +91,8 @@ impl std::fmt::Display for ErrorReason {
             Self::Raft => f.write_str("Raft error."),
             Self::Locked => f.write_str("System locked."),
             Self::SystemNotInitialized => f.write_str("System not initialized."),
-            Self::UnsupportedOrInvalidRoleArn => f.write_str("Unsupported or invalid role"),
+            Self::UnsupportedOrInvalidRoleArn => f.write_str("Unsupported or invalid role."),
+            Self::TaintedSecret => f.write_str("The secret is tainted and inaccessible."),
         }
     }
 }
@@ -123,7 +125,7 @@ impl ErrorReason {
             Self::InvalidShamirKeys | Self::Unauthorized | Self::Locked => StatusCode::FORBIDDEN,
             Self::UnsupportedBackend | Self::Unimplemented => StatusCode::NOT_IMPLEMENTED,
             Self::SecretNotFound => StatusCode::NOT_FOUND,
-            Self::DuplicatedApp => StatusCode::CONFLICT,
+            Self::DuplicatedApp | Self::TaintedSecret => StatusCode::CONFLICT,
         }
     }
 }

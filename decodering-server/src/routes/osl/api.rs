@@ -14,7 +14,7 @@ pub fn read_osl_routes<D: Database + 'static>(cfg: &mut web::ServiceConfig) {
     cfg.route("/secrets/get", web::post().to(api_get_secret::<D>))
         .route("/secrets/list", web::post().to(api_list_secret::<D>))
         .route(
-            "/secrets/is-taint",
+            "/secrets/is-tainted",
             web::post().to(api_is_tainted_secret::<D>),
         );
 }
