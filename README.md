@@ -292,7 +292,6 @@ POST http://127.0.0.1:21001/system/init
 
 <details>
 <summary>Request Body</summary>
-Request Body
 
 ```json
 {
@@ -313,7 +312,6 @@ POST http://127.0.0.1:21001/system/unlock
 
 <details>
 <summary>Request Body</summary>
-Request Body
 
 ```json
 {
@@ -333,7 +331,6 @@ POST http://127.0.0.1:21001/system/status
 
 <details>
 <summary>Request Body</summary>
-Request Body
 
 ```json
 {}
@@ -342,3 +339,85 @@ Request Body
 </details>
 
 ### **Application**
+
+**All the endpoints below require a root token**
+
+#### Create application
+
+Create application.
+
+```
+POST http://127.0.0.1:21001/app/create
+```
+
+<details>
+<summary>Request Body</summary>
+
+```json
+{
+  "app_name": "my-testing-app"
+}
+```
+
+</details>
+
+#### Create app user/principal
+
+Create an application user.
+
+```
+POST http://127.0.0.1:21001/app/user/create
+```
+
+<details>
+<summary>Request Body</summary>
+
+##### ApiKey
+
+```json
+{
+  "name": "my-first-app-user",
+  "kind": "human",
+  "credential_kind": "apiKey"
+}
+```
+
+##### TPM (Trusted Platform Module)
+
+```json
+{
+  "name": "my-first-app-user-tpm",
+  "kind": "machine",
+  "credential_kind": "trustedPlatformModule",
+  "tpm": {
+    "ek_pubkey_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp7WfKeRHDJtmOJ4pik9C\nD0BRc9U5SrGJ0ZS5I0nzSOUEu7H0+ANwB0UXj0hDm5/WIWHCB1WrcXpM1xCLfcPj\n6BuFiOLaHuif2rfBPEO6okshclaw3auzoxeiZhy7cV3GNykWbx4nRHrg1/qctlXZ\n57oJ9LEWbw178xj8Mtd5u3L0i8d5e6CqDrIdbofoZ/40dBvUEvrCAQDJc71v3lAB\nAT42oUQUX1AIFTJQW1PAnhy0R8noMFB1RFxoxKRSM+o9uADco+tXRT9Fv6PNunhF\nfQWnWPdPIDDN8P1ayr3bMeEdIHEtSPwFlF/5/BHsfe+Zu4uIZoKF+eXzuyUfzj9I\nTwIDAQAB\n-----END PUBLIC KEY-----",
+    "ek_cert_pem": null,
+    "expected_pcrs": {
+      "0": "0000000000000000000000000000000000000000000000000000000000000000",
+      "1": "0000000000000000000000000000000000000000000000000000000000000000",
+      "2": "0000000000000000000000000000000000000000000000000000000000000000",
+      "3": "0000000000000000000000000000000000000000000000000000000000000000",
+      "4": "0000000000000000000000000000000000000000000000000000000000000000",
+      "5": "0000000000000000000000000000000000000000000000000000000000000000",
+      "6": "0000000000000000000000000000000000000000000000000000000000000000",
+      "7": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "require_ek_cert": false
+  }
+}
+```
+
+##### AWS Identity
+
+```json
+{
+  "name": "my-first-app-user-aws",
+  "kind": "service",
+  "credential_kind": "awsIdentity",
+  "aws": {
+    "role_arn": "arn:aws:iam::12345678:role/decodering-role"
+  }
+}
+```
+
+</details>
