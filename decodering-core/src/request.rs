@@ -17,6 +17,7 @@ use crate::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use crate::actions::delete_secret_mapping::DeleteSecretMapping;
 use crate::actions::system_init::SystemInit;
 use crate::actions::update_principal_credential_last_used::UpdatePrincipalCredentialLastUsed;
+use crate::actions::update_secret_mapping_taint::UpdateSecretMappingTaint;
 use crate::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
 use crate::error::ActionError;
 use crate::response::AppResponse;
@@ -29,6 +30,7 @@ pub enum AppRequest {
     CreateApp(CreateApp),
     CreateUser(CreateUser),
     CreateSecretMapping(CreateSecretMapping),
+    UpdateSecretMappingTaint(UpdateSecretMappingTaint),
     DeleteSecretMapping(DeleteSecretMapping),
     CreateShamirConfiguration(CreateShamirConfiguration),
     CreatePrincipal(CreatePrincipal),
@@ -144,6 +146,11 @@ impl fmt::Display for AppRequest {
             Self::UpdateConsumedAt(_) => {
                 write!(f, "UpdateConsumedAt()")
             }
+            Self::UpdateSecretMappingTaint(update_secret_mapping_taint) => write!(
+                f,
+                "UpdateSecretMappingTaint(app_id={}, secret_name={})",
+                update_secret_mapping_taint.app_id, update_secret_mapping_taint.secret_name
+            ),
         }
     }
 }
@@ -178,6 +185,9 @@ impl AppRequest {
             Self::CreateTpmChallenge(action) => Ok(run_action_direct(db, action).await?.response),
             Self::UpdateConsumedAt(action) => Ok(run_action_direct(db, action).await?.response),
             Self::UpdatePrincipalCredentialLastUsed(action) => {
+                Ok(run_action_direct(db, action).await?.response)
+            }
+            Self::UpdateSecretMappingTaint(action) => {
                 Ok(run_action_direct(db, action).await?.response)
             }
         }

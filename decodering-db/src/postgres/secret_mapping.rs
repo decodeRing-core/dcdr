@@ -105,4 +105,24 @@ impl SecretMappingRespository for PostgresSecretMappingRepository<'_> {
 
         Ok(rows.into_iter().map(Into::into).collect())
     }
+
+    async fn update_taint(
+        &mut self,
+        app_id: &str,
+        secret_name: &str,
+        taint: i16,
+    ) -> Result<u64, DbError> {
+        let result = sqlx::query(
+            "UPDATE secret_mapping
+             SET tainted = $1
+             WHERE app_id = $2 and secret_name = $3",
+        )
+        .bind(taint)
+        .bind(app_id)
+        .bind(secret_name)
+        .execute(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(result.rows_affected())
+    }
 }

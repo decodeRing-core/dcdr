@@ -33,7 +33,7 @@ impl TpmChallengeRepository for SqliteTpmChallengeRepository<'_> {
         Ok(id)
     }
 
-    async fn updated_consumed(
+    async fn update_consumed(
         &mut self,
         challenge_id: &str,
         consumed_at: i64,

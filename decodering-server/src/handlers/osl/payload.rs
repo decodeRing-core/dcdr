@@ -39,3 +39,21 @@ pub struct ListSecretRequestData {
     pub app_id: String,
     pub after_secret: Option<String>,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct TaintSecretRequestData {
+    pub app_id: String,
+    pub secret_name: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UntaintSecretRequestData {
+    pub app_id: String,
+    pub secret_name: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct IsTaintedSecretRequestData {
+    pub app_id: String,
+    pub secret_name: String,
+}

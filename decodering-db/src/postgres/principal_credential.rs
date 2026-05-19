@@ -102,7 +102,7 @@ impl PrincipalCredentialRepository for PostgresPrincipalCredentialRepository<'_>
         Ok(principal_credential.map(Into::into))
     }
 
-    async fn updated_last_used(
+    async fn update_last_used(
         &mut self,
         credential_id: &str,
         last_used_at: i64,

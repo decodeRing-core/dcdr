@@ -124,6 +124,7 @@ pub enum AppResponse {
     CreateApiKey(CreateApiKeyResponse),
     CreateSecretMapping(CreateSecretMappingResponse),
     DeleteSecretMapping(bool),
+    UpdateSecretMappingTaint(bool),
     CreateShamirConfiguration(CreateShamirConfigurationResponse),
     CreatePrincipal(CreatePrincipalResponse),
     CreatePrincipalCredential(CreatePrincipalCredentialResponse),
@@ -237,6 +238,7 @@ impl fmt::Display for AppResponse {
             Self::Noop => write!(f, "Noop"),
             Self::Error(e) => write!(f, "Error({e})"),
             Self::SystemInit(_) => write!(f, "SystemInit()"),
+            Self::UpdateSecretMappingTaint(r) => write!(f, "UpdateSecretMappingTaint(updated={r})"),
         }
     }
 }

@@ -32,7 +32,7 @@ impl Action for UpdateTpmChallengeConsumedAt {
         let before_state = serde_json::json!(challenge);
         let challenge_id = tx
             .tpm_challenge()
-            .updated_consumed(&self.challenge_id, self.consumed_at)
+            .update_consumed(&self.challenge_id, self.consumed_at)
             .await?;
         let tpm_challenge_response = ConsumeTpmChallengeResponse {
             challenge_id: challenge_id.clone(),

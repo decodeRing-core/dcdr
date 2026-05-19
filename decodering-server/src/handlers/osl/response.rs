@@ -98,3 +98,31 @@ impl ApiListSecretResponse {
         )
     }
 }
+
+#[derive(Serialize)]
+pub struct ApiTaintSecretResponse {
+    pub(crate) tainted: bool,
+}
+
+impl ApiTaintSecretResponse {
+    pub(crate) fn new(tainted: bool) -> ApiResponse<Self> {
+        ApiResponse::new(
+            ApiStatus::Success(SuccessStatus::OperationCompleted),
+            Some(Self { tainted }),
+        )
+    }
+}
+
+#[derive(Serialize)]
+pub struct ApiIsTaintedSecretResponse {
+    pub(crate) is_tainted: bool,
+}
+
+impl ApiIsTaintedSecretResponse {
+    pub(crate) fn new(is_tainted: bool) -> ApiResponse<Self> {
+        ApiResponse::new(
+            ApiStatus::Success(SuccessStatus::OperationCompleted),
+            Some(Self { is_tainted }),
+        )
+    }
+}

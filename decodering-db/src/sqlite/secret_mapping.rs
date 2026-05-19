@@ -103,4 +103,24 @@ impl SecretMappingRespository for SqliteSecretMappingRepository<'_> {
 
         Ok(rows.into_iter().map(Into::into).collect())
     }
+
+    async fn update_taint(
+        &mut self,
+        app_id: &str,
+        secret_name: &str,
+        taint: i16,
+    ) -> Result<u64, DbError> {
+        let result = sqlx::query(
+            "UPDATE secret_mapping
+             SET tainted = ?
+             WHERE app_id = ? and secret_name = ?",
+        )
+        .bind(taint)
+        .bind(app_id)
+        .bind(secret_name)
+        .execute(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(result.rows_affected())
+    }
 }

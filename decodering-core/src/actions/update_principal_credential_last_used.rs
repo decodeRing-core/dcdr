@@ -36,7 +36,7 @@ impl Action for UpdatePrincipalCredentialLastUsed {
         let before_state = serde_json::json!(principal_credential);
         let _ = tx
             .principal_credential()
-            .updated_last_used(&self.credential_id, self.last_used_at)
+            .update_last_used(&self.credential_id, self.last_used_at)
             .await?;
         let response = self.last_used_at;
         let after = serde_json::json!(response);

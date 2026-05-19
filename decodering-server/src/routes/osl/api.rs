@@ -1,14 +1,22 @@
 use actix_web::web;
 use decodering_core::tx::Database;
 
-use crate::{
-    handlers::osl::api::{api_destroy_secret, api_get_secret, api_list_secret, api_put_secret},
-    middleware::RaftLeaderHelper,
-};
+use crate::handlers::osl::api::api_destroy_secret;
+use crate::handlers::osl::api::api_get_secret;
+use crate::handlers::osl::api::api_is_tainted_secret;
+use crate::handlers::osl::api::api_list_secret;
+use crate::handlers::osl::api::api_put_secret;
+use crate::handlers::osl::api::api_taint_secret;
+use crate::handlers::osl::api::api_untaint_secret;
+use crate::middleware::RaftLeaderHelper;
 
 pub fn read_osl_routes<D: Database + 'static>(cfg: &mut web::ServiceConfig) {
     cfg.route("/secrets/get", web::post().to(api_get_secret::<D>))
-        .route("/secrets/list", web::post().to(api_list_secret::<D>));
+        .route("/secrets/list", web::post().to(api_list_secret::<D>))
+        .route(
+            "/secrets/is-taint",
+            web::post().to(api_is_tainted_secret::<D>),
+        );
 }
 
 pub fn write_osl_routes<D: Database + 'static>(cfg: &mut web::ServiceConfig) {
@@ -22,6 +30,18 @@ pub fn write_osl_routes<D: Database + 'static>(cfg: &mut web::ServiceConfig) {
         "/secrets/destroy",
         web::post()
             .to(api_destroy_secret::<D>)
+            .wrap(RaftLeaderHelper::<D>::new()),
+    )
+    .route(
+        "/secrets/taint",
+        web::post()
+            .to(api_taint_secret::<D>)
+            .wrap(RaftLeaderHelper::<D>::new()),
+    )
+    .route(
+        "/secrets/untaint",
+        web::post()
+            .to(api_untaint_secret::<D>)
             .wrap(RaftLeaderHelper::<D>::new()),
     );
 }

@@ -69,7 +69,7 @@ pub trait TpmChallengeRepository: Send {
         &mut self,
         tpm_challenge: &TpmChallengeEntry,
     ) -> impl Future<Output = Result<String, DbError>> + Send;
-    fn updated_consumed(
+    fn update_consumed(
         &mut self,
         challenge_id: &str,
         consumed_at: i64,
@@ -142,7 +142,7 @@ pub trait PrincipalCredentialRepository: Send {
         credential_id: &str,
         principal_id: &str,
     ) -> impl Future<Output = Result<Option<PrincipalCredential>, DbError>> + Send;
-    fn updated_last_used(
+    fn update_last_used(
         &mut self,
         credential_id: &str,
         last_used_at: i64,
@@ -362,4 +362,11 @@ pub trait SecretMappingRespository: Send {
         after_secret_name: Option<&str>,
         limit: i64,
     ) -> impl Future<Output = Result<Vec<SecretMapping>, DbError>> + Send;
+
+    fn update_taint(
+        &mut self,
+        app_id: &str,
+        secret_name: &str,
+        taint: i16,
+    ) -> impl Future<Output = Result<u64, DbError>> + Send;
 }
