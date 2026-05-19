@@ -139,7 +139,7 @@ POST http://127.0.0.1:21001/raft/init
 
 </details>
 
-#### Add Learner {#raft-add-learner}
+#### Add Learner
 
 Add a new learner to the cluster. First parameter is the ID of the learner and the second if the IP.
 
@@ -147,13 +147,16 @@ Add a new learner to the cluster. First parameter is the ID of the learner and t
 POST http://127.0.0.1:21001/raft/add-learner
 ```
 
-Request Body
+<details>
+<summary>Request Body</summary>
 
 ```json
 [2, "127.0.0.1:21002"]
 ```
 
-#### Metrics {#raft-metrics}
+</details>
+
+#### Metrics
 
 View raft node metrics
 
@@ -161,13 +164,17 @@ View raft node metrics
 POST http://127.0.0.1:21001/raft/metrics
 ```
 
+<details>
+<summary>Request Body</summary>
 Request Body
 
 ```json
 []
 ```
 
-#### Change Membership {#raft-change-membership}
+</details>
+
+#### Change Membership
 
 Modify membership of the cluster. Add or remove nodes as needed.
 
@@ -175,7 +182,8 @@ Modify membership of the cluster. Add or remove nodes as needed.
 POST http://127.0.0.1:21001/raft/change-membership
 ```
 
-Request Body
+<details>
+<summary>Request Body</summary>
 
 ##### Upgrade learners to voters.
 
@@ -270,5 +278,7 @@ Request Body
   ]
 }
 ```
+
+</details>
 
 ### **System**
