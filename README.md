@@ -573,9 +573,9 @@ Current implementation status
 - [x] Destroy secret
 - [ ] Delete secret
 - [x] List secrets
-- [ ] Taint secret
-- [ ] Is secret tainted
-- [ ] Untaint secret
+- [x] Taint secret
+- [x] Is secret tainted
+- [x] Untaint secret
 - [ ] Get capabilities
 - [ ] Secrets describe
 - [ ] Secrets versions list
