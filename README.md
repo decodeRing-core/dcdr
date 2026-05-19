@@ -122,7 +122,7 @@ If this is a brand-new Raft cluster (i.e. no Raft state exists yet in RAFT\*LOG_
 
 #### Init
 
-Initialize a brand new raft cluster.
+Initialize a brand new Raft cluster.
 
 ```
 POST http://127.0.0.1:21001/raft/init
@@ -141,7 +141,7 @@ POST http://127.0.0.1:21001/raft/init
 
 #### Add Learner
 
-Add a new learner to the cluster. First parameter is the ID of the learner and the second if the IP.
+Add a new learner to the cluster. The first parameter is the ID of the learner and the second is the IP address.
 
 ```
 POST http://127.0.0.1:21001/raft/add-learner
@@ -158,7 +158,7 @@ POST http://127.0.0.1:21001/raft/add-learner
 
 #### Metrics
 
-View raft node metrics
+View Raft node metrics.
 
 ```
 POST http://127.0.0.1:21001/raft/metrics
@@ -166,7 +166,6 @@ POST http://127.0.0.1:21001/raft/metrics
 
 <details>
 <summary>Request Body</summary>
-Request Body
 
 ```json
 []
@@ -176,7 +175,7 @@ Request Body
 
 #### Change Membership
 
-Modify membership of the cluster. Add or remove nodes as needed.
+Modify the cluster's membership. Add or remove nodes as needed.
 
 ```
 POST http://127.0.0.1:21001/raft/change-membership
@@ -185,7 +184,7 @@ POST http://127.0.0.1:21001/raft/change-membership
 <details>
 <summary>Request Body</summary>
 
-##### Upgrade learners to voters.
+##### Upgrade learners to voters
 
 ```json
 {
@@ -193,7 +192,7 @@ POST http://127.0.0.1:21001/raft/change-membership
 }
 ```
 
-##### Add voters with corresponding nodes.
+##### Add voters along with their corresponding nodes
 
 ```json
 {
@@ -204,7 +203,7 @@ POST http://127.0.0.1:21001/raft/change-membership
 }
 ```
 
-##### Remove voters. Downgraded to learners
+##### Remove voters (downgrades them to learners)
 
 ```json
 {
@@ -212,7 +211,7 @@ POST http://127.0.0.1:21001/raft/change-membership
 }
 ```
 
-##### Replace all voters. The node of every new voter has to already be a learner.
+##### Replace all voters. Every new voter's node must already be a learner
 
 ```json
 {
@@ -220,7 +219,7 @@ POST http://127.0.0.1:21001/raft/change-membership
 }
 ```
 
-##### Add nodes to membership, as learners. Does not replace existing nodes.
+##### Add nodes to membership as learners. Does not replace existing nodes
 
 ```json
 {
@@ -231,7 +230,7 @@ POST http://127.0.0.1:21001/raft/change-membership
 }
 ```
 
-##### Add or replace nodes in membership config. Replaces existing nodes.
+##### Add or replace nodes in the membership config
 
 ```json
 {
@@ -250,7 +249,7 @@ POST http://127.0.0.1:21001/raft/change-membership
 }
 ```
 
-##### Replace all learner nodes with a new set.
+##### Replace all learner nodes with a new set
 
 ```json
 {
@@ -282,3 +281,64 @@ POST http://127.0.0.1:21001/raft/change-membership
 </details>
 
 ### **System**
+
+#### Init
+
+Initialize the system. Returns the Shamir key shards and the root user token. This endpoint can only be called once; subsequent calls will return an error.
+
+```
+POST http://127.0.0.1:21001/system/init
+```
+
+<details>
+<summary>Request Body</summary>
+Request Body
+
+```json
+{
+  "total_shares": 5,
+  "threshold": 2
+}
+```
+
+</details>
+
+#### Unlock
+
+Unlock node with shards.
+
+```
+POST http://127.0.0.1:21001/system/unlock
+```
+
+<details>
+<summary>Request Body</summary>
+Request Body
+
+```json
+{
+  "shards": ["xxxx", "xxxx"]
+}
+```
+
+</details>
+
+#### Status
+
+View node status.
+
+```
+POST http://127.0.0.1:21001/system/status
+```
+
+<details>
+<summary>Request Body</summary>
+Request Body
+
+```json
+{}
+```
+
+</details>
+
+### **Application**
