@@ -30,10 +30,10 @@ Implements the OSL (Open Secrets Language) REST API and handles Raft node manage
 
 ## **Getting Started**
 
-- Install the latest version of Rust (https://rust-lang.org/tools/install/)
-- RocksDB and SQLite bindings require a system C toolchain and LLVM/Clang development libraries to build. On Alpine: `apk add build-base clang-dev clang-libs llvm-dev`. On `Debian/Ubuntu: apt install build-essential clang libclang-dev`.
-- Clone repository
-- Create .env file with configuration. Adjust as needed.
+1. Install the latest version of Rust (https://rust-lang.org/tools/install/)
+2. RocksDB and SQLite bindings require a system C toolchain and LLVM/Clang development libraries to build. On Alpine: `apk add build-base clang-dev clang-libs llvm-dev`. On `Debian/Ubuntu: apt install build-essential clang libclang-dev`.
+3. Clone repository
+4. Create .env file with configuration. Adjust as needed.
 
 ```.env
 # Only `raft` is supported at this time.
@@ -112,7 +112,9 @@ You can start additional nodes by incrementing the ID and port:
 cargo run --bin decodering-server -- --id 2 --addr 127.0.0.1:21002
 ```
 
-If this is a brand-new Raft cluster (i.e. no Raft state exists yet in RAFT*LOG_DIR), you must initialize the cluster by issuing a request to [*/raft/init\_](#raft-init)
+If this is a brand-new Raft cluster (i.e. no Raft state exists yet in RAFT\*LOG_DIR), you must initialize the cluster by issuing a request to [/raft/init](#raft-init)
+
+---
 
 ## **Endpoints**
 
@@ -164,59 +166,93 @@ Request Body
 
 #### Change Membership {#raft-change-membership}
 
-Modify membership of the cluster. Add or remove nodes as needed. The following actions are accepted:
+Modify membership of the cluster. Add or remove nodes as needed.
+
+```
+POST http://127.0.0.1:21001/raft/change-membership
+```
+
+Request Body
+
+##### Upgrade learners to voters.
 
 ```json
-// Upgrade learners to voters.
 {
-  "AddVoterIds": [1, 2],
+  "AddVoterIds": [1, 2]
 }
-// Add voters with corresponding nodes.
+```
+
+##### Add voters with corresponding nodes.
+
+```json
 {
   "AddVoters": {
     "1": { "addr": "127.0.0.1:21001" },
     "2": { "addr": "127.0.0.1:21002" }
   }
 }
-// Remove voters. Downgraded to learners
-{
-  "RemoveVoters": [1, 2],
-}
+```
 
-// Replace all voters. The node of every new voter has to already be a learner.
-{
-  "ReplaceAllVoters": [4,5,6]
-}
+##### Remove voters. Downgraded to learners
 
-// Add nodes to membership, as learners. Does not replace existing nodes.
+```json
+{
+  "RemoveVoters": [1, 2]
+}
+```
+
+##### Replace all voters. The node of every new voter has to already be a learner.
+
+```json
+{
+  "ReplaceAllVoters": [4, 5, 6]
+}
+```
+
+##### Add nodes to membership, as learners. Does not replace existing nodes.
+
+```json
 {
   "AddNodes": {
     "1": { "addr": "127.0.0.1:21001" },
     "2": { "addr": "127.0.0.1:21002" }
   }
 }
-// Add or replace nodes in membership config. Replaces existing nodes.
+```
+
+##### Add or replace nodes in membership config. Replaces existing nodes.
+
+```json
 {
   "SetNodes": {
     "1": { "addr": "127.0.0.1:21001" },
     "2": { "addr": "127.0.0.1:21002" }
   }
 }
+```
 
-// Remove learner nodes from membership.
+##### Remove learner nodes from membership.
+
+```json
 {
-  "RemoveNodes": [1, 2],
+  "RemoveNodes": [1, 2]
 }
+```
 
-// Replace all learner nodes with a new set.
+##### Replace all learner nodes with a new set.
+
+```json
 {
   "ReplaceAllNodes": {
     "1": { "addr": "127.0.0.1:21001" },
     "2": { "addr": "127.0.0.1:21002" }
   }
 }
+```
 
-// Batch operations
+##### Batch operations
+
+```json
 {
   "Batch": [
     {
@@ -229,17 +265,5 @@ Modify membership of the cluster. Add or remove nodes as needed. The following a
     { "RemoveVoters": [2] },
     { "RemoveNodes": [2] }
   ]
-}
-```
-
-```
-POST http://127.0.0.1:21001/raft/change-membership
-```
-
-Request Body
-
-```json
-{
-  "AddVoterIds": [1, 2]
 }
 ```
