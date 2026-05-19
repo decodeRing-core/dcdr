@@ -340,11 +340,11 @@ POST http://127.0.0.1:21001/system/status
 
 ### **Application**
 
-**All the endpoints below require a root token**
+**All endpoints below require a root token**
 
 #### Create application
 
-Create application.
+Create a new application.
 
 ```
 POST http://127.0.0.1:21001/app/create
@@ -363,7 +363,7 @@ POST http://127.0.0.1:21001/app/create
 
 #### Create app user/principal
 
-Create an application user.
+Create an application user (principal).
 
 ```
 POST http://127.0.0.1:21001/app/user/create
@@ -417,6 +417,144 @@ POST http://127.0.0.1:21001/app/user/create
   "aws": {
     "role_arn": "arn:aws:iam::12345678:role/decodering-role"
   }
+}
+```
+
+</details>
+
+#### TPM challenge
+
+Generate a nonce for TPM attestation.
+
+```
+POST http://127.0.0.1:21001/app/tpm/challenge
+```
+
+<details>
+<summary>Request Body</summary>
+
+```json
+{}
+```
+
+</details>
+
+#### Authenticate app user with API key
+
+Authenticate an application user with API key. Returns a short-term token to interact with OSL endpoints.
+
+```
+POST http://127.0.0.1:21001/app/user/auth
+```
+
+<details>
+<summary>Request Body</summary>
+
+```json
+{
+  "app_id": "019e0168-0178-71d1-aa88-853318e70b28",
+  "key": "pk_xxxx"
+}
+```
+
+</details>
+
+#### Authenticate app user with TPM
+
+Authenticate an application user with TPM. Returns a short-term token to interact with OSL endpoints.
+
+```
+POST http://127.0.0.1:21001/app/user/auth/tpm
+```
+
+<details>
+<summary>Request Body</summary>
+
+```json
+{
+  "challenge_id": "019e3919-141c-7f12-a314-5a958873f7b8",
+  "ek_pubkey_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp7WfKeRHDJtmOJ4pik9C\nD0BRc9U5SrGJ0ZS5I0nzSOUEu7H0+ANwB0UXj0hDm5/WIWHCB1WrcXpM1xCLfcPj\n6BuFiOLaHuif2rfBPEO6okshflaw3auzoxeiZhy7cV3GNykWbx4nRHrg1/qctlXZ\n57oJ9LEWbw178xj8Mtd5u3L0i8d5e6CqDrIdbofoZ/40dBvUEvrCMQDJc71v3lAB\nAT42oUQUX1AIFTJQW1PAnhy0R8noMFB1RFxoxKRSM+o9uADco+tXRT9Fv6PNunhF\nfQWnWPdPIDDN8P1ayr3bMeEdIHEtSPwFlF/5/BHsfe+Zu4uIZoKF+eXzuyUfzj9I\nTwIDAQAB\n-----END PUBLIC KEY-----",
+  "ak_pubkey_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5QV0yUJDIPFB2z9Or5Qh\notIce1mh6yYh99DiLw/BXDYnq0w1QdeqFovsrjtAcSkgjZYD+0AxS+GbMy9t0w96\ne8npIzGV5DY5xxfYNoNACax4Ac2fINYpBMAIZgPGywkQCRCqMQOPij3hPeEyjdT/\nfp+eUI8PL48NOlKAaSsNnzeja0Bf3smI8NVCjtV4PZh0DAG8udpdAwscJHPLR+Ao\n5fWexjAzg1Ww82b60PiPMfDG9euQelKq2uEEMaoDxr2H/SGGJgSuvKWPFLzkzue3\niuxVd7vy6b3Mc+Vb8FV7aP9KIr2fAGWtv4sjft4der/mFzQUNGXT9oi7m9WSdaZt\nMQIDAQAB\n-----END PUBLIC KEY-----",
+  "quote": "/1RDR4AYACIAC78NNa5TAzYhuJtLMctsMlySU2lNKSHxrbe+gvSB5Y2kRCAcOs2aoZYYO/vA64ydjqwPApmrPda5isFcCVtswgAbvgAAAAAXQ8SKAAAABgAAAAABIBkQIwAWNjYAAAABAAsD/wAAACBTQeayZGl5pw5XZTAHofMQFpQh7JvdnxpWSPda3gBa8Q==",
+  "signature": "ABQACwEAN7H3STugyT7nn3imuwNzzQSgUm65/4ewyIRv3XIhKrus9rk33asLkPZBBplWsNH5oCoAWLE3TiMi2zWnVBuC2vRVrAK5V9JBcwUZjHC+cFY5f6Qic5SYS9lZkYQZ+pxWRTWYt1C1w+7oGRwQ/v7vYsAHvfuNY6zWGEIRUqKAK6yLTM7Q6nMZaODK/3IX5dluRzmMrqwtnNkiLPuFDp8mnjMjpndiZoVF0fB94ThijZ07+H3W7mlgMI0Ta4KIolhh36PYHDGXhFr8ijLXa600s3rcy/JivO0A1/3rZ3KdLvS+YwXd7fk2MluXYOKmZbHREYAVreNZzXe7grAdwofraQ==",
+  "pcrs": {
+    "0": "0000000000000000000000000000000000000000000000000000000000000000",
+    "1": "0000000000000000000000000000000000000000000000000000000000000000",
+    "2": "0000000000000000000000000000000000000000000000000000000000000000",
+    "3": "0000000000000000000000000000000000000000000000000000000000000000",
+    "4": "0000000000000000000000000000000000000000000000000000000000000000",
+    "5": "0000000000000000000000000000000000000000000000000000000000000000",
+    "6": "0000000000000000000000000000000000000000000000000000000000000000",
+    "7": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}
+```
+
+</details>
+
+#### Authenticate app user with AWS role
+
+Authenticate an application user with AWS role. Returns a short-term token to interact with OSL endpoints.
+
+```
+POST http://127.0.0.1:21001/app/user/auth/aws
+```
+
+<details>
+<summary>Request Body</summary>
+
+```json
+{
+  "body": "Action=GetCallerIdentity&Version=2011-06-15",
+  "headers": {
+    "authorization": "AWS4-HMAC-SHA256 Credential=xxxx/20260518/us-east-1/sts/aws4_request, SignedHeaders=content-type;host;x-amz-date;x-amz-security-token, Signature=xxx",
+    "content-type": "application/x-www-form-urlencoded",
+    "host": "sts.amazonaws.com",
+    "x-amz-date": "20260518T072914Z",
+    "x-amz-security-token": "xxxx"
+  },
+  "method": "POST",
+  "url": "https://sts.amazonaws.com/"
+}
+```
+
+</details>
+
+#### Grant application access to user/principal
+
+Grant a user/principal access to one or more applications.
+
+```
+POST http://127.0.0.1:21001/app/user/grant
+```
+
+<details>
+<summary>Request Body</summary>
+
+```json
+{
+  "principal_id": "019e3918-e972-7810-a4ed-70c5ac822738",
+  "apps": ["019e391c-1277-7102-8a06-865bceb0d46c"]
+}
+```
+
+</details>
+
+#### Revoke application access to user/principal
+
+Revoke a user/principal's access to an application.
+
+```
+POST http://127.0.0.1:21001/app/user/revoke
+```
+
+<details>
+<summary>Request Body</summary>
+
+```json
+{
+  "principal_id": "019e1a67-c4cf-75d1-bda0-89e02075d5da",
+  "app_id": "019e1a64-c72b-76b2-9c8e-43ea281c293a"
 }
 ```
 
