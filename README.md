@@ -4,41 +4,29 @@
 
 The project is organized into the following workspaces:
 
-\- decodering-cli
+#### **decodering-cli**
 
-\- decodering-core
+`A command-line tool that lets operators interact with decodering-server without calling the REST API directly.`
 
-\- decodering-db
+#### **decodering-core**
 
-\- decodering-plugins
+`Contains the abstractions shared across the codebase: plugins, actions, requests, responses, and other core logic.` _This workspace must not depend on any other workspace in the project._
 
-\- decodering-raft
+#### **decodering-db**
 
-\- decodering-server
+`Concrete implementations of the storage backends. Currently supports SQLite and PostgreSQL. Depends on decodering-core.`
 
-## decodering-core
+#### **decodering-plugins**
 
-Contains the abstractions shared across the codebase: plugins, actions, requests, responses, and other core logic. **This workspace must not depend on any other workspace in the project.**
+`Plugins maintained by the DecodeRing team that integrate with different vault backends.`
 
-## decodering-cli
+#### **decodering-raft**
 
-A command-line tool that lets operators interact with decodering-server without calling the REST API directly.
+`Concrete implementation of the Raft consensus protocol for DecodeRing, built on the openraft crate. Depends on decodering-core and decodering-db.`
 
-## decodering-db
+#### decodering-server
 
-Concrete implementations of the storage backends. Currently supports SQLite and PostgreSQL. Depends on decodering-core.
-
-## decodering-plugins
-
-Plugins maintained by the DecodeRing team that integrate with different vault backends.
-
-## decodering-raft
-
-Concrete implementation of the Raft consensus protocol for DecodeRing, built on the openraft crate. Depends on decodering-core and decodering-db.
-
-## decodering-server
-
-Implements the OSL (Open Secrets Language) REST API and handles Raft node management, system initialization, and ongoing operations. Depends on decodering-core, decodering-db, and decodering-raft.
+`Implements the OSL (Open Secrets Language) REST API and handles Raft node management, system initialization, and ongoing operations. Depends on decodering-core, decodering-db, and decodering-raft.`
 
 ## **Getting Started**
 
