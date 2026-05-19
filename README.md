@@ -559,3 +559,36 @@ POST http://127.0.0.1:21001/app/user/revoke
 ```
 
 </details>
+
+### **OSL**
+
+**All endpoints below require a root token or a short-term token**
+
+View OSL spec at https://gitlab.intra.decodering.org/core/osl
+
+Current implementation status
+
+- [x] Get secret
+- [x] Put secret
+- [x] Destroy secret
+- [ ] Delete secret
+- [x] List secrets
+- [ ] Taint secret
+- [ ] Is secret tainted
+- [ ] Untaint secret
+- [ ] Get capabilities
+- [ ] Secrets describe
+- [ ] Secrets versions list
+- [ ] Secret versions get
+- [ ] Issue credential
+- [ ] Renew credential
+- [ ] Revoke credential
+- [ ] Put rotation policy
+- [ ] Rotate secret
+- [ ] Put sync
+- [ ] Run sync
+- [ ] Get sync status
+- [ ] List syncs
+- [ ] Delete sync
+- [ ] List applications
+- [ ] List backends
