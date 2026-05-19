@@ -35,7 +35,7 @@ Implements the OSL (Open Secrets Language) REST API and handles Raft node manage
 3. Clone repository
 4. Create .env file with configuration. Adjust as needed.
 
-```.env
+```shell
 # Only `raft` is supported at this time.
 STORAGE_MODE=raft
 SERVER_LOG_OUTPUT=both
@@ -88,7 +88,7 @@ config:
 
 The final layout should look like:
 
-```sh
+```shell
 dcdr-rs
   |- ...
   |- plugins
@@ -112,7 +112,7 @@ You can start additional nodes by incrementing the ID and port:
 cargo run --bin decodering-server -- --id 2 --addr 127.0.0.1:21002
 ```
 
-If this is a brand-new Raft cluster (i.e. no Raft state exists yet in RAFT\*LOG_DIR), you must initialize the cluster by issuing a request to [/raft/init](#raft-init)
+If this is a brand-new Raft cluster (i.e. no Raft state exists yet in RAFT\*LOG_DIR), you must initialize the cluster by issuing a request to [/raft/init](#init)
 
 ---
 
@@ -120,7 +120,7 @@ If this is a brand-new Raft cluster (i.e. no Raft state exists yet in RAFT\*LOG_
 
 ### **Raft**
 
-#### Init {#raft-init}
+#### Init
 
 Initialize a brand new raft cluster.
 
