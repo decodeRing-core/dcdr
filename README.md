@@ -55,19 +55,19 @@ PLUGIN_DIRECTORY="plugins"
 
 Run:
 
-```sh
+```shell
 rustup target list --installed
 ```
 
 Install the wasm32-unknown-unknown target if you haven't already. The wasm32-unknown-unknown target means the plugin is not tied to any specific operating system or CPU architecture, it will run anywhere a WASM runtime is available.
 
-```sh
+```shell
 rustup target add wasm32-unknown-unknown
 ```
 
 From the decodering-plugins folder, run:
 
-```sh
+```shell
 ./build.sh
 ```
 
@@ -128,13 +128,16 @@ Initialize a brand new raft cluster.
 POST http://127.0.0.1:21001/raft/init
 ```
 
-Request Body
+<details>
+<summary>Request Body</summary>
 
 ```json
 {
   "raft_init": []
 }
 ```
+
+</details>
 
 #### Add Learner {#raft-add-learner}
 
@@ -267,3 +270,5 @@ Request Body
   ]
 }
 ```
+
+### **System**
