@@ -1,19 +1,23 @@
-use std::env;
+use clap::Parser;
+use std::error::Error;
 
-use decodering_core::plugin::error::PluginError;
-use decodering_core::plugin::orchestrator::Orchestrator;
-use dotenvy::dotenv;
+use crate::schema::generate_schema;
 
-fn main() -> Result<(), PluginError> {
-    println!("decodeRing CLI starting...");
-    dotenv().ok();
-    let plugin_directory = env::var("PLUGIN_DIRECTORY").expect("PLUGIN_DIRECTORY must be set");
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(long)]
+    generate_schema: bool,
+}
 
-    let mut orchestrator = Orchestrator::new();
-    orchestrator.load_wasm_plugins_from_dir(&plugin_directory)?;
+mod schema;
 
-    println!("decodeRing core ready. Accepting OSL requests.");
+fn main() -> Result<(), Box<dyn Error>> {
+    let args = Args::parse();
 
-    println!("decodeRing exiting.");
+    if args.generate_schema {
+        generate_schema()?;
+    }
+
     Ok(())
 }

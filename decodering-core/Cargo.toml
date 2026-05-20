@@ -19,6 +19,7 @@ rustls-pki-types.workspace = true
 rsa.workspace = true
 p256.workspace = true
 reqwest.workspace = true
+schemars.workspace = true
 
 [lints]
 workspace = true

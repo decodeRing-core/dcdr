@@ -8,6 +8,7 @@ pub enum PluginError {
     Call { function: String, message: String },
     Serde(String),
     Io(String),
+    Unimplemented(String),
 }
 
 impl fmt::Display for PluginError {
@@ -20,6 +21,7 @@ impl fmt::Display for PluginError {
             }
             Self::Serde(m) => write!(f, "plugin serde error: {m}"),
             Self::Io(m) => write!(f, "plugin io error: {m}"),
+            Self::Unimplemented(m) => write!(f, "Not implemented: {m}"),
         }
     }
 }

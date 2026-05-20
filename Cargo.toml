@@ -6,6 +6,7 @@ members = [
     "decodering-server",
     "decodering-raft",
     "decodering-db",
+    "decodering-plugins/openbao-rs",
 ]
 
 [workspace.package]
@@ -48,7 +49,7 @@ rocksdb = "0.24.0"
 futures = "0.3.32"
 rand = { version = "0.10.1", features = ["thread_rng"] }
 reqwest = { version = "0.13.3", features = ["json"] }
-clap = "4.6.1"
+clap = { version = "4.6.1", features = ["derive"] }
 sqlx = { version = "0.8.6", features = [
     "runtime-tokio",
     "sqlite",
@@ -67,6 +68,8 @@ rustls-webpki = { version = "0.103.13", features = ["alloc", "std", "ring"] }
 rustls-pki-types = "1.14"
 rsa = "0.9.10"
 p256 = { version = "0.13", features = ["ecdsa"] }
+schemars = "1.2.1"
+actix-http = "3.12.1"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
