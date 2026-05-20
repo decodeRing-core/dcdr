@@ -1,4 +1,7 @@
-use decodering_core::repository::SecretMapping;
+use decodering_core::{
+    plugin::{orchestrator::BackendCapabilities, osl_contract::Capability},
+    repository::SecretMapping,
+};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -69,6 +72,20 @@ impl ApiDestroySecretResponse {
 }
 
 #[derive(Serialize)]
+pub struct ApiDeleteSecretResponse {
+    pub(crate) soft_deleted: bool,
+}
+
+impl ApiDeleteSecretResponse {
+    pub(crate) fn new(soft_deleted: bool) -> ApiResponse<Self> {
+        ApiResponse::new(
+            ApiStatus::Success(SuccessStatus::OperationCompleted),
+            Some(Self { soft_deleted }),
+        )
+    }
+}
+
+#[derive(Serialize)]
 pub struct ApiListSecretResponse(Vec<ListSecretResponse>);
 
 #[derive(Serialize)]
@@ -123,6 +140,41 @@ impl ApiIsTaintedSecretResponse {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
             Some(Self { is_tainted }),
+        )
+    }
+}
+
+#[derive(Serialize)]
+pub struct ApiRestoreSecretResponse {
+    pub(crate) restored: bool,
+}
+
+impl ApiRestoreSecretResponse {
+    pub(crate) fn new(restored: bool) -> ApiResponse<Self> {
+        ApiResponse::new(
+            ApiStatus::Success(SuccessStatus::OperationCompleted),
+            Some(Self { restored }),
+        )
+    }
+}
+
+#[derive(Serialize)]
+pub struct ApiCapabilitiesResponse {
+    pub(crate) server_capabilities: Vec<Capability>,
+    pub(crate) backends: Vec<BackendCapabilities>,
+}
+
+impl ApiCapabilitiesResponse {
+    pub(crate) fn new(
+        server_capabilities: Vec<Capability>,
+        backends: Vec<BackendCapabilities>,
+    ) -> ApiResponse<Self> {
+        ApiResponse::new(
+            ApiStatus::Success(SuccessStatus::OperationCompleted),
+            Some(Self {
+                server_capabilities,
+                backends,
+            }),
         )
     }
 }

@@ -35,6 +35,18 @@ pub struct DeleteSecretRequestData {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct DestroySecretRequestData {
+    pub app_id: String,
+    pub secret_name: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RestoreSecretRequestData {
+    pub app_id: String,
+    pub secret_name: String,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct ListSecretRequestData {
     pub app_id: String,
     pub after_secret: Option<String>,

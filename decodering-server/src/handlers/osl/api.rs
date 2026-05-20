@@ -14,15 +14,23 @@ use crate::app_data::AppData;
 use crate::auth::require_app_grant_for_principal;
 use crate::error::ErrorReason;
 use crate::extractor::AuthOSLMiddleware;
-use crate::handlers::osl::payload::{
-    DeleteSecretRequestData, IsTaintedSecretRequestData, PutSecretRequestData,
-    TaintSecretRequestData, UntaintSecretRequestData,
-};
+use crate::handlers::osl::payload::DeleteSecretRequestData;
+use crate::handlers::osl::payload::DestroySecretRequestData;
+use crate::handlers::osl::payload::IsTaintedSecretRequestData;
+use crate::handlers::osl::payload::PutSecretRequestData;
+use crate::handlers::osl::payload::RestoreSecretRequestData;
+use crate::handlers::osl::payload::TaintSecretRequestData;
+use crate::handlers::osl::payload::UntaintSecretRequestData;
 use crate::handlers::osl::payload::{GetSecretRequestData, ListSecretRequestData};
-use crate::handlers::osl::response::{
-    ApiDestroySecretResponse, ApiGetSecretResponse, ApiIsTaintedSecretResponse,
-    ApiListSecretResponse, ApiPutSecretResponse, ApiTaintSecretResponse,
-};
+use crate::handlers::osl::response::ApiCapabilitiesResponse;
+use crate::handlers::osl::response::ApiDeleteSecretResponse;
+use crate::handlers::osl::response::ApiDestroySecretResponse;
+use crate::handlers::osl::response::ApiGetSecretResponse;
+use crate::handlers::osl::response::ApiIsTaintedSecretResponse;
+use crate::handlers::osl::response::ApiListSecretResponse;
+use crate::handlers::osl::response::ApiPutSecretResponse;
+use crate::handlers::osl::response::ApiRestoreSecretResponse;
+use crate::handlers::osl::response::ApiTaintSecretResponse;
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
 #[tracing::instrument(
@@ -76,15 +84,15 @@ pub async fn api_put_secret<D: Database + 'static>(
         ));
     }
 
-    let backend = core.get_backend(&req.store.backend_ref);
-    let Ok(backend) = backend else {
+    let backend_entry = core.get_backend(&req.store.backend_ref);
+    let Ok(backend_entry) = backend_entry else {
         tracing::error!("Backend not found");
         return ApiResponse::error(ErrorStatus::OperationFailed(
             ErrorReason::UnsupportedBackend,
         ));
     };
 
-    let secret_version = match backend.put(&req.store.store_path, &req.data) {
+    let secret_version = match backend_entry.backend.put(&req.store.store_path, &req.data) {
         Ok(version) => version,
         Err(e) => {
             tracing::debug!(error=?e, "Plugin error");
@@ -177,14 +185,14 @@ pub async fn api_get_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::TaintedSecret));
     }
 
-    let backend = core.get_backend(&secret_mapping_data.backend);
-    let Ok(backend) = backend else {
+    let backend_entry = core.get_backend(&secret_mapping_data.backend);
+    let Ok(backend_entry) = backend_entry else {
         tracing::error!("Backend not found {}", secret_mapping_data.backend);
         return ApiResponse::error(ErrorStatus::OperationFailed(
             ErrorReason::UnsupportedBackend,
         ));
     };
-    match backend.get(
+    match backend_entry.backend.get(
         &secret_mapping_data.mount_path,
         Some(req.version.to_string()),
     ) {
@@ -207,7 +215,7 @@ pub async fn api_get_secret<D: Database + 'static>(
 pub async fn api_destroy_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
-    req: web::Json<DeleteSecretRequestData>,
+    req: web::Json<DestroySecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
     let db = app.db.begin().await;
@@ -242,14 +250,17 @@ pub async fn api_destroy_secret<D: Database + 'static>(
         }
     };
 
-    let backend = core.get_backend(&secret_mapping_data.backend);
-    let Ok(backend) = backend else {
+    let backend_entry = core.get_backend(&secret_mapping_data.backend);
+    let Ok(backend_entry) = backend_entry else {
         tracing::error!("Backend not found {}", secret_mapping_data.backend);
         return ApiResponse::error(ErrorStatus::OperationFailed(
             ErrorReason::UnsupportedBackend,
         ));
     };
-    match backend.destroy(&secret_mapping_data.mount_path) {
+    match backend_entry
+        .backend
+        .destroy(&secret_mapping_data.mount_path)
+    {
         Ok(_) => {
             // Secret destroyed
         }
@@ -493,4 +504,156 @@ pub async fn api_is_tainted_secret<D: Database + 'static>(
     };
 
     ApiIsTaintedSecretResponse::new(secret_mapping_data.tainted == 1)
+}
+
+#[tracing::instrument(
+    skip_all,
+    fields(
+        user_id = auth.user.as_ref().map(|u| u.id),
+        principal_id = auth.principal.as_ref().map(|p| p.principal_id.as_str()),
+        app_id = %req.app_id,
+    )
+)]
+pub async fn api_delete_secret<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    core: Data<Orchestrator>,
+    req: web::Json<DeleteSecretRequestData>,
+    auth: AuthOSLMiddleware<D>,
+) -> impl Responder {
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+        Ok(grant) => grant,
+        Err(err) => return ApiResponse::error(err),
+    };
+
+    let secret_mapping = db
+        .secret_mapping()
+        .get_by_app_id_and_secret_name(&req.app_id, &req.secret_name)
+        .await;
+
+    let secret_mapping_data = match secret_mapping {
+        Ok(Some(x)) => x,
+        Ok(None) => {
+            tracing::error!(
+                "No secret mapping found for {} {}",
+                req.app_id,
+                req.secret_name
+            );
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::SecretNotFound));
+        }
+        Err(e) => {
+            tracing::error!(%e, "Database error");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+        }
+    };
+
+    let backend_entry = core.get_backend(&secret_mapping_data.backend);
+    let Ok(backend_entry) = backend_entry else {
+        tracing::error!("Backend not found {}", secret_mapping_data.backend);
+        return ApiResponse::error(ErrorStatus::OperationFailed(
+            ErrorReason::UnsupportedBackend,
+        ));
+    };
+    match backend_entry
+        .backend
+        .delete(&secret_mapping_data.mount_path)
+    {
+        Ok(r) => {
+            // Secret soft deleted
+            return ApiDeleteSecretResponse::new(r);
+        }
+        Err(e) => {
+            tracing::debug!(error=?e, "Plugin error");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Plugin));
+        }
+    }
+}
+
+#[tracing::instrument(
+    skip_all,
+    fields(
+        user_id = auth.user.as_ref().map(|u| u.id),
+        principal_id = auth.principal.as_ref().map(|p| p.principal_id.as_str()),
+        app_id = %req.app_id,
+    )
+)]
+pub async fn api_restore_secret<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    core: Data<Orchestrator>,
+    req: web::Json<RestoreSecretRequestData>,
+    auth: AuthOSLMiddleware<D>,
+) -> impl Responder {
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+        Ok(grant) => grant,
+        Err(err) => return ApiResponse::error(err),
+    };
+
+    let secret_mapping = db
+        .secret_mapping()
+        .get_by_app_id_and_secret_name(&req.app_id, &req.secret_name)
+        .await;
+
+    let secret_mapping_data = match secret_mapping {
+        Ok(Some(x)) => x,
+        Ok(None) => {
+            tracing::error!(
+                "No secret mapping found for {} {}",
+                req.app_id,
+                req.secret_name
+            );
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::SecretNotFound));
+        }
+        Err(e) => {
+            tracing::error!(%e, "Database error");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+        }
+    };
+
+    let backend_entry = core.get_backend(&secret_mapping_data.backend);
+    let Ok(backend_entry) = backend_entry else {
+        tracing::error!("Backend not found {}", secret_mapping_data.backend);
+        return ApiResponse::error(ErrorStatus::OperationFailed(
+            ErrorReason::UnsupportedBackend,
+        ));
+    };
+    match backend_entry
+        .backend
+        .restore(&secret_mapping_data.mount_path)
+    {
+        Ok(r) => {
+            // Secret soft delete restore
+            return ApiRestoreSecretResponse::new(r);
+        }
+        Err(e) => {
+            tracing::debug!(error=?e, "Plugin error");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Plugin));
+        }
+    }
+}
+
+#[tracing::instrument(
+    skip_all,
+    fields(
+        user_id = auth.user.as_ref().map(|u| u.id),
+        principal_id = auth.principal.as_ref().map(|p| p.principal_id.as_str()),
+    )
+)]
+pub async fn api_get_capabilities<D: Database + 'static>(
+    core: Data<Orchestrator>,
+    auth: AuthOSLMiddleware<D>,
+) -> impl Responder {
+    let server_capabilities = core.get_server_capabilities();
+    let backend_capabilities = core.get_backend_capabilities();
+    return ApiCapabilitiesResponse::new(server_capabilities, backend_capabilities);
 }

@@ -3,10 +3,9 @@ use extism::{Manifest, Plugin};
 use serde_json::Value;
 
 use crate::plugin::osl_contract::{
-    DeleteInput, DeleteOutput, DestroyInput, DestroyOutput, ReadInput, ReadResponse, RestoreInput,
-    RestoreOutput, WriteInput, WriteOutput,
+    Capability, DeleteInput, DeleteOutput, DestroyInput, DestroyOutput, ReadInput, ReadResponse,
+    RestoreInput, RestoreOutput, WriteInput, WriteOutput,
 };
-use crate::plugin::secret_backend::Capability;
 
 use super::error::PluginError;
 use super::secret_backend::SecretBackend;

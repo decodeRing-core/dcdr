@@ -1,17 +1,35 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
 use extism::Manifest;
+use serde::Serialize;
+
+use crate::plugin::osl_contract::Capability;
 
 use super::error::PluginError;
 use super::secret_backend::SecretBackend;
 use super::wasm::WasmSecretBackend;
 
+const SERVER_CAPABILITIES: [Capability; 1] = [Capability::KvTaint];
+
+#[derive(Serialize)]
+pub struct BackendCapabilities {
+    pub backend_ref: String,
+    pub backend_type: String,
+    pub capabilities: Vec<Capability>,
+}
+
 #[derive(Clone)]
 pub struct Orchestrator {
-    backends: HashMap<String, Arc<dyn SecretBackend>>,
+    backends: HashMap<String, BackendEntry>,
+}
+
+#[derive(Clone)]
+pub struct BackendEntry {
+    pub backend_type: String,
+    pub backend: Arc<dyn SecretBackend>,
 }
 
 impl Orchestrator {
@@ -21,11 +39,43 @@ impl Orchestrator {
         }
     }
 
-    pub fn register(&mut self, name: String, backend: Arc<dyn SecretBackend>) {
+    pub fn get_backends(&self) -> HashMap<String, BackendEntry> {
+        self.backends.clone()
+    }
+
+    pub fn get_backend_capabilities(&self) -> Vec<BackendCapabilities> {
+        self.backends
+            .iter()
+            .filter_map(|(backend_ref, backend_entry)| {
+                backend_entry
+                    .backend
+                    .capabilities()
+                    .ok()
+                    .map(|capabilities| BackendCapabilities {
+                        backend_ref: backend_ref.clone(),
+                        backend_type: backend_entry.backend_type.clone(),
+                        capabilities,
+                    })
+            })
+            .collect()
+    }
+
+    pub fn get_server_capabilities(&self) -> Vec<Capability> {
+        self.backends
+            .values()
+            .filter_map(|backend_entry| backend_entry.backend.capabilities().ok())
+            .flatten()
+            .chain(SERVER_CAPABILITIES)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect()
+    }
+
+    pub fn register(&mut self, name: String, backend: BackendEntry) {
         self.backends.insert(name, backend);
     }
 
-    pub fn get_backend(&self, name: &str) -> Result<&Arc<dyn SecretBackend>, PluginError> {
+    pub fn get_backend(&self, name: &str) -> Result<&BackendEntry, PluginError> {
         self.backends
             .get(name)
             .ok_or_else(|| PluginError::BackendNotFound(name.into()))
@@ -67,8 +117,18 @@ impl Orchestrator {
                 }
             };
 
+            let backend_type = manifest
+                .config
+                .get("type")
+                .unwrap_or(&String::new())
+                .to_owned();
+
+            let backend_entry = BackendEntry {
+                backend_type,
+                backend: Arc::new(WasmSecretBackend::new(manifest)),
+            };
             tracing::info!(backend = name, "loaded plugin manifest");
-            self.register(name.to_owned(), Arc::new(WasmSecretBackend::new(manifest)));
+            self.register(name.to_owned(), backend_entry);
         }
         Ok(())
     }
