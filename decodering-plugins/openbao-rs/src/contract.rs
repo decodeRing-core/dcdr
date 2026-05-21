@@ -68,7 +68,26 @@ pub struct ReadInput {
 pub struct ReadResponse {
     pub data: Option<serde_json::Value>,
 
+    /// RFC3339 deletion timestamp, present only when soft-deleted.
+    pub deletion_time: Option<String>,
+
+    pub status: Status,
+
     pub version: String,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Status {
+    Destroyed,
+
+    #[serde(rename = "not_found")]
+    NotFound,
+
+    Present,
+
+    #[serde(rename = "soft_deleted")]
+    SoftDeleted,
 }
 
 #[derive(Serialize, Deserialize)]

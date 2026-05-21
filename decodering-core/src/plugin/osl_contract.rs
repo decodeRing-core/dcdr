@@ -20,6 +20,15 @@ pub enum Capability {
     KvRestore,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SecretStatus {
+    Present,
+    SoftDeleted,
+    Destroyed,
+    NotFound,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ReadInput {
     pub secret_name: String,
@@ -29,8 +38,11 @@ pub struct ReadInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ReadResponse {
+    pub status: SecretStatus,
     pub version: String,
-    pub data: Value,
+    pub data: Option<serde_json::Value>,
+    /// RFC3339 deletion timestamp, present only when soft-deleted.
+    pub deletion_time: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

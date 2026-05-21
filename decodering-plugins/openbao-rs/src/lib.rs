@@ -11,6 +11,7 @@ use crate::contract::ReadInput;
 use crate::contract::ReadResponse;
 use crate::contract::RestoreInput;
 use crate::contract::RestoreOutput;
+use crate::contract::Status;
 use crate::contract::WriteInput;
 use crate::contract::WriteOutput;
 
@@ -186,12 +187,57 @@ pub fn get_secret(Json(input): Json<ReadInput>) -> FnResult<Json<ReadResponse>> 
         .with_header("X-Vault-Token", token);
 
     let res = http::request::<()>(&req, None)?;
+    let status = res.status_code();
+    let body = res.body();
+    if status == 404 {
+        // Body may be empty (true not-found) or carry version metadata.
+        if let Ok(parsed) = serde_json::from_slice::<serde_json::Value>(&body) {
+            let meta = parsed.pointer("/data/metadata");
+            let version = meta
+                .and_then(|m| m.get("version"))
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0);
+            let destroyed = meta
+                .and_then(|m| m.get("destroyed"))
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
+            let deletion_time = meta
+                .and_then(|m| m.get("deletion_time"))
+                .and_then(serde_json::Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(str::to_owned);
 
-    if res.status_code() >= 300 {
+            if destroyed {
+                return Ok(Json(ReadResponse {
+                    status: Status::Destroyed,
+                    version: version.to_string(),
+                    data: None,
+                    deletion_time: None,
+                }));
+            }
+            if deletion_time.is_some() {
+                return Ok(Json(ReadResponse {
+                    status: Status::SoftDeleted,
+                    version: version.to_string(),
+                    data: None,
+                    deletion_time,
+                }));
+            }
+        }
+        // No usable metadata: the path/version genuinely doesn't exist.
+        return Ok(Json(ReadResponse {
+            status: Status::NotFound,
+            version: "0".to_owned(),
+            data: None,
+            deletion_time: None,
+        }));
+    }
+
+    if status >= 300 {
         return Err(WithReturnCode::from(Error::msg(format!(
             "openbao returned {}: {}",
-            res.status_code(),
-            String::from_utf8_lossy(&res.body())
+            status,
+            String::from_utf8_lossy(&body)
         ))));
     }
 
@@ -207,8 +253,10 @@ pub fn get_secret(Json(input): Json<ReadInput>) -> FnResult<Json<ReadResponse>> 
         .unwrap_or(serde_json::Value::Null);
 
     Ok(Json(ReadResponse {
+        status: Status::Present,
         version: version.to_string(),
         data: Some(data),
+        deletion_time: None,
     }))
 }
 

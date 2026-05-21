@@ -4,6 +4,7 @@ use decodering_core::actions::create_secret_mapping::CreateSecretMapping;
 use decodering_core::actions::delete_secret_mapping::DeleteSecretMapping;
 use decodering_core::actions::update_secret_mapping_taint::UpdateSecretMappingTaint;
 use decodering_core::plugin::orchestrator::Orchestrator;
+use decodering_core::plugin::osl_contract::SecretStatus;
 use decodering_core::repository::{AppRepository, SecretMappingRespository};
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
@@ -196,7 +197,33 @@ pub async fn api_get_secret<D: Database + 'static>(
         &secret_mapping_data.mount_path,
         Some(req.version.to_string()),
     ) {
-        Ok(out) => ApiGetSecretResponse::new(out.data, secret_mapping_data.backend, out.version),
+        Ok(out) => {
+            tracing::debug!(data=?out, "Plugin backend response");
+            match out.status {
+                SecretStatus::Present => {
+                    return ApiGetSecretResponse::new(
+                        out.data.unwrap_or_default(),
+                        secret_mapping_data.backend,
+                        out.version,
+                    );
+                }
+                SecretStatus::Destroyed => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Secret(
+                        "Secret is no longer available for retrieval",
+                    )));
+                }
+                SecretStatus::NotFound => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(
+                        ErrorReason::SecretNotFound,
+                    ));
+                }
+                SecretStatus::SoftDeleted => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Secret(
+                        "Secret has been soft deleted",
+                    )));
+                }
+            }
+        }
         Err(e) => {
             tracing::debug!(error=?e, "Plugin error");
             ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Plugin))

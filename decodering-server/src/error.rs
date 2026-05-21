@@ -42,7 +42,6 @@ pub enum ErrorReason {
     TrustStore,
     ApplicationNotFound,
     PrincipalNotFound,
-    SecretAlreadyExists,
     SystemNotInitialized,
     AlreadyInitialized,
     Plugin,
@@ -50,7 +49,9 @@ pub enum ErrorReason {
     InvalidShamirKeys,
     UnsupportedBackend,
     UnsupportedOrInvalidRoleArn,
+    SecretAlreadyExists,
     SecretNotFound,
+    Secret(&'static str),
     Unauthorized,
     Unimplemented,
     DuplicatedApp,
@@ -66,7 +67,7 @@ impl std::fmt::Display for ErrorReason {
         match self {
             Self::Unexpected => f.write_str("Unexpected response."),
             Self::Internal => f.write_str("Internal error."),
-            Self::GenericFail(name) => write!(f, "Failed to {name}."),
+            Self::GenericFail(text) => write!(f, "Failed to {text}."),
             Self::Database => f.write_str("Database error."),
             Self::CertVerification => f.write_str("Certification verification failed."),
             Self::TrustStore => f.write_str("Failed to load trust store."),
@@ -83,6 +84,7 @@ impl std::fmt::Display for ErrorReason {
             Self::InvalidShamirKeys => f.write_str("Invalid shamir keys."),
             Self::UnsupportedBackend => f.write_str("Unsupported backend."),
             Self::SecretNotFound => f.write_str("Secret not found."),
+            Self::Secret(text) => write!(f, "{text}."),
             Self::Unauthorized => f.write_str("Unauthorized access."),
             Self::Unimplemented => f.write_str("Not implemented."),
             Self::DuplicatedApp => f.write_str("Application with the same name already exists."),
@@ -124,7 +126,7 @@ impl ErrorReason {
             }
             Self::InvalidShamirKeys | Self::Unauthorized | Self::Locked => StatusCode::FORBIDDEN,
             Self::UnsupportedBackend | Self::Unimplemented => StatusCode::NOT_IMPLEMENTED,
-            Self::SecretNotFound => StatusCode::NOT_FOUND,
+            Self::SecretNotFound | Self::Secret(_) => StatusCode::NOT_FOUND,
             Self::DuplicatedApp | Self::TaintedSecret => StatusCode::CONFLICT,
         }
     }
