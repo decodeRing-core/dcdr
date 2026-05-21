@@ -3,8 +3,8 @@ use extism::{Manifest, Plugin};
 use serde_json::Value;
 
 use crate::plugin::osl_contract::{
-    Capability, DeleteInput, DeleteOutput, DestroyInput, DestroyOutput, ReadInput, ReadResponse,
-    RestoreInput, RestoreOutput, WriteInput, WriteOutput,
+    Capability, DeleteInput, DeleteOutput, DescribeInput, DescribeOutput, DestroyInput,
+    DestroyOutput, ReadInput, ReadOutput, RestoreInput, RestoreOutput, WriteInput, WriteOutput,
 };
 
 use super::error::PluginError;
@@ -26,14 +26,14 @@ impl WasmSecretBackend {
 }
 
 impl SecretBackend for WasmSecretBackend {
-    fn get(&self, secret_name: &str, version: Option<String>) -> Result<ReadResponse, PluginError> {
+    fn get(&self, secret_name: &str, version: Option<String>) -> Result<ReadOutput, PluginError> {
         let mut plugin = self.instantiate()?;
         let input = ReadInput {
             secret_name: secret_name.to_owned(),
             version,
         };
         plugin
-            .call::<Json<ReadInput>, Json<ReadResponse>>("get_secret", Json(input))
+            .call::<Json<ReadInput>, Json<ReadOutput>>("get_secret", Json(input))
             .map(|out| out.0)
             .map_err(|e| PluginError::Call {
                 function: "get_secret".into(),
@@ -104,6 +104,20 @@ impl SecretBackend for WasmSecretBackend {
             .map(|out| out.0)
             .map_err(|e| PluginError::Call {
                 function: "capabilities".into(),
+                message: e.to_string(),
+            })
+    }
+
+    fn describe(&self, path: &str) -> Result<DescribeOutput, PluginError> {
+        let mut plugin = self.instantiate()?;
+        let input = DescribeInput {
+            path: path.to_owned(),
+        };
+        plugin
+            .call::<Json<DescribeInput>, Json<DescribeOutput>>("describe", Json(input))
+            .map(|out| out.0)
+            .map_err(|e| PluginError::Call {
+                function: "describe".into(),
                 message: e.to_string(),
             })
     }

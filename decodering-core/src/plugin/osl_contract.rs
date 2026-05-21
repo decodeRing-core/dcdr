@@ -22,10 +22,12 @@ pub enum Capability {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[schemars(title = "SecretStatus")]
 pub enum SecretStatus {
     Present,
     SoftDeleted,
     Destroyed,
+    Disabled,
     NotFound,
 }
 
@@ -37,7 +39,7 @@ pub struct ReadInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct ReadResponse {
+pub struct ReadOutput {
     pub status: SecretStatus,
     pub version: String,
     pub data: Option<serde_json::Value>,
@@ -86,4 +88,38 @@ pub struct RestoreInput {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct RestoreOutput {
     pub restored: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[schemars(title = "VersionInfo")]
+pub struct VersionInfo {
+    /// Opaque, provider-defined version identifier. Vault: "3".
+    /// AWS: a `VersionId` UUID. Azure: the version GUID in the id URL.
+    pub id: String,
+    pub status: SecretStatus,
+    /// RFC3339. Null when the provider doesn't expose it for this version.
+    pub created_time: Option<String>,
+    pub deletion_time: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DescribeInput {
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DescribeOutput {
+    pub secret_name: String,
+    pub provider: String,
+    pub exists: bool,
+    /// Opaque identifier of the current/active version.
+    pub current_version: Option<String>,
+    pub current_status: SecretStatus,
+    pub created_time: Option<String>,
+    pub updated_time: Option<String>,
+    pub versions: Vec<VersionInfo>,
+    /// User-defined tags/metadata, when the provider supports them.
+    pub custom_metadata: Option<Value>,
+    /// Opaque, provider-native details. Callers must not assume any schema.
+    pub provider_hints: Value,
 }

@@ -1,5 +1,8 @@
 use decodering_core::{
-    plugin::{orchestrator::BackendCapabilities, osl_contract::Capability},
+    plugin::{
+        orchestrator::BackendCapabilities,
+        osl_contract::{Capability, DescribeOutput},
+    },
     repository::SecretMapping,
 };
 use serde::Serialize;
@@ -175,6 +178,21 @@ impl ApiCapabilitiesResponse {
                 server_capabilities,
                 backends,
             }),
+        )
+    }
+}
+
+#[derive(Serialize)]
+pub struct ApiDescribeSecretResponse {
+    #[serde(flatten)]
+    pub(crate) output: DescribeOutput,
+}
+
+impl ApiDescribeSecretResponse {
+    pub(crate) fn new(output: DescribeOutput) -> ApiResponse<Self> {
+        ApiResponse::new(
+            ApiStatus::Success(SuccessStatus::OperationCompleted),
+            Some(Self { output }),
         )
     }
 }

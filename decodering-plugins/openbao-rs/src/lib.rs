@@ -1,17 +1,21 @@
 #![allow(clippy::unnecessary_wraps)]
 use extism_pdk::{Error, FnResult, HttpRequest, Json, WithReturnCode, config, http, plugin_fn};
+use serde_json::Value;
 use serde_json::json;
 
 use crate::contract::Capability;
 use crate::contract::DeleteInput;
 use crate::contract::DeleteOutput;
+use crate::contract::DescribeInput;
+use crate::contract::DescribeOutput;
 use crate::contract::DestroyInput;
 use crate::contract::DestroyOutput;
 use crate::contract::ReadInput;
-use crate::contract::ReadResponse;
+use crate::contract::ReadOutput;
 use crate::contract::RestoreInput;
 use crate::contract::RestoreOutput;
-use crate::contract::Status;
+use crate::contract::SecretStatus;
+use crate::contract::VersionInfo;
 use crate::contract::WriteInput;
 use crate::contract::WriteOutput;
 
@@ -159,7 +163,7 @@ pub fn destroy_secret(Json(input): Json<DestroyInput>) -> FnResult<Json<DestroyO
 }
 
 #[plugin_fn]
-pub fn get_secret(Json(input): Json<ReadInput>) -> FnResult<Json<ReadResponse>> {
+pub fn get_secret(Json(input): Json<ReadInput>) -> FnResult<Json<ReadOutput>> {
     let addr = config::get("vault_addr")?
         .ok_or_else(|| WithReturnCode::from(Error::msg("missing vault_addr config")))?;
     let token = config::get("vault_token")?
@@ -208,16 +212,16 @@ pub fn get_secret(Json(input): Json<ReadInput>) -> FnResult<Json<ReadResponse>> 
                 .map(str::to_owned);
 
             if destroyed {
-                return Ok(Json(ReadResponse {
-                    status: Status::Destroyed,
+                return Ok(Json(ReadOutput {
+                    status: SecretStatus::Destroyed,
                     version: version.to_string(),
                     data: None,
                     deletion_time: None,
                 }));
             }
             if deletion_time.is_some() {
-                return Ok(Json(ReadResponse {
-                    status: Status::SoftDeleted,
+                return Ok(Json(ReadOutput {
+                    status: SecretStatus::SoftDeleted,
                     version: version.to_string(),
                     data: None,
                     deletion_time,
@@ -225,8 +229,8 @@ pub fn get_secret(Json(input): Json<ReadInput>) -> FnResult<Json<ReadResponse>> 
             }
         }
         // No usable metadata: the path/version genuinely doesn't exist.
-        return Ok(Json(ReadResponse {
-            status: Status::NotFound,
+        return Ok(Json(ReadOutput {
+            status: SecretStatus::NotFound,
             version: "0".to_owned(),
             data: None,
             deletion_time: None,
@@ -252,8 +256,8 @@ pub fn get_secret(Json(input): Json<ReadInput>) -> FnResult<Json<ReadResponse>> 
         .cloned()
         .unwrap_or(serde_json::Value::Null);
 
-    Ok(Json(ReadResponse {
-        status: Status::Present,
+    Ok(Json(ReadOutput {
+        status: SecretStatus::Present,
         version: version.to_string(),
         data: Some(data),
         deletion_time: None,
@@ -301,4 +305,138 @@ pub fn put_secret(Json(input): Json<WriteInput>) -> FnResult<Json<WriteOutput>> 
     Ok(Json(WriteOutput {
         version: version.to_string(),
     }))
+}
+
+#[plugin_fn]
+pub fn describe(Json(input): Json<DescribeInput>) -> FnResult<Json<DescribeOutput>> {
+    let addr = config::get("vault_addr")?
+        .ok_or_else(|| WithReturnCode::from(Error::msg("missing vault_addr config")))?;
+    let token = config::get("vault_token")?
+        .ok_or_else(|| WithReturnCode::from(Error::msg("missing vault_token config")))?;
+    let mount = config::get("kv_mount")?.unwrap_or_else(|| "secret".to_owned());
+
+    let base = addr.trim_end_matches('/');
+    let url = format!("{base}/v1/{}/metadata/{}", mount, input.path);
+
+    let req = HttpRequest::new(&url)
+        .with_method("GET")
+        .with_header("X-Vault-Token", token);
+    let res = http::request::<()>(&req, None)?;
+    let status = res.status_code();
+    let body = res.body();
+
+    if status == 404 {
+        return Err(WithReturnCode::from(Error::msg(format!(
+            "openbao returned {}: {}",
+            res.status_code(),
+            String::from_utf8_lossy(&res.body())
+        ))));
+    }
+
+    if status >= 300 {
+        return Err(WithReturnCode::from(Error::msg(format!(
+            "openbao returned {status}: {}",
+            String::from_utf8_lossy(&body)
+        ))));
+    }
+
+    let parsed: Value = serde_json::from_slice(&body)?;
+    let meta = parsed.pointer("/data").unwrap_or(&Value::Null);
+
+    let current_version = meta
+        .pointer("/current_version")
+        .and_then(Value::as_u64)
+        .map(|v| v.to_string());
+
+    // Build the version array from the metadata "versions" map.
+    let mut versions: Vec<VersionInfo> = Vec::new();
+    if let Some(map) = meta.pointer("/versions").and_then(Value::as_object) {
+        for (vnum, vmeta) in map {
+            let destroyed = vmeta
+                .get("destroyed")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            let deletion_time = vmeta
+                .get("deletion_time")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(str::to_owned);
+
+            let vstatus = if destroyed {
+                SecretStatus::Destroyed
+            } else if deletion_time.is_some() {
+                SecretStatus::SoftDeleted
+            } else {
+                SecretStatus::Present
+            };
+
+            versions.push(VersionInfo {
+                id: vnum.clone(),
+                status: vstatus,
+                created_time: vmeta
+                    .get("created_time")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                deletion_time,
+            });
+        }
+        // Object iteration order isn't guaranteed; sort numerically.
+        versions.sort_by_key(|v| v.id.parse::<u64>().unwrap_or(0));
+    }
+
+    // Current status = status of the current version, defaulting to Present.
+    let current_status = current_version
+        .as_deref()
+        .and_then(|cv| meta.pointer(&format!("/versions/{cv}")))
+        .map_or(SecretStatus::Present, status_from_meta);
+
+    let provider_hints = serde_json::json!({
+        "engine": "kv",
+        "engine_version": "2",
+        "mount": mount,
+        "path": format!("{}/data/{}", mount, input.path),
+        "metadata_path": format!("{}/metadata/{}", mount, input.path),
+        "max_versions": meta.pointer("/max_versions").and_then(Value::as_u64),
+        "cas_required": meta.pointer("/cas_required").and_then(Value::as_bool),
+        "delete_version_after": meta
+            .pointer("/delete_version_after")
+            .and_then(Value::as_str),
+    });
+
+    Ok(Json(DescribeOutput {
+        secret_name: input.path,
+        provider: "openbao".to_owned(),
+        exists: true,
+        current_version,
+        current_status,
+        created_time: meta
+            .pointer("/created_time")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        updated_time: meta
+            .pointer("/updated_time")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        versions,
+        custom_metadata: meta.pointer("/custom_metadata").cloned(),
+        provider_hints: Some(provider_hints),
+    }))
+}
+
+fn status_from_meta(vmeta: &Value) -> SecretStatus {
+    let destroyed = vmeta
+        .get("destroyed")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let deleted = vmeta
+        .get("deletion_time")
+        .and_then(Value::as_str)
+        .is_some_and(|s| !s.is_empty());
+    if destroyed {
+        SecretStatus::Destroyed
+    } else if deleted {
+        SecretStatus::SoftDeleted
+    } else {
+        SecretStatus::Present
+    }
 }

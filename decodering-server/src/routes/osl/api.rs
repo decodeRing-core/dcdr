@@ -2,6 +2,7 @@ use actix_web::web;
 use decodering_core::tx::Database;
 
 use crate::handlers::osl::api::api_delete_secret;
+use crate::handlers::osl::api::api_describe_secret;
 use crate::handlers::osl::api::api_destroy_secret;
 use crate::handlers::osl::api::api_get_capabilities;
 use crate::handlers::osl::api::api_get_secret;
@@ -19,6 +20,10 @@ pub fn read_osl_routes<D: Database + 'static>(cfg: &mut web::ServiceConfig) {
         .route(
             "/secrets/is-tainted",
             web::post().to(api_is_tainted_secret::<D>),
+        )
+        .route(
+            "/secrets/describe",
+            web::post().to(api_describe_secret::<D>),
         )
         .route(
             "/capabilities/get",

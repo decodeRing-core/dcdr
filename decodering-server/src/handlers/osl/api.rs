@@ -15,15 +15,14 @@ use crate::app_data::AppData;
 use crate::auth::require_app_grant_for_principal;
 use crate::error::ErrorReason;
 use crate::extractor::AuthOSLMiddleware;
-use crate::handlers::osl::payload::DeleteSecretRequestData;
 use crate::handlers::osl::payload::DestroySecretRequestData;
 use crate::handlers::osl::payload::IsTaintedSecretRequestData;
 use crate::handlers::osl::payload::PutSecretRequestData;
 use crate::handlers::osl::payload::RestoreSecretRequestData;
 use crate::handlers::osl::payload::TaintSecretRequestData;
 use crate::handlers::osl::payload::UntaintSecretRequestData;
+use crate::handlers::osl::payload::{DeleteSecretRequestData, DescribeSecretRequestData};
 use crate::handlers::osl::payload::{GetSecretRequestData, ListSecretRequestData};
-use crate::handlers::osl::response::ApiCapabilitiesResponse;
 use crate::handlers::osl::response::ApiDeleteSecretResponse;
 use crate::handlers::osl::response::ApiDestroySecretResponse;
 use crate::handlers::osl::response::ApiGetSecretResponse;
@@ -32,6 +31,7 @@ use crate::handlers::osl::response::ApiListSecretResponse;
 use crate::handlers::osl::response::ApiPutSecretResponse;
 use crate::handlers::osl::response::ApiRestoreSecretResponse;
 use crate::handlers::osl::response::ApiTaintSecretResponse;
+use crate::handlers::osl::response::{ApiCapabilitiesResponse, ApiDescribeSecretResponse};
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 
 #[tracing::instrument(
@@ -207,7 +207,7 @@ pub async fn api_get_secret<D: Database + 'static>(
                         out.version,
                     );
                 }
-                SecretStatus::Destroyed => {
+                SecretStatus::Destroyed | SecretStatus::Disabled => {
                     return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Secret(
                         "Secret is no longer available for retrieval",
                     )));
@@ -683,4 +683,67 @@ pub async fn api_get_capabilities<D: Database + 'static>(
     let server_capabilities = core.get_server_capabilities();
     let backend_capabilities = core.get_backend_capabilities();
     return ApiCapabilitiesResponse::new(server_capabilities, backend_capabilities);
+}
+
+#[tracing::instrument(
+    skip_all,
+    fields(
+        user_id = auth.user.as_ref().map(|u| u.id),
+        principal_id = auth.principal.as_ref().map(|p| p.principal_id.as_str()),
+        app_id = %req.app_id,
+    )
+)]
+pub async fn api_describe_secret<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    core: Data<Orchestrator>,
+    req: web::Json<DescribeSecretRequestData>,
+    auth: AuthOSLMiddleware<D>,
+) -> impl Responder {
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+        Ok(grant) => grant,
+        Err(err) => return ApiResponse::error(err),
+    };
+
+    let secret_mapping = db
+        .secret_mapping()
+        .get_by_app_id_and_secret_name(&req.app_id, &req.secret_name)
+        .await;
+
+    let secret_mapping_data = match secret_mapping {
+        Ok(Some(x)) => x,
+        Ok(None) => {
+            tracing::error!("Secret not found");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::SecretNotFound));
+        }
+        Err(e) => {
+            tracing::error!(%e, "Database error");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+        }
+    };
+
+    let backend_entry = core.get_backend(&secret_mapping_data.backend);
+    let Ok(backend_entry) = backend_entry else {
+        tracing::error!("Backend not found {}", secret_mapping_data.backend);
+        return ApiResponse::error(ErrorStatus::OperationFailed(
+            ErrorReason::UnsupportedBackend,
+        ));
+    };
+    match backend_entry
+        .backend
+        .describe(&secret_mapping_data.mount_path)
+    {
+        Ok(r) => {
+            return ApiDescribeSecretResponse::new(r);
+        }
+        Err(e) => {
+            tracing::debug!(error=?e, "Plugin error");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Plugin));
+        }
+    }
 }
