@@ -2,8 +2,8 @@ use std::str::FromStr;
 
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalKind, PrincipalStatus};
 use decodering_core::repository::{
-    App, Principal, PrincipalAppGrant, PrincipalCredential, SecretMapping, Shamir, TpmChallenge,
-    User,
+    App, PluginConfig, Principal, PrincipalAppGrant, PrincipalCredential, SecretMapping, Shamir,
+    TpmChallenge, User,
 };
 
 #[derive(sqlx::FromRow)]
@@ -195,6 +195,23 @@ impl From<PrincipalCredentialRow> for PrincipalCredential {
             last_used_at: r.last_used_at,
             created_at: r.created_at,
             revoked_at: r.revoked_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct PluginConfigRow {
+    pub backend_name: String,
+    pub secret_blob: Vec<u8>,
+    pub updated_at: i64,
+}
+
+impl From<PluginConfigRow> for PluginConfig {
+    fn from(r: PluginConfigRow) -> Self {
+        Self {
+            backend_name: r.backend_name,
+            secret_blob: r.secret_blob,
+            updated_at: r.updated_at,
         }
     }
 }

@@ -3,6 +3,7 @@ use crate::repository::ApiKeyRepository;
 use crate::repository::AppRepository;
 use crate::repository::AuditRepository;
 use crate::repository::MetaRepository;
+use crate::repository::PluginConfigRepository;
 use crate::repository::PrincipalAppGrantRepository;
 use crate::repository::PrincipalCredentialRepository;
 use crate::repository::PrincipalRepository;
@@ -46,6 +47,9 @@ pub trait Tx: Send {
     type PrincipalAppGrantRepo<'a>: PrincipalAppGrantRepository
     where
         Self: 'a;
+    type PluginConfigRepo<'a>: PluginConfigRepository
+    where
+        Self: 'a;
 
     fn tpm_challenge(&mut self) -> Self::TpmChallengeRepo<'_>;
     fn principal_app_grant(&mut self) -> Self::PrincipalAppGrantRepo<'_>;
@@ -57,6 +61,7 @@ pub trait Tx: Send {
     fn api_key(&mut self) -> Self::ApiKeysRepo<'_>;
     fn user(&mut self) -> Self::UserRepo<'_>;
     fn secret_mapping(&mut self) -> Self::SecretMappingRepo<'_>;
+    fn plugin_config(&mut self) -> Self::PluginConfigRepo<'_>;
     fn app(&mut self) -> Self::AppRepo<'_>;
 
     fn commit(self) -> impl Future<Output = Result<(), DbError>> + Send;

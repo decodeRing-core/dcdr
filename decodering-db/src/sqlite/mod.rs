@@ -10,6 +10,7 @@ use crate::sqlite::api_key::SqliteApiKeysRepository;
 use crate::sqlite::app::SqliteAppRepository;
 use crate::sqlite::audit::SqliteAuditRepository;
 use crate::sqlite::meta::SqliteMetaRepository;
+use crate::sqlite::plugin_config::SqlitePluginConfigRepository;
 use crate::sqlite::principal::SqlitePrincipalRepository;
 use crate::sqlite::principal_app_grant::SqlitePrincipalAppGrantRepository;
 use crate::sqlite::principal_credential::SqlitePrincipalCredentialRepository;
@@ -24,6 +25,7 @@ mod api_key;
 mod app;
 mod audit;
 mod meta;
+mod plugin_config;
 mod principal;
 mod principal_app_grant;
 mod principal_credential;
@@ -83,6 +85,10 @@ impl Tx for SqliteTx {
         = SqlitePrincipalAppGrantRepository<'a>
     where
         Self: 'a;
+    type PluginConfigRepo<'a>
+        = SqlitePluginConfigRepository<'a>
+    where
+        Self: 'a;
 
     fn tpm_challenge(&mut self) -> SqliteTpmChallengeRepository<'_> {
         SqliteTpmChallengeRepository { tx: &mut self.tx }
@@ -126,6 +132,10 @@ impl Tx for SqliteTx {
 
     fn app(&mut self) -> SqliteAppRepository<'_> {
         SqliteAppRepository { tx: &mut self.tx }
+    }
+
+    fn plugin_config(&mut self) -> SqlitePluginConfigRepository<'_> {
+        SqlitePluginConfigRepository { tx: &mut self.tx }
     }
 
     async fn commit(self) -> Result<(), DbError> {

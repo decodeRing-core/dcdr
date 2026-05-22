@@ -15,6 +15,7 @@ pub enum Target {
     App(String),
     User(i64),
     ApiKey(i64),
+    Plugin(String),
     SecretMapping(String, String),
     ShamirConfiguration(i64),
     Principal(String),
@@ -39,6 +40,7 @@ impl Target {
             Self::PrincipalToken(_) => "principal_token",
             Self::TpmChallenge(_) => "tpm_challenge",
             Self::PrincipalAppGrant(_) => "principal_app_grant",
+            Self::Plugin(_) => "plugin",
         }
     }
 
@@ -50,6 +52,7 @@ impl Target {
             Self::SecretMapping(app_id, name) => format!("{app_id}:{name}"),
             Self::ShamirConfiguration(shamir_id) => shamir_id.to_string(),
             Self::AuditEntry(id) => id.to_string(),
+            Self::Plugin(plugin) => plugin.clone(),
             Self::Principal(principal_id) => principal_id.to_owned(),
             Self::PrincipalCredential(principal_credential_id) => {
                 principal_credential_id.to_owned()

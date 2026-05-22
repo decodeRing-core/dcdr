@@ -1,5 +1,11 @@
+use std::collections::BTreeMap;
 use std::fmt::Write;
 
+use aes_gcm::Aes256Gcm;
+use aes_gcm::Key;
+use aes_gcm::Nonce;
+use aes_gcm::aead::{Aead, AeadCore, KeyInit, OsRng, Payload};
+use p256::ecdsa::{Signature as EcdsaSignature, VerifyingKey as EcdsaVerifyingKey};
 use rsa::RsaPublicKey;
 use rsa::pkcs1v15;
 use rsa::pkcs8::DecodePublicKey;
@@ -7,8 +13,7 @@ use rsa::pss;
 use rsa::signature::Verifier;
 use sha2::Digest;
 use sha2::Sha256;
-
-use p256::ecdsa::{Signature as EcdsaSignature, VerifyingKey as EcdsaVerifyingKey};
+use zeroize::Zeroizing;
 
 use crate::error::TpmVerifyError;
 
@@ -184,6 +189,84 @@ fn pad_left(dest: &mut [u8], src: &[u8]) -> Option<()> {
     pad.fill(0);
     tail.copy_from_slice(src);
     Some(())
+}
+
+const NONCE_LEN: usize = 12; // AES-GCM standard nonce size
+
+#[derive(Debug)]
+pub enum CryptoError {
+    Encrypt,
+    Decrypt,
+    TooShort,
+    Serialize,
+}
+
+/// Encrypt a credential for storage.
+/// Output blob layout: [12-byte nonce][ciphertext + 16-byte tag].
+/// - `master_key`: exactly 32 bytes (from your unsealed key)
+/// - `aad`: binds the ciphertext to context — pass `backend_name.as_bytes()`
+pub fn encrypt_blob(
+    master_key: &[u8],
+    plaintext: &[u8],
+    aad: &[u8],
+) -> Result<Vec<u8>, CryptoError> {
+    let key = Key::<Aes256Gcm>::from_slice(master_key);
+    let cipher = Aes256Gcm::new(key);
+    let nonce = Aes256Gcm::generate_nonce(&mut OsRng); // fresh random nonce every call
+    let ct = cipher
+        .encrypt(
+            &nonce,
+            Payload {
+                msg: plaintext,
+                aad,
+            },
+        )
+        .map_err(|_| CryptoError::Encrypt)?;
+    let mut out = Vec::with_capacity(NONCE_LEN + ct.len());
+    out.extend_from_slice(nonce.as_slice());
+    out.extend_from_slice(&ct);
+    Ok(out)
+}
+
+/// Decrypt a blob produced by `encrypt_blob`.
+/// `aad` must match what was used on encrypt (the same `backend_name`).
+/// Returns zeroizing plaintext that wipes on drop.
+pub fn decrypt_blob(
+    master_key: &[u8],
+    blob: &[u8],
+    aad: &[u8],
+) -> Result<Zeroizing<Vec<u8>>, CryptoError> {
+    if blob.len() < NONCE_LEN {
+        return Err(CryptoError::TooShort);
+    }
+    let (nonce_bytes, ct) = blob.split_at(NONCE_LEN);
+    let key = Key::<Aes256Gcm>::from_slice(master_key);
+    let cipher = Aes256Gcm::new(key);
+    let nonce = Nonce::from_slice(nonce_bytes);
+    let pt = cipher
+        .decrypt(nonce, Payload { msg: ct, aad })
+        .map_err(|_| CryptoError::Decrypt)?;
+    Ok(Zeroizing::new(pt))
+}
+
+/// Encrypt a whole credential map: serialize to JSON, then encrypt.
+pub fn encrypt_map(
+    master_key: &[u8],
+    creds: &BTreeMap<String, String>,
+    aad: &[u8],
+) -> Result<Vec<u8>, CryptoError> {
+    let json = Zeroizing::new(serde_json::to_vec(creds).map_err(|_| CryptoError::Serialize)?);
+    encrypt_blob(master_key, &json, aad)
+}
+
+/// Decrypt back into the map: decrypt, then deserialize.
+pub fn decrypt_map(
+    master_key: &[u8],
+    blob: &[u8],
+    aad: &[u8],
+) -> Result<BTreeMap<String, String>, CryptoError> {
+    let json = decrypt_blob(master_key, blob, aad)?;
+    serde_json::from_slice(&json).map_err(|_| CryptoError::Serialize)
 }
 
 #[allow(

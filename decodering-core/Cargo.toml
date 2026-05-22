@@ -20,6 +20,8 @@ rsa.workspace = true
 p256.workspace = true
 reqwest.workspace = true
 schemars.workspace = true
+zeroize.workspace = true
+aes-gcm.workspace = true
 
 [lints]
 workspace = true

@@ -2,15 +2,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::action::Action;
 use crate::actions::create_api_key::CreateApiKey;
+use crate::actions::create_plugin_config::CreatePluginConfig;
 use crate::actions::create_shamir_configuration::CreateShamirConfiguration;
 use crate::actions::create_user::CreateUser;
 use crate::audit::ActionKind;
 use crate::audit::{ActionOutput, Actor, AuditDescriptor};
 use crate::error::ExecutionError;
-use crate::repository::{ApiKeyEntry, ApiKeyRepository, ShamirRepository, UserRepository};
+use crate::repository::ApiKeyEntry;
+use crate::repository::ApiKeyRepository;
+use crate::repository::PluginConfigEntry;
+use crate::repository::PluginConfigRepository;
+use crate::repository::ShamirRepository;
+use crate::repository::UserRepository;
 use crate::request::AppRequest;
-use crate::response::AppResponse;
 use crate::response::SystemInitResponse;
+use crate::response::{AppResponse, CreatePluginConfigResponse};
 use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
@@ -18,6 +24,7 @@ pub struct SystemInit {
     pub shamir: CreateShamirConfiguration,
     pub user: CreateUser,
     pub api_key: CreateApiKey,
+    pub plugin_config: Vec<CreatePluginConfig>,
 }
 
 impl SystemInit {
@@ -25,11 +32,13 @@ impl SystemInit {
         shamir: CreateShamirConfiguration,
         user: CreateUser,
         api_key: CreateApiKey,
+        plugin_config: Vec<CreatePluginConfig>,
     ) -> AppRequest {
         let app = Self {
             shamir,
             user,
             api_key,
+            plugin_config,
         };
         AppRequest::SystemInit(app)
     }
@@ -62,10 +71,21 @@ impl Action for SystemInit {
         let _ = tx.api_key().insert(&api_key_entry).await?;
         let api_key_response = api_key_entry.into();
 
+        let plugin_config_entries: Vec<PluginConfigEntry> =
+            self.plugin_config.into_iter().map(Into::into).collect();
+        println!("plugin_config_entries = {:#?}", plugin_config_entries);
+        let _ = tx
+            .plugin_config()
+            .insert_many(plugin_config_entries.clone())
+            .await?;
+        let plugin_config_response: Vec<CreatePluginConfigResponse> =
+            plugin_config_entries.into_iter().map(Into::into).collect();
+
         let response = SystemInitResponse {
             shamir: shamir_response,
             user: user_response,
             api_key: api_key_response,
+            plugin_config: plugin_config_response,
         };
         let after = serde_json::json!(response);
         let app_response = AppResponse::SystemInit(response);

@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 
 pub struct ShamirInit {
     pub shards: Vec<Share>,
-    _master_key: Vec<u8>,
+    pub master_key: Vec<u8>,
     _threshold: u8,
     pub hash: Vec<u8>,
 }
@@ -34,7 +34,7 @@ pub fn initialize_shamir(n: u8, k: u8) -> Result<ShamirInit, Box<dyn std::error:
 
     Ok(ShamirInit {
         shards,
-        _master_key: secret,
+        master_key: secret,
         _threshold: k,
         hash,
     })

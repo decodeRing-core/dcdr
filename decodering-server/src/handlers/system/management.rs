@@ -10,12 +10,14 @@ use actix_web::web::{Data, Json};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use blahaj::Share;
 use decodering_core::actions::create_api_key::CreateApiKey;
+use decodering_core::actions::create_plugin_config::CreatePluginConfig;
 use decodering_core::actions::create_shamir_configuration::CreateShamirConfiguration;
 use decodering_core::actions::create_user::CreateUser;
 use decodering_core::actions::system_init::SystemInit;
-use decodering_core::crypto::sha256_hex;
+use decodering_core::crypto::{encrypt_map, sha256_hex};
 use decodering_core::repository::ShamirRepository;
 use decodering_core::response::AppResponse;
+use decodering_core::time::now_ts;
 use decodering_core::tx::{Database, Tx};
 use rand::distr::{Alphanumeric, SampleString};
 use zeroize::Zeroizing;
@@ -84,7 +86,18 @@ pub async fn system_init<D: Database + 'static>(
     );
     let user = CreateUser::new("root", "root@localhost", "", 1);
     let api_key = CreateApiKey::init(token_hash, token_prefix, None);
-    let request_initialize = SystemInit::request(shamir, user, api_key);
+    let mut plugins: Vec<CreatePluginConfig> = vec![];
+    let timestamp = now_ts();
+    let key = shamir_init.master_key;
+    for (backend_name, credentials) in req.plugins_credentials.clone() {
+        let blob = encrypt_map(&key, &credentials, backend_name.as_bytes());
+        if let Ok(blob) = blob {
+            let plugin_config = CreatePluginConfig::new(backend_name, blob, timestamp);
+            plugins.push(plugin_config);
+        }
+    }
+    // TODO: Decode plugin configs and pass that to the manifest.
+    let request_initialize = SystemInit::request(shamir, user, api_key, plugins);
     match app.submit(request_initialize).await {
         Ok(resp) => match resp {
             AppResponse::SystemInit(_) => {

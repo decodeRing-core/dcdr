@@ -370,3 +370,32 @@ pub trait SecretMappingRespository: Send {
         taint: i16,
     ) -> impl Future<Output = Result<u64, DbError>> + Send;
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PluginConfig {
+    pub backend_name: String,
+    pub secret_blob: Vec<u8>,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct PluginConfigEntry {
+    pub backend_name: String,
+    pub secret_blob: Vec<u8>,
+    pub updated_at: i64,
+}
+
+pub trait PluginConfigRepository: Send {
+    fn insert(
+        &mut self,
+        plugin_config: &PluginConfigEntry,
+    ) -> impl Future<Output = Result<String, DbError>> + Send;
+    fn insert_many(
+        &mut self,
+        plugin_configs: Vec<PluginConfigEntry>,
+    ) -> impl Future<Output = Result<Vec<String>, DbError>> + Send;
+    fn get_by_backend(
+        &mut self,
+        backend_name: &str,
+    ) -> impl Future<Output = Result<Option<PluginConfig>, DbError>> + Send;
+}

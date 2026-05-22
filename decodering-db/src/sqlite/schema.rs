@@ -161,6 +161,12 @@ pub const SCHEMA: &str = r#"
 
     CREATE INDEX IF NOT EXISTS idx_tpm_challenges_expires ON tpm_challenges(expires_at);
 
+    CREATE TABLE IF NOT EXISTS plugin_configs (
+        backend_name TEXT PRIMARY KEY,
+        secret_blob  BLOB,           -- master key encrypts credential
+        updated_at   INTEGER NOT NULL
+    );
+
     -- Enable foreign key enforcement (SQLite default is OFF, must be set per connection).
     PRAGMA foreign_keys = ON;
 "#;

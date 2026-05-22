@@ -439,6 +439,7 @@ where
         AppRequest::UpdateConsumedAt(x) => run_action_raft(tx, index, x).await,
         AppRequest::UpdatePrincipalCredentialLastUsed(x) => run_action_raft(tx, index, x).await,
         AppRequest::UpdateSecretMappingTaint(x) => run_action_raft(tx, index, x).await,
+        AppRequest::CreatePluginConfig(x) => run_action_raft(tx, index, x).await,
     }
 }
 

@@ -70,6 +70,7 @@ rsa = "0.9.10"
 p256 = { version = "0.13", features = ["ecdsa"] }
 schemars = "1.2.1"
 actix-http = "3.12.1"
+aes-gcm = "0.10"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }

@@ -1,6 +1,9 @@
+use std::collections::BTreeMap;
+
 use extism::convert::Json;
 use extism::{Manifest, Plugin};
 use serde_json::Value;
+use zeroize::Zeroizing;
 
 use crate::plugin::osl_contract::{
     Capability, DeleteInput, DeleteOutput, DescribeInput, DescribeOutput, DestroyInput,
@@ -12,16 +15,24 @@ use super::secret_backend::SecretBackend;
 
 pub struct WasmSecretBackend {
     manifest: Manifest,
+    credential: BTreeMap<String, Zeroizing<String>>,
 }
 
 impl WasmSecretBackend {
     pub fn new(manifest: Manifest) -> Self {
-        Self { manifest }
+        Self {
+            manifest,
+            credential: BTreeMap::new(),
+        }
     }
 
     /// Intentional: per-call isolation is a security requirement, not a performance oversight.
     fn instantiate(&self) -> Result<Plugin, PluginError> {
-        Plugin::new(&self.manifest, [], true).map_err(|e| PluginError::Instantiation(e.to_string()))
+        let mut m = self.manifest.clone();
+        for (k, v) in &self.credential {
+            m.config.insert(k.clone(), v.to_string());
+        }
+        Plugin::new(&m, [], true).map_err(|e| PluginError::Instantiation(e.to_string()))
     }
 }
 

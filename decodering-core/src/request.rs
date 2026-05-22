@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::actions::create_api_key::CreateApiKey;
 use crate::actions::create_app::CreateApp;
 use crate::actions::create_app_user::CreateAppUser;
+use crate::actions::create_plugin_config::CreatePluginConfig;
 use crate::actions::create_principal::CreatePrincipal;
 use crate::actions::create_principal_app_grant::CreatePrincipalAppGrants;
 use crate::actions::create_principal_credential::CreatePrincipalCredential;
@@ -38,6 +39,7 @@ pub enum AppRequest {
     CreatePrincipalToken(CreatePrincipalToken),
     CreatePrincipalAppGrants(CreatePrincipalAppGrants),
     DeletePrincipalAppGrant(DeletePrincipalAppGrant),
+    CreatePluginConfig(CreatePluginConfig),
     CreateAppUser(CreateAppUser),
     CreateTpmChallenge(CreateTpmChallenge),
     UpdateConsumedAt(UpdateTpmChallengeConsumedAt),
@@ -151,6 +153,9 @@ impl fmt::Display for AppRequest {
                 "UpdateSecretMappingTaint(app_id={}, secret_name={})",
                 update_secret_mapping_taint.app_id, update_secret_mapping_taint.secret_name
             ),
+            Self::CreatePluginConfig(_) => {
+                write!(f, "CreatePluginConfig()")
+            }
         }
     }
 }
@@ -190,6 +195,7 @@ impl AppRequest {
             Self::UpdateSecretMappingTaint(action) => {
                 Ok(run_action_direct(db, action).await?.response)
             }
+            Self::CreatePluginConfig(action) => Ok(run_action_direct(db, action).await?.response),
         }
     }
 }

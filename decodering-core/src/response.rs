@@ -39,6 +39,11 @@ pub struct CreateShamirConfigurationResponse {
 }
 
 #[derive(Serialize, Debug, Deserialize)]
+pub struct CreatePluginConfigResponse {
+    pub backend_name: String,
+}
+
+#[derive(Serialize, Debug, Deserialize)]
 pub struct CreateApiKeyResponse {
     pub user_id: i64,
     pub created_at: i64,
@@ -50,6 +55,7 @@ pub struct SystemInitResponse {
     pub shamir: CreateShamirConfigurationResponse,
     pub user: CreateUserResponse,
     pub api_key: CreateApiKeyResponse,
+    pub plugin_config: Vec<CreatePluginConfigResponse>,
 }
 
 #[derive(Serialize, Debug, Deserialize)]
@@ -133,6 +139,7 @@ pub enum AppResponse {
     CreatePrincipalAppGrant(CreatePrincipalAppGrantResponse),
     CreatePrincipalAppGrants(Vec<CreatePrincipalAppGrantResponse>),
     DeletePrincipalAppGrant(bool),
+    CreatePluginConfig(CreatePluginConfigResponse),
     SystemInit(SystemInitResponse),
     CreateAppUser(CreateAppUserResponse),
     CreateTpmChallenge(CreateTpmChallengeResponse),
@@ -227,6 +234,13 @@ impl fmt::Display for AppResponse {
                     f,
                     "CreatePrincipalAppGrants(total={})",
                     principal_app_grants.len()
+                )
+            }
+            Self::CreatePluginConfig(plugin_config) => {
+                write!(
+                    f,
+                    "CreatePluginConfig(backend_name={})",
+                    plugin_config.backend_name
                 )
             }
             Self::DeletePrincipalAppGrant(r) => write!(f, "DeletePrincipalAppGrant(deleted={r})"),

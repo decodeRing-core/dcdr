@@ -9,6 +9,7 @@ use crate::error::map_sqlx;
 use crate::postgres::api_key::PostgresApiKeysRepository;
 use crate::postgres::app::PostgresAppRepository;
 use crate::postgres::audit::PostgresAuditRepository;
+use crate::postgres::plugin_config::PostgresPluginConfigRepository;
 use crate::postgres::principal::PostgresPrincipalRepository;
 use crate::postgres::principal_app_grant::PostgresPrincipalAppGrantRepository;
 use crate::postgres::principal_credential::PostgresPrincipalCredentialRepository;
@@ -21,6 +22,7 @@ use crate::postgres::user::PostgresUserRepository;
 mod api_key;
 mod app;
 mod audit;
+mod plugin_config;
 mod principal;
 mod principal_app_grant;
 mod principal_credential;
@@ -79,6 +81,10 @@ impl Tx for PostgresTx {
         = PostgresPrincipalAppGrantRepository<'a>
     where
         Self: 'a;
+    type PluginConfigRepo<'a>
+        = PostgresPluginConfigRepository<'a>
+    where
+        Self: 'a;
 
     fn principal_app_grant(&mut self) -> PostgresPrincipalAppGrantRepository<'_> {
         PostgresPrincipalAppGrantRepository { tx: &mut self.tx }
@@ -122,6 +128,10 @@ impl Tx for PostgresTx {
 
     fn app(&mut self) -> PostgresAppRepository<'_> {
         PostgresAppRepository { tx: &mut self.tx }
+    }
+
+    fn plugin_config(&mut self) -> PostgresPluginConfigRepository<'_> {
+        PostgresPluginConfigRepository { tx: &mut self.tx }
     }
 
     async fn commit(self) -> Result<(), DbError> {
