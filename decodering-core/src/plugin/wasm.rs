@@ -15,21 +15,20 @@ use super::secret_backend::SecretBackend;
 
 pub struct WasmSecretBackend {
     manifest: Manifest,
-    credential: BTreeMap<String, Zeroizing<String>>,
 }
 
 impl WasmSecretBackend {
     pub fn new(manifest: Manifest) -> Self {
-        Self {
-            manifest,
-            credential: BTreeMap::new(),
-        }
+        Self { manifest }
     }
 
-    /// Intentional: per-call isolation is a security requirement, not a performance oversight.
-    fn instantiate(&self) -> Result<Plugin, PluginError> {
+    /// Intentional: per-call isolation is a security requirement
+    fn instantiate(
+        &self,
+        credential: &BTreeMap<String, Zeroizing<String>>,
+    ) -> Result<Plugin, PluginError> {
         let mut m = self.manifest.clone();
-        for (k, v) in &self.credential {
+        for (k, v) in credential {
             m.config.insert(k.clone(), v.to_string());
         }
         Plugin::new(&m, [], true).map_err(|e| PluginError::Instantiation(e.to_string()))
@@ -37,8 +36,13 @@ impl WasmSecretBackend {
 }
 
 impl SecretBackend for WasmSecretBackend {
-    fn get(&self, secret_name: &str, version: Option<String>) -> Result<ReadOutput, PluginError> {
-        let mut plugin = self.instantiate()?;
+    fn get(
+        &self,
+        secret_name: &str,
+        version: Option<String>,
+        credential: &BTreeMap<String, Zeroizing<String>>,
+    ) -> Result<ReadOutput, PluginError> {
+        let mut plugin = self.instantiate(credential)?;
         let input = ReadInput {
             secret_name: secret_name.to_owned(),
             version,
@@ -52,8 +56,13 @@ impl SecretBackend for WasmSecretBackend {
             })
     }
 
-    fn put(&self, path: &str, data: &Value) -> Result<String, PluginError> {
-        let mut plugin = self.instantiate()?;
+    fn put(
+        &self,
+        path: &str,
+        data: &Value,
+        credential: &BTreeMap<String, Zeroizing<String>>,
+    ) -> Result<String, PluginError> {
+        let mut plugin = self.instantiate(credential)?;
         let input = WriteInput {
             path: path.to_owned(),
             data: data.to_owned(),
@@ -67,8 +76,12 @@ impl SecretBackend for WasmSecretBackend {
             })
     }
 
-    fn destroy(&self, path: &str) -> Result<bool, PluginError> {
-        let mut plugin = self.instantiate()?;
+    fn destroy(
+        &self,
+        path: &str,
+        credential: &BTreeMap<String, Zeroizing<String>>,
+    ) -> Result<bool, PluginError> {
+        let mut plugin = self.instantiate(credential)?;
         let input = DestroyInput {
             path: path.to_owned(),
         };
@@ -81,8 +94,12 @@ impl SecretBackend for WasmSecretBackend {
             })
     }
 
-    fn delete(&self, path: &str) -> Result<bool, PluginError> {
-        let mut plugin = self.instantiate()?;
+    fn delete(
+        &self,
+        path: &str,
+        credential: &BTreeMap<String, Zeroizing<String>>,
+    ) -> Result<bool, PluginError> {
+        let mut plugin = self.instantiate(credential)?;
         let input = DeleteInput {
             path: path.to_owned(),
         };
@@ -95,8 +112,12 @@ impl SecretBackend for WasmSecretBackend {
             })
     }
 
-    fn restore(&self, path: &str) -> Result<bool, PluginError> {
-        let mut plugin = self.instantiate()?;
+    fn restore(
+        &self,
+        path: &str,
+        credential: &BTreeMap<String, Zeroizing<String>>,
+    ) -> Result<bool, PluginError> {
+        let mut plugin = self.instantiate(credential)?;
         let input = RestoreInput {
             path: path.to_owned(),
         };
@@ -108,8 +129,11 @@ impl SecretBackend for WasmSecretBackend {
                 message: e.to_string(),
             })
     }
-    fn capabilities(&self) -> Result<Vec<Capability>, PluginError> {
-        let mut plugin = self.instantiate()?;
+    fn capabilities(
+        &self,
+        credential: &BTreeMap<String, Zeroizing<String>>,
+    ) -> Result<Vec<Capability>, PluginError> {
+        let mut plugin = self.instantiate(credential)?;
         plugin
             .call::<(), Json<Vec<Capability>>>("capabilities", ())
             .map(|out| out.0)
@@ -119,8 +143,12 @@ impl SecretBackend for WasmSecretBackend {
             })
     }
 
-    fn describe(&self, path: &str) -> Result<DescribeOutput, PluginError> {
-        let mut plugin = self.instantiate()?;
+    fn describe(
+        &self,
+        path: &str,
+        credential: &BTreeMap<String, Zeroizing<String>>,
+    ) -> Result<DescribeOutput, PluginError> {
+        let mut plugin = self.instantiate(credential)?;
         let input = DescribeInput {
             path: path.to_owned(),
         };

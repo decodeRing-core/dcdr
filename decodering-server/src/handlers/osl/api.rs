@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use actix_web::web::Data;
 use actix_web::{Responder, web};
 use decodering_core::actions::create_secret_mapping::CreateSecretMapping;
@@ -10,6 +12,7 @@ use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
 use decodering_core::time::now_ts;
 use decodering_core::tx::{Database, Tx};
+use zeroize::Zeroizing;
 
 use crate::app_data::AppData;
 use crate::auth::require_app_grant_for_principal;
@@ -33,6 +36,7 @@ use crate::handlers::osl::response::ApiRestoreSecretResponse;
 use crate::handlers::osl::response::ApiTaintSecretResponse;
 use crate::handlers::osl::response::{ApiCapabilitiesResponse, ApiDescribeSecretResponse};
 use crate::handlers::response::{ApiResponse, ErrorStatus};
+use crate::plugin::get_plugin_config_credentials_for_backend;
 
 #[tracing::instrument(
     skip_all,
@@ -93,13 +97,28 @@ pub async fn api_put_secret<D: Database + 'static>(
         ));
     };
 
-    let secret_version = match backend_entry.backend.put(&req.store.store_path, &req.data) {
-        Ok(version) => version,
-        Err(e) => {
-            tracing::debug!(error=?e, "Plugin error");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Plugin));
-        }
+    let credentials = match get_plugin_config_credentials_for_backend(
+        &mut db,
+        &app,
+        &req.store.backend_ref,
+    )
+    .await
+    {
+        Ok(x) => x,
+        Err(err) => return ApiResponse::error(err),
     };
+
+    let secret_version =
+        match backend_entry
+            .backend
+            .put(&req.store.store_path, &req.data, &credentials)
+        {
+            Ok(version) => version,
+            Err(e) => {
+                tracing::debug!(error=?e, "Plugin error");
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Plugin));
+            }
+        };
 
     let timestamp = now_ts();
     let secret_mapping = CreateSecretMapping {
@@ -193,9 +212,22 @@ pub async fn api_get_secret<D: Database + 'static>(
             ErrorReason::UnsupportedBackend,
         ));
     };
+
+    let credentials = match get_plugin_config_credentials_for_backend(
+        &mut db,
+        &app,
+        &secret_mapping_data.backend,
+    )
+    .await
+    {
+        Ok(x) => x,
+        Err(err) => return ApiResponse::error(err),
+    };
+
     match backend_entry.backend.get(
         &secret_mapping_data.mount_path,
         Some(req.version.to_string()),
+        &credentials,
     ) {
         Ok(out) => {
             tracing::debug!(data=?out, "Plugin backend response");
@@ -284,9 +316,21 @@ pub async fn api_destroy_secret<D: Database + 'static>(
             ErrorReason::UnsupportedBackend,
         ));
     };
+
+    let credentials = match get_plugin_config_credentials_for_backend(
+        &mut db,
+        &app,
+        &secret_mapping_data.backend,
+    )
+    .await
+    {
+        Ok(x) => x,
+        Err(err) => return ApiResponse::error(err),
+    };
+
     match backend_entry
         .backend
-        .destroy(&secret_mapping_data.mount_path)
+        .destroy(&secret_mapping_data.mount_path, &credentials)
     {
         Ok(_) => {
             // Secret destroyed
@@ -586,9 +630,21 @@ pub async fn api_delete_secret<D: Database + 'static>(
             ErrorReason::UnsupportedBackend,
         ));
     };
+
+    let credentials = match get_plugin_config_credentials_for_backend(
+        &mut db,
+        &app,
+        &secret_mapping_data.mount_path,
+    )
+    .await
+    {
+        Ok(x) => x,
+        Err(err) => return ApiResponse::error(err),
+    };
+
     match backend_entry
         .backend
-        .delete(&secret_mapping_data.mount_path)
+        .delete(&secret_mapping_data.mount_path, &credentials)
     {
         Ok(r) => {
             // Secret soft deleted
@@ -654,9 +710,19 @@ pub async fn api_restore_secret<D: Database + 'static>(
             ErrorReason::UnsupportedBackend,
         ));
     };
+    let credentials = match get_plugin_config_credentials_for_backend(
+        &mut db,
+        &app,
+        &secret_mapping_data.mount_path,
+    )
+    .await
+    {
+        Ok(x) => x,
+        Err(err) => return ApiResponse::error(err),
+    };
     match backend_entry
         .backend
-        .restore(&secret_mapping_data.mount_path)
+        .restore(&secret_mapping_data.mount_path, &credentials)
     {
         Ok(r) => {
             // Secret soft delete restore
@@ -677,11 +743,25 @@ pub async fn api_restore_secret<D: Database + 'static>(
     )
 )]
 pub async fn api_get_capabilities<D: Database + 'static>(
+    app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
-    let server_capabilities = core.get_server_capabilities();
-    let backend_capabilities = core.get_backend_capabilities();
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+    let mut credentials: BTreeMap<String, BTreeMap<String, Zeroizing<String>>> = BTreeMap::new();
+    for backend in core.get_backends().keys() {
+        let plugin_credential = get_plugin_config_credentials_for_backend(&mut db, &app, backend)
+            .await
+            .unwrap_or_default();
+        credentials.insert(backend.clone(), plugin_credential);
+    }
+    println!("credentials = {:#?}", credentials);
+    let server_capabilities = core.get_server_capabilities(&credentials);
+    let backend_capabilities = core.get_backend_capabilities(&credentials);
     return ApiCapabilitiesResponse::new(server_capabilities, backend_capabilities);
 }
 
@@ -734,9 +814,21 @@ pub async fn api_describe_secret<D: Database + 'static>(
             ErrorReason::UnsupportedBackend,
         ));
     };
+
+    let credentials = match get_plugin_config_credentials_for_backend(
+        &mut db,
+        &app,
+        &secret_mapping_data.mount_path,
+    )
+    .await
+    {
+        Ok(x) => x,
+        Err(err) => return ApiResponse::error(err),
+    };
+
     match backend_entry
         .backend
-        .describe(&secret_mapping_data.mount_path)
+        .describe(&secret_mapping_data.mount_path, &credentials)
     {
         Ok(r) => {
             return ApiDescribeSecretResponse::new(r);

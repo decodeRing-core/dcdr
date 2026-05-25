@@ -6,5 +6,6 @@ pub mod extractor;
 pub mod handlers;
 pub mod logger;
 pub mod middleware;
+pub mod plugin;
 pub mod routes;
 pub mod shamir;

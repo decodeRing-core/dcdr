@@ -252,7 +252,7 @@ pub fn decrypt_blob(
 /// Encrypt a whole credential map: serialize to JSON, then encrypt.
 pub fn encrypt_map(
     master_key: &[u8],
-    creds: &BTreeMap<String, String>,
+    creds: &BTreeMap<String, Zeroizing<String>>,
     aad: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
     let json = Zeroizing::new(serde_json::to_vec(creds).map_err(|_| CryptoError::Serialize)?);
@@ -264,7 +264,7 @@ pub fn decrypt_map(
     master_key: &[u8],
     blob: &[u8],
     aad: &[u8],
-) -> Result<BTreeMap<String, String>, CryptoError> {
+) -> Result<BTreeMap<String, Zeroizing<String>>, CryptoError> {
     let json = decrypt_blob(master_key, blob, aad)?;
     serde_json::from_slice(&json).map_err(|_| CryptoError::Serialize)
 }

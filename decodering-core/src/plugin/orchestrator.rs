@@ -1,10 +1,11 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
 use extism::Manifest;
 use serde::Serialize;
+use zeroize::Zeroizing;
 
 use crate::plugin::osl_contract::Capability;
 
@@ -43,13 +44,17 @@ impl Orchestrator {
         self.backends.clone()
     }
 
-    pub fn get_backend_capabilities(&self) -> Vec<BackendCapabilities> {
+    pub fn get_backend_capabilities(
+        &self,
+        credentials: &BTreeMap<String, BTreeMap<String, Zeroizing<String>>>,
+    ) -> Vec<BackendCapabilities> {
         self.backends
             .iter()
             .filter_map(|(backend_ref, backend_entry)| {
+                let credential = credentials.get(backend_ref)?;
                 backend_entry
                     .backend
-                    .capabilities()
+                    .capabilities(credential)
                     .ok()
                     .map(|capabilities| BackendCapabilities {
                         backend_ref: backend_ref.clone(),
@@ -60,10 +65,18 @@ impl Orchestrator {
             .collect()
     }
 
-    pub fn get_server_capabilities(&self) -> Vec<Capability> {
+    pub fn get_server_capabilities(
+        &self,
+        credentials: &BTreeMap<String, BTreeMap<String, Zeroizing<String>>>,
+    ) -> Vec<Capability> {
         self.backends
-            .values()
-            .filter_map(|backend_entry| backend_entry.backend.capabilities().ok())
+            .iter()
+            .filter_map(|(key, backend_entry)| {
+                if let Some(credential) = credentials.get(key) {
+                    return backend_entry.backend.capabilities(credential).ok();
+                }
+                Some(vec![])
+            })
             .flatten()
             .chain(SERVER_CAPABILITIES)
             .collect::<HashSet<_>>()

@@ -73,7 +73,6 @@ impl Action for SystemInit {
 
         let plugin_config_entries: Vec<PluginConfigEntry> =
             self.plugin_config.into_iter().map(Into::into).collect();
-        println!("plugin_config_entries = {:#?}", plugin_config_entries);
         let _ = tx
             .plugin_config()
             .insert_many(plugin_config_entries.clone())
