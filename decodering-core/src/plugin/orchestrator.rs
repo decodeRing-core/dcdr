@@ -122,7 +122,7 @@ impl Orchestrator {
                 }
             };
 
-            let manifest: Manifest = match serde_yaml::from_str(&yaml) {
+            let manifest: Manifest = match serde_norway::from_str(&yaml) {
                 Ok(m) => m,
                 Err(e) => {
                     tracing::warn!(?path, error = %e, "yaml parse failed");
@@ -130,11 +130,10 @@ impl Orchestrator {
                 }
             };
 
-            let backend_type = manifest
-                .config
-                .get("type")
-                .unwrap_or(&String::new())
-                .to_owned();
+            let Some(backend_type) = manifest.config.get("type").cloned() else {
+                tracing::warn!(?path, "manifest missing config.type, skipping");
+                continue;
+            };
 
             let backend_entry = BackendEntry {
                 backend_type,

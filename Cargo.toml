@@ -22,15 +22,14 @@ decodering-db = { path = "decodering-db" }
 
 serde_with = { version = "3.20.0", features = ["base64", "macros"] }
 # Targeting a specific rusqlite version to match the same libsqlite3-sys version used by sqlx
-# Using backup API to install a new snapshot. Not supported by sqlx 0.8.x.
-# Pin to sync with sqlx
-rusqlite = { version = "~0.32.1", features = ["bundled", "backup"] }
+# Using backup API to install a new snapshot.
+rusqlite = { version = "~0.39.0", features = ["bundled", "backup"] }
 
 serde = "1.0.228"
 serde_json = "1.0.150"
 tokio = { version = "1.52.3", features = ["full"] }
 extism = "1.21.0"
-serde_yaml = "0.9"
+serde_norway = "0.9.42"
 dotenvy = "0.15.7"
 actix-web = "4.13.0"
 tracing = "0.1.44"
@@ -50,7 +49,7 @@ futures = "0.3.32"
 rand = { version = "0.10.1", features = ["thread_rng"] }
 reqwest = { version = "0.13.3", features = ["json"] }
 clap = { version = "4.6.1", features = ["derive"] }
-sqlx = { version = "0.8.6", features = [
+sqlx = { version = "0.9.0", features = [
     "runtime-tokio",
     "sqlite",
     "macros",
