@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalKind};
 use serde::Deserialize;
-use serde_with::base64::Base64;
-use serde_with::serde_as;
 
 #[derive(Deserialize, Debug)]
 pub struct CreateAppUserData {
@@ -27,13 +25,6 @@ pub struct TrustedPlatformModuleData {
 #[derive(Deserialize, Debug)]
 pub struct AwsData {
     pub role_arn: String,
-}
-
-#[serde_as]
-#[derive(Deserialize, Debug)]
-pub struct UnlockData {
-    #[serde_as(as = "Vec<Base64>")]
-    pub shards: Vec<Vec<u8>>,
 }
 
 #[derive(Deserialize, Debug)]

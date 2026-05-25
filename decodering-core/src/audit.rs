@@ -78,6 +78,8 @@ pub enum ActionKind {
     PrincipalTokenCreate,
     PrincipalAppGrantCreate,
     PrincipalAppGrantDelete,
+    PluginConfigCreate,
+    PluginConfigCredentialsUpdate,
     SecretMappingCreate,
     SecretMappingDelete,
     SecretMappingGet,
@@ -110,6 +112,8 @@ impl ActionKind {
             Self::PrincipalAppGrantCreate => "principal_app_grant.create",
             Self::PrincipalAppGrantDelete => "principal_app_grant.delete",
             Self::PrincipalCredentialLastUsedUpdate => "principal_credential.update",
+            Self::PluginConfigCreate => "plugin_config.create",
+            Self::PluginConfigCredentialsUpdate => "plugin_config.update",
         }
     }
 }

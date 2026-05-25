@@ -398,4 +398,10 @@ pub trait PluginConfigRepository: Send {
         &mut self,
         backend_name: &str,
     ) -> impl Future<Output = Result<Option<PluginConfig>, DbError>> + Send;
+    fn update_credentials(
+        &mut self,
+        backend_name: &str,
+        credentials: &[u8],
+        updated_at: i64,
+    ) -> impl Future<Output = Result<u64, DbError>> + Send;
 }

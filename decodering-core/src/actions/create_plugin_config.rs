@@ -54,7 +54,7 @@ impl Action for CreatePluginConfig {
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
             actor: Actor::None,
-            action_kind: ActionKind::ApiKeyCreate,
+            action_kind: ActionKind::PluginConfigCreate,
             revertible: true,
             undoes: None,
             metadata: None,

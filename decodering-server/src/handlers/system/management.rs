@@ -1,8 +1,8 @@
 use crate::app_data::AppData;
 use crate::error::ErrorReason;
-use crate::handlers::app::payload::UnlockData;
-use crate::handlers::response::{ApiResponse, ErrorStatus, SuccessStatus};
-use crate::handlers::system::payloads::InitSystemRequestData;
+use crate::extractor::AuthAdminMiddleware;
+use crate::handlers::response::{ApiResponse, ApiStatus, ErrorStatus, SuccessStatus};
+use crate::handlers::system::payloads::{InitSystemData, PluginConfigData, UnlockData};
 use crate::handlers::system::response::ApiInitSystemResponse;
 use crate::shamir::{initialize_shamir, unlock};
 use actix_web::Responder;
@@ -14,6 +14,7 @@ use decodering_core::actions::create_plugin_config::CreatePluginConfig;
 use decodering_core::actions::create_shamir_configuration::CreateShamirConfiguration;
 use decodering_core::actions::create_user::CreateUser;
 use decodering_core::actions::system_init::SystemInit;
+use decodering_core::actions::update_plugin_config_credentials::UpdatePluginConfigCredentials;
 use decodering_core::crypto::{encrypt_map, sha256_hex};
 use decodering_core::repository::ShamirRepository;
 use decodering_core::response::AppResponse;
@@ -24,7 +25,7 @@ use zeroize::Zeroizing;
 
 pub async fn system_init<D: Database + 'static>(
     app: Data<AppData<D>>,
-    req: Json<InitSystemRequestData>,
+    req: Json<InitSystemData>,
 ) -> impl Responder {
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
@@ -96,7 +97,6 @@ pub async fn system_init<D: Database + 'static>(
             plugins.push(plugin_config);
         }
     }
-    // TODO: Decode plugin configs and pass that to the manifest.
     let request_initialize = SystemInit::request(shamir, user, api_key, plugins);
     match app.submit(request_initialize).await {
         Ok(resp) => match resp {
@@ -190,4 +190,48 @@ pub async fn system_status<D: Database + 'static>(app: Data<AppData<D>>) -> impl
         return ApiResponse::<()>::empty(SuccessStatus::SystemLocked.into());
     }
     ApiResponse::<()>::empty(SuccessStatus::SystemUnlocked.into())
+}
+
+pub async fn system_plugin_config<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    req: Json<PluginConfigData>,
+    _auth: AuthAdminMiddleware<D>,
+) -> impl Responder {
+    let timestamp = now_ts();
+    let Some(key) = app.master_key.get() else {
+        tracing::error!("System is locked");
+        return ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Locked));
+    };
+
+    for (backend_name, credentials) in req.plugins_credentials.clone() {
+        let blob = encrypt_map(key, &credentials, backend_name.as_bytes());
+        if let Ok(blob) = blob {
+            let request_update_plugin =
+                UpdatePluginConfigCredentials::request(backend_name, blob, timestamp);
+
+            let _ = match app.submit(request_update_plugin).await {
+                Ok(resp) => match resp {
+                    AppResponse::UpdatePluginConfigSecrets(_) => ApiResponse::<()>::new(
+                        ApiStatus::Success(SuccessStatus::OperationCompleted),
+                        None,
+                    ),
+                    AppResponse::Error(e) => {
+                        tracing::error!(%e, "Failed to initialize system");
+                        ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                            "initialize system".into(),
+                        )))
+                    }
+                    other_api_response => {
+                        tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                        ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
+                    }
+                },
+                Err(e) => {
+                    tracing::error!(%e, "Failed to initialize system");
+                    ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+                }
+            };
+        }
+    }
+    ApiResponse::new(ApiStatus::Success(SuccessStatus::OperationCompleted), None)
 }

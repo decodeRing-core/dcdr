@@ -61,4 +61,24 @@ impl PluginConfigRepository for PostgresPluginConfigRepository<'_> {
         }
         Ok(names)
     }
+
+    async fn update_credentials(
+        &mut self,
+        backend_name: &str,
+        credentials: &[u8],
+        updated_at: i64,
+    ) -> Result<u64, DbError> {
+        let result = sqlx::query(
+            "UPDATE plugin_configs
+             SET secret_blob = $1, updated_at = $2
+             WHERE backend_name = $3",
+        )
+        .bind(credentials)
+        .bind(updated_at)
+        .bind(backend_name)
+        .execute(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(result.rows_affected())
+    }
 }

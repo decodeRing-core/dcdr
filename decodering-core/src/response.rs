@@ -140,6 +140,7 @@ pub enum AppResponse {
     CreatePrincipalAppGrants(Vec<CreatePrincipalAppGrantResponse>),
     DeletePrincipalAppGrant(bool),
     CreatePluginConfig(CreatePluginConfigResponse),
+    UpdatePluginConfigSecrets(Vec<u8>),
     SystemInit(SystemInitResponse),
     CreateAppUser(CreateAppUserResponse),
     CreateTpmChallenge(CreateTpmChallengeResponse),
@@ -253,6 +254,9 @@ impl fmt::Display for AppResponse {
             Self::Error(e) => write!(f, "Error({e})"),
             Self::SystemInit(_) => write!(f, "SystemInit()"),
             Self::UpdateSecretMappingTaint(r) => write!(f, "UpdateSecretMappingTaint(updated={r})"),
+            Self::UpdatePluginConfigSecrets(_) => {
+                write!(f, "UpdatePluginConfigSecrets()")
+            }
         }
     }
 }

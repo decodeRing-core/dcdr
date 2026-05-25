@@ -35,3 +35,4 @@ pub type InstallSnapshotRequest = openraft::raft::InstallSnapshotRequest<TypeCon
 pub type SnapshotResponse = openraft::raft::SnapshotResponse<TypeConfig>;
 pub type ClientWriteResponse = openraft::raft::ClientWriteResponse<TypeConfig>;
 pub type ServerState = openraft::ServerState;
+pub type ReadPolicy = openraft::ReadPolicy;
