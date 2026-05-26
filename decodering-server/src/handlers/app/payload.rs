@@ -82,3 +82,9 @@ pub struct RevokeAppData {
     pub app_id: String,
     pub principal_id: String,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct ListAppsData {
+    pub principal_id: String,
+    pub after_app_id: Option<String>,
+}

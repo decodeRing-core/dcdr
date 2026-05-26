@@ -38,7 +38,7 @@ impl SuccessStatus {
             Self::RaftMetrics => "Raft node metrics",
             Self::RaftAddLearner => "Raft learner added",
             Self::RaftMembership => "Raft membership changes",
-            Self::OperationCompleted => "Operating completed",
+            Self::OperationCompleted => "Operation completed",
         }
     }
 

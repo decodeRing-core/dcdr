@@ -33,16 +33,16 @@ use crate::app_data::AppData;
 use crate::config::Config;
 use crate::error::ErrorReason;
 use crate::extractor::AuthAdminMiddleware;
-use crate::handlers::app::payload::AuthUserData;
 use crate::handlers::app::payload::CreateAppData;
 use crate::handlers::app::payload::CreateAppUserData;
 use crate::handlers::app::payload::RevokeAppData;
 use crate::handlers::app::payload::{AppGrantData, AuthTpmUserData};
 use crate::handlers::app::payload::{AuthAwsUserData, AuthTpmData};
-use crate::handlers::app::response::ApiAuthAppUserResponse;
+use crate::handlers::app::payload::{AuthUserData, ListAppsData};
 use crate::handlers::app::response::ApiCreateAppGrantResponse;
 use crate::handlers::app::response::ApiDeleteAppGrantResponse;
 use crate::handlers::app::response::ApiTpmChallengeResponse;
+use crate::handlers::app::response::{ApiAuthAppUserResponse, ApiListAppsResponse};
 use crate::handlers::app::response::{ApiCreateAppResponse, ApiCreateAppUserResponse};
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 use base64::{Engine, engine::general_purpose::STANDARD};
@@ -800,4 +800,30 @@ pub async fn revoke_app_access_user<D: Database + 'static>(
             ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
         }
     }
+}
+
+pub async fn list_app_access_user<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    req: Json<ListAppsData>,
+    _auth: AuthAdminMiddleware<D>,
+) -> impl Responder {
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let principal_app_grants = match db
+        .principal_app_grant()
+        .get_by_principal_id_after(&req.0.principal_id, req.0.after_app_id.as_deref(), 64)
+        .await
+    {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+        }
+    };
+
+    ApiListAppsResponse::new(principal_app_grants)
 }

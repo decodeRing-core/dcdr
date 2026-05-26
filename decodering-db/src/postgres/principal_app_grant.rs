@@ -1,9 +1,9 @@
 use crate::error::map_sqlx;
 use crate::repository::PrincipalAppGrantRow;
 use decodering_core::error::DbError;
-use decodering_core::repository::{
-    PrincipalAppGrant, PrincipalAppGrantEntry, PrincipalAppGrantRepository,
-};
+use decodering_core::repository::PrincipalAppGrant;
+use decodering_core::repository::PrincipalAppGrantEntry;
+use decodering_core::repository::PrincipalAppGrantRepository;
 use sqlx::{Postgres, QueryBuilder, Transaction};
 
 pub struct PostgresPrincipalAppGrantRepository<'a> {
@@ -88,5 +88,38 @@ impl PrincipalAppGrantRepository for PostgresPrincipalAppGrantRepository<'_> {
             .await
             .map_err(map_sqlx)?;
         Ok(principal_app_grant.map(Into::into))
+    }
+
+    #[allow(clippy::option_if_let_else)]
+    async fn get_by_principal_id_after(
+        &mut self,
+        principal_id: &str,
+        after_app_id: Option<&str>,
+        limit: i64,
+    ) -> Result<Vec<PrincipalAppGrant>, DbError> {
+        let rows: Vec<PrincipalAppGrantRow> = match after_app_id {
+            Some(cursor) => sqlx::query_as::<_, PrincipalAppGrantRow>(
+                "SELECT principal_id, app_id, granted_at, revoked_at, revoked_by
+                 FROM principal_app_grants
+                 WHERE principal_id = $1 AND app_id > $2
+                 LIMIT $3",
+            )
+            .bind(principal_id)
+            .bind(cursor)
+            .bind(limit),
+            None => sqlx::query_as::<_, PrincipalAppGrantRow>(
+                "SELECT principal_id, app_id, granted_at, revoked_at, revoked_by
+                 FROM principal_app_grants
+                 WHERE principal_id = $1
+                 LIMIT $2",
+            )
+            .bind(principal_id)
+            .bind(limit),
+        }
+        .fetch_all(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+
+        Ok(rows.into_iter().map(Into::into).collect())
     }
 }

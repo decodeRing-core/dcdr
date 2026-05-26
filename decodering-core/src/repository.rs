@@ -42,6 +42,12 @@ pub trait PrincipalAppGrantRepository: Send {
         app_id: &str,
         principal_id: &str,
     ) -> impl Future<Output = Result<Option<PrincipalAppGrant>, DbError>> + Send;
+    fn get_by_principal_id_after(
+        &mut self,
+        principal_id: &str,
+        after_app_id: Option<&str>,
+        limit: i64,
+    ) -> impl Future<Output = Result<Vec<PrincipalAppGrant>, DbError>> + Send;
 }
 
 #[derive(Debug, Clone, Serialize)]

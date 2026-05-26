@@ -92,4 +92,37 @@ impl PrincipalAppGrantRepository for SqlitePrincipalAppGrantRepository<'_> {
             .map_err(map_sqlx)?;
         Ok(principal_app_grant.map(Into::into))
     }
+
+    #[allow(clippy::option_if_let_else)]
+    async fn get_by_principal_id_after(
+        &mut self,
+        principal_id: &str,
+        after_app_id: Option<&str>,
+        limit: i64,
+    ) -> Result<Vec<PrincipalAppGrant>, DbError> {
+        let rows: Vec<PrincipalAppGrantRow> = match after_app_id {
+            Some(cursor) => sqlx::query_as::<_, PrincipalAppGrantRow>(
+                "SELECT principal_id, app_id, granted_at, granted_by, revoked_at, revoked_by
+                 FROM principal_app_grants
+                 WHERE principal_id = ? AND app_id > ?
+                 LIMIT ?",
+            )
+            .bind(principal_id)
+            .bind(cursor)
+            .bind(limit),
+            None => sqlx::query_as::<_, PrincipalAppGrantRow>(
+                "SELECT principal_id, app_id, granted_at, granted_by, revoked_at, revoked_by
+                 FROM principal_app_grants
+                 WHERE principal_id = ?
+                 LIMIT ?",
+            )
+            .bind(principal_id)
+            .bind(limit),
+        }
+        .fetch_all(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
 }
