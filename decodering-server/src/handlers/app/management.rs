@@ -39,11 +39,12 @@ use crate::handlers::app::payload::RevokeAppData;
 use crate::handlers::app::payload::{AppGrantData, AuthTpmUserData};
 use crate::handlers::app::payload::{AuthAwsUserData, AuthTpmData};
 use crate::handlers::app::payload::{AuthUserData, ListAppsData};
+use crate::handlers::app::response::ApiAuthAppUserResponse;
 use crate::handlers::app::response::ApiCreateAppGrantResponse;
 use crate::handlers::app::response::ApiDeleteAppGrantResponse;
 use crate::handlers::app::response::ApiTpmChallengeResponse;
-use crate::handlers::app::response::{ApiAuthAppUserResponse, ApiListAppsResponse};
 use crate::handlers::app::response::{ApiCreateAppResponse, ApiCreateAppUserResponse};
+use crate::handlers::osl::response::ApiListAppsResponse;
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 use base64::{Engine, engine::general_purpose::STANDARD};
 

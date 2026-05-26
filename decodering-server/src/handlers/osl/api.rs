@@ -7,7 +7,9 @@ use decodering_core::actions::delete_secret_mapping::DeleteSecretMapping;
 use decodering_core::actions::update_secret_mapping_taint::UpdateSecretMappingTaint;
 use decodering_core::plugin::orchestrator::Orchestrator;
 use decodering_core::plugin::osl_contract::SecretStatus;
-use decodering_core::repository::{AppRepository, SecretMappingRespository};
+use decodering_core::repository::{
+    AppRepository, PrincipalAppGrantRepository, SecretMappingRespository,
+};
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
 use decodering_core::time::now_ts;
@@ -18,15 +20,14 @@ use crate::app_data::AppData;
 use crate::auth::require_app_grant_for_principal;
 use crate::error::ErrorReason;
 use crate::extractor::AuthOSLMiddleware;
-use crate::handlers::osl::payload::DestroySecretRequestData;
 use crate::handlers::osl::payload::IsTaintedSecretRequestData;
 use crate::handlers::osl::payload::PutSecretRequestData;
 use crate::handlers::osl::payload::RestoreSecretRequestData;
 use crate::handlers::osl::payload::TaintSecretRequestData;
 use crate::handlers::osl::payload::UntaintSecretRequestData;
 use crate::handlers::osl::payload::{DeleteSecretRequestData, DescribeSecretRequestData};
+use crate::handlers::osl::payload::{DestroySecretRequestData, ListAppsData};
 use crate::handlers::osl::payload::{GetSecretRequestData, ListSecretRequestData};
-use crate::handlers::osl::response::ApiDeleteSecretResponse;
 use crate::handlers::osl::response::ApiDestroySecretResponse;
 use crate::handlers::osl::response::ApiGetSecretResponse;
 use crate::handlers::osl::response::ApiIsTaintedSecretResponse;
@@ -35,6 +36,7 @@ use crate::handlers::osl::response::ApiPutSecretResponse;
 use crate::handlers::osl::response::ApiRestoreSecretResponse;
 use crate::handlers::osl::response::ApiTaintSecretResponse;
 use crate::handlers::osl::response::{ApiCapabilitiesResponse, ApiDescribeSecretResponse};
+use crate::handlers::osl::response::{ApiDeleteSecretResponse, ApiListAppsResponse};
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 use crate::plugin::get_plugin_config_credentials_for_backend;
 
@@ -838,4 +840,43 @@ pub async fn api_describe_secret<D: Database + 'static>(
             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Plugin));
         }
     }
+}
+
+#[tracing::instrument(
+    skip_all,
+    fields(
+        user_id = auth.user.as_ref().map(|u| u.id),
+        principal_id = auth.principal.as_ref().map(|p| p.principal_id.as_str()),
+    )
+)]
+pub async fn api_get_apps_list<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    req: web::Json<ListAppsData>,
+    auth: AuthOSLMiddleware<D>,
+) -> impl Responder {
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let principal = auth.principal;
+    let Some(principal) = principal else {
+        tracing::error!("Principal not found");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+    };
+
+    let principal_app_grants = match db
+        .principal_app_grant()
+        .get_by_principal_id_after(&principal.principal_id, req.0.after_app_id.as_deref(), 64)
+        .await
+    {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+        }
+    };
+
+    ApiListAppsResponse::new(principal_app_grants)
 }

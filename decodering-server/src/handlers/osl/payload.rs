@@ -75,3 +75,8 @@ pub struct DescribeSecretRequestData {
     pub app_id: String,
     pub secret_name: String,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct ListAppsData {
+    pub after_app_id: Option<String>,
+}

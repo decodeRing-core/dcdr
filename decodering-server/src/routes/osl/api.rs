@@ -4,6 +4,7 @@ use decodering_core::tx::Database;
 use crate::handlers::osl::api::api_delete_secret;
 use crate::handlers::osl::api::api_describe_secret;
 use crate::handlers::osl::api::api_destroy_secret;
+use crate::handlers::osl::api::api_get_apps_list;
 use crate::handlers::osl::api::api_get_capabilities;
 use crate::handlers::osl::api::api_get_secret;
 use crate::handlers::osl::api::api_is_tainted_secret;
@@ -28,7 +29,8 @@ pub fn read_osl_routes<D: Database + 'static>(cfg: &mut web::ServiceConfig) {
         .route(
             "/capabilities/get",
             web::get().to(api_get_capabilities::<D>),
-        );
+        )
+        .route("/apps/list", web::get().to(api_get_apps_list::<D>));
 }
 
 pub fn write_osl_routes<D: Database + 'static>(cfg: &mut web::ServiceConfig) {

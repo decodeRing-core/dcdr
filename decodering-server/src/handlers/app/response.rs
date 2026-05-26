@@ -1,4 +1,3 @@
-use decodering_core::repository::PrincipalAppGrant;
 use serde::Serialize;
 
 use crate::handlers::response::{ApiResponse, ApiStatus, SuccessStatus};
@@ -86,30 +85,5 @@ pub struct ApiDeleteAppGrantResponse {}
 impl ApiDeleteAppGrantResponse {
     pub(crate) fn new() -> ApiResponse<Self> {
         ApiResponse::new(ApiStatus::Success(SuccessStatus::OperationCompleted), None)
-    }
-}
-
-#[derive(Serialize)]
-pub struct ApiListAppsResponse(Vec<ListAppResponse>);
-
-#[derive(Serialize)]
-struct ListAppResponse {
-    app_id: String,
-}
-
-impl From<PrincipalAppGrant> for ListAppResponse {
-    fn from(value: PrincipalAppGrant) -> Self {
-        Self {
-            app_id: value.app_id,
-        }
-    }
-}
-
-impl ApiListAppsResponse {
-    pub(crate) fn new(app_grants: Vec<PrincipalAppGrant>) -> ApiResponse<Self> {
-        ApiResponse::new(
-            ApiStatus::Success(SuccessStatus::OperationCompleted),
-            Some(Self(app_grants.into_iter().map(Into::into).collect())),
-        )
     }
 }

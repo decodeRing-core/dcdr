@@ -3,7 +3,7 @@ use decodering_core::{
         orchestrator::BackendCapabilities,
         osl_contract::{Capability, DescribeOutput},
     },
-    repository::SecretMapping,
+    repository::{PrincipalAppGrant, SecretMapping},
 };
 use serde::Serialize;
 use serde_json::Value;
@@ -193,6 +193,31 @@ impl ApiDescribeSecretResponse {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
             Some(Self { output }),
+        )
+    }
+}
+
+#[derive(Serialize)]
+pub struct ApiListAppsResponse(Vec<ListAppResponse>);
+
+#[derive(Serialize)]
+struct ListAppResponse {
+    app_id: String,
+}
+
+impl From<PrincipalAppGrant> for ListAppResponse {
+    fn from(value: PrincipalAppGrant) -> Self {
+        Self {
+            app_id: value.app_id,
+        }
+    }
+}
+
+impl ApiListAppsResponse {
+    pub(crate) fn new(app_grants: Vec<PrincipalAppGrant>) -> ApiResponse<Self> {
+        ApiResponse::new(
+            ApiStatus::Success(SuccessStatus::OperationCompleted),
+            Some(Self(app_grants.into_iter().map(Into::into).collect())),
         )
     }
 }
