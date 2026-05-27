@@ -30,7 +30,7 @@ impl PluginConfigRepository for PostgresPluginConfigRepository<'_> {
     async fn insert(&mut self, plugin_config: &PluginConfigEntry) -> Result<String, DbError> {
         let name: String = sqlx::query_scalar(
             "INSERT INTO plugin_configs (backend_name, secret_blob, updated_at)
-                VALUES ($1, $2, $3)",
+                VALUES ($1, $2, $3) RETURNING backend_name",
         )
         .bind(&plugin_config.backend_name)
         .bind(&plugin_config.secret_blob)

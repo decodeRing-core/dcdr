@@ -761,7 +761,6 @@ pub async fn api_get_capabilities<D: Database + 'static>(
             .unwrap_or_default();
         credentials.insert(backend.clone(), plugin_credential);
     }
-    println!("credentials = {:#?}", credentials);
     let server_capabilities = core.get_server_capabilities(&credentials);
     let backend_capabilities = core.get_backend_capabilities(&credentials);
     return ApiCapabilitiesResponse::new(server_capabilities, backend_capabilities);

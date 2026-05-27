@@ -30,7 +30,7 @@ impl PluginConfigRepository for SqlitePluginConfigRepository<'_> {
     async fn insert(&mut self, plugin_config: &PluginConfigEntry) -> Result<String, DbError> {
         let name: String = sqlx::query_scalar(
             "INSERT INTO plugin_configs (backend_name, secret_blob, updated_at)
-                VALUES (?, ?, ?)",
+                VALUES (?, ?, ?) RETURNING backend_name",
         )
         .bind(&plugin_config.backend_name)
         .bind(&plugin_config.secret_blob)

@@ -4,7 +4,7 @@ use crate::action::Action;
 use crate::audit::{ActionKind, Target};
 use crate::audit::{ActionOutput, Actor, AuditDescriptor};
 use crate::error::ExecutionError;
-use crate::repository::PluginConfigRepository;
+use crate::repository::{PluginConfigEntry, PluginConfigRepository};
 use crate::request::AppRequest;
 use crate::response::AppResponse;
 use crate::tx::Tx;
@@ -47,10 +47,18 @@ impl Action for UpdatePluginConfigCredentials {
     async fn execute<U: Tx + Send>(self, tx: &mut U) -> Result<Self::Output, ExecutionError> {
         let plugin_config = tx.plugin_config().get_by_backend(&self.backend).await?;
         let before_state = serde_json::json!(plugin_config);
-        let _ = tx
-            .plugin_config()
-            .update_credentials(&self.backend, &self.credentials, self.updated_at)
-            .await?;
+        if plugin_config.is_some() {
+            tx.plugin_config()
+                .update_credentials(&self.backend, &self.credentials, self.updated_at)
+                .await?;
+        } else {
+            let plugin_config_entry = PluginConfigEntry {
+                backend_name: self.backend.clone(),
+                secret_blob: self.credentials.clone(),
+                updated_at: self.updated_at,
+            };
+            tx.plugin_config().insert(&plugin_config_entry).await?;
+        }
         let response = self.credentials;
         let after = serde_json::json!(response);
         let app_response = AppResponse::UpdatePluginConfigSecrets(response);
