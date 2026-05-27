@@ -296,7 +296,8 @@ POST http://127.0.0.1:21001/system/init
 ```json
 {
   "total_shares": 5,
-  "threshold": 2
+  "threshold": 2,
+  "plugin_credentials": {}
 }
 ```
 
@@ -316,6 +317,29 @@ POST http://127.0.0.1:21001/system/unlock
 ```json
 {
   "shards": ["xxxx", "xxxx"]
+}
+```
+
+</details>
+
+#### Update plugin configs
+
+Update plugin configuration credentials
+
+```
+POST http://127.0.0.1:21001/system/plugin/config
+```
+
+<details>
+<summary>Request Body</summary>
+
+```json
+{
+  "plugins_credentials": {
+    "openbao-rs": {
+      "vault_token": "xxx"
+    }
+  }
 }
 ```
 
@@ -560,6 +584,25 @@ POST http://127.0.0.1:21001/app/user/revoke
 
 </details>
 
+#### List applications
+
+List applications user/principal's has access to.
+
+```
+POST http://127.0.0.1:21001/app/list
+```
+
+<details>
+<summary>Request Body</summary>
+
+```json
+{
+  "principal_id": "019e68de-f1b9-7f10-809e-7f34e96434f4"
+}
+```
+
+</details>
+
 ### **OSL**
 
 **All endpoints below require a root token or a short-term token**
@@ -571,13 +614,14 @@ Current implementation status
 - [x] Get secret
 - [x] Put secret
 - [x] Destroy secret
-- [ ] Delete secret
+- [x] Delete secret
+- [x] Restore secret
 - [x] List secrets
 - [x] Taint secret
 - [x] Is secret tainted
 - [x] Untaint secret
-- [ ] Get capabilities
-- [ ] Secrets describe
+- [x] Get capabilities
+- [x] Secrets describe
 - [ ] Secrets versions list
 - [ ] Secret versions get
 - [ ] Issue credential
