@@ -221,3 +221,15 @@ impl ApiListAppsResponse {
         )
     }
 }
+
+#[derive(Serialize)]
+pub struct ApiListBackendsResponse(Vec<String>);
+
+impl ApiListBackendsResponse {
+    pub(crate) fn new(backends: Vec<String>) -> ApiResponse<Self> {
+        ApiResponse::new(
+            ApiStatus::Success(SuccessStatus::OperationCompleted),
+            Some(Self(backends)),
+        )
+    }
+}

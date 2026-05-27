@@ -28,7 +28,6 @@ use crate::handlers::osl::payload::UntaintSecretRequestData;
 use crate::handlers::osl::payload::{DeleteSecretRequestData, DescribeSecretRequestData};
 use crate::handlers::osl::payload::{DestroySecretRequestData, ListAppsData};
 use crate::handlers::osl::payload::{GetSecretRequestData, ListSecretRequestData};
-use crate::handlers::osl::response::ApiDestroySecretResponse;
 use crate::handlers::osl::response::ApiGetSecretResponse;
 use crate::handlers::osl::response::ApiIsTaintedSecretResponse;
 use crate::handlers::osl::response::ApiListSecretResponse;
@@ -37,6 +36,7 @@ use crate::handlers::osl::response::ApiRestoreSecretResponse;
 use crate::handlers::osl::response::ApiTaintSecretResponse;
 use crate::handlers::osl::response::{ApiCapabilitiesResponse, ApiDescribeSecretResponse};
 use crate::handlers::osl::response::{ApiDeleteSecretResponse, ApiListAppsResponse};
+use crate::handlers::osl::response::{ApiDestroySecretResponse, ApiListBackendsResponse};
 use crate::handlers::response::{ApiResponse, ErrorStatus};
 use crate::plugin::get_plugin_config_credentials_for_backend;
 
@@ -878,4 +878,22 @@ pub async fn api_get_apps_list<D: Database + 'static>(
     };
 
     ApiListAppsResponse::new(principal_app_grants)
+}
+
+#[tracing::instrument(
+    skip_all,
+    fields(
+        user_id = auth.user.as_ref().map(|u| u.id),
+        principal_id = auth.principal.as_ref().map(|p| p.principal_id.as_str()),
+    )
+)]
+pub async fn api_get_backends_list<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    core: Data<Orchestrator>,
+    auth: AuthOSLMiddleware<D>,
+) -> impl Responder {
+    let backends = core.get_backends();
+
+    let backend_names: Vec<String> = backends.iter().map(|f| f.0.to_owned()).collect();
+    ApiListBackendsResponse::new(backend_names)
 }
