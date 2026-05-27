@@ -634,5 +634,5 @@ Current implementation status
 - [ ] Get sync status
 - [ ] List syncs
 - [ ] Delete sync
-- [ ] List applications
+- [x] List applications
 - [ ] List backends
