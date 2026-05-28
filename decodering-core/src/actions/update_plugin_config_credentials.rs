@@ -11,22 +11,29 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct UpdatePluginConfigCredentials {
+    pub actor: Actor,
     pub backend: String,
     pub credentials: Vec<u8>,
     pub updated_at: i64,
 }
 
 impl UpdatePluginConfigCredentials {
-    pub fn new(backend: String, credentials: Vec<u8>, updated_at: i64) -> Self {
+    pub fn new(actor: Actor, backend: String, credentials: Vec<u8>, updated_at: i64) -> Self {
         Self {
+            actor,
             backend,
             credentials,
             updated_at,
         }
     }
 
-    pub fn request(backend_name: String, credentials: Vec<u8>, updated_at: i64) -> AppRequest {
-        let plugin_config = Self::new(backend_name, credentials, updated_at);
+    pub fn request(
+        actor: Actor,
+        backend_name: String,
+        credentials: Vec<u8>,
+        updated_at: i64,
+    ) -> AppRequest {
+        let plugin_config = Self::new(actor, backend_name, credentials, updated_at);
         AppRequest::UpdatePluginConfigCredentials(plugin_config)
     }
 }
@@ -36,7 +43,7 @@ impl Action for UpdatePluginConfigCredentials {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::PluginConfigCredentialsUpdate,
             revertible: true,
             undoes: None,

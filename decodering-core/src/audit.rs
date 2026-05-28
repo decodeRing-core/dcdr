@@ -4,10 +4,28 @@ use crate::domain::AuditOutcome;
 use crate::error::{DenyReason, ExecutionError};
 use crate::repository::AuditEntry;
 
+#[derive(Serialize, Clone, Debug, Deserialize)]
 pub enum Actor {
     User { user_id: i64 },
     Principal { principal_id: String },
     None,
+}
+
+impl Actor {
+    pub fn get_id(&self) -> String {
+        match self {
+            Self::User { user_id } => user_id.to_string(),
+            Self::Principal { principal_id } => principal_id.to_owned(),
+            Self::None => String::new(),
+        }
+    }
+
+    pub fn get_user_id(&self) -> i64 {
+        match self {
+            Self::User { user_id } => user_id.to_owned(),
+            _ => 0,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

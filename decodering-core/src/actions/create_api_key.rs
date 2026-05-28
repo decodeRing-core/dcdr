@@ -11,7 +11,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateApiKey {
-    pub user_id: i64,
+    pub actor: Actor,
     pub api_key_hash: String,
     pub api_key_prefix: String,
     pub created_at: i64,
@@ -23,7 +23,7 @@ pub struct CreateApiKey {
 impl From<CreateApiKey> for ApiKeyEntry {
     fn from(c: CreateApiKey) -> Self {
         Self {
-            user_id: c.user_id,
+            user_id: c.actor.get_user_id(),
             api_key_hash: c.api_key_hash,
             api_key_prefix: c.api_key_prefix,
             created_at: c.created_at,
@@ -46,13 +46,13 @@ impl From<ApiKeyEntry> for CreateApiKeyResponse {
 
 impl CreateApiKey {
     pub fn new(
-        user_id: i64,
+        actor: Actor,
         api_key_hash: String,
         api_key_prefix: String,
         expires_at: Option<i64>,
     ) -> Self {
         Self {
-            user_id,
+            actor,
             created_at: now_ts(),
             expires_at,
             api_key_hash,
@@ -62,9 +62,14 @@ impl CreateApiKey {
         }
     }
 
-    pub fn init(api_key_hash: String, api_key_prefix: String, expires_at: Option<i64>) -> Self {
+    pub fn init(
+        actor: Actor,
+        api_key_hash: String,
+        api_key_prefix: String,
+        expires_at: Option<i64>,
+    ) -> Self {
         Self {
-            user_id: 0, // This is set by the initialize_app action
+            actor,
             created_at: now_ts(),
             expires_at,
             api_key_hash,
@@ -75,12 +80,12 @@ impl CreateApiKey {
     }
 
     pub fn request(
-        user_id: i64,
+        actor: Actor,
         api_key_hash: String,
         api_key_prefix: String,
         expires_at: Option<i64>,
     ) -> AppRequest {
-        let api_key = Self::new(user_id, api_key_hash, api_key_prefix, expires_at);
+        let api_key = Self::new(actor, api_key_hash, api_key_prefix, expires_at);
         AppRequest::CreateApiKey(api_key)
     }
 }
@@ -90,9 +95,7 @@ impl Action for CreateApiKey {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::User {
-                user_id: self.user_id,
-            },
+            actor: self.actor.clone(),
             action_kind: ActionKind::ApiKeyCreate,
             revertible: true,
             undoes: None,

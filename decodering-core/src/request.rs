@@ -67,7 +67,11 @@ impl fmt::Display for AppRequest {
                 )
             }
             Self::CreateApiKey(create_api_key) => {
-                write!(f, "CreateApiKey(user_id={})", create_api_key.user_id)
+                write!(
+                    f,
+                    "CreateApiKey(user_id={})",
+                    create_api_key.actor.get_user_id()
+                )
             }
             Self::CreateSecretMapping(create_secret_mapping) => {
                 write!(

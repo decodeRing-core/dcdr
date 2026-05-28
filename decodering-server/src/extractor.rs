@@ -7,6 +7,7 @@ use actix_web::HttpRequest;
 use actix_web::dev::Payload;
 use actix_web::http::header;
 use actix_web::web::Data;
+use decodering_core::audit::Actor;
 use decodering_core::crypto::sha256_hex;
 use decodering_core::repository::Principal;
 use decodering_core::repository::PrincipalRepository;
@@ -31,6 +32,12 @@ impl<D> AuthAdminMiddleware<D> {
         Self {
             user,
             _marker: PhantomData,
+        }
+    }
+
+    pub fn actor(&self) -> Actor {
+        Actor::User {
+            user_id: self.user.id,
         }
     }
 }

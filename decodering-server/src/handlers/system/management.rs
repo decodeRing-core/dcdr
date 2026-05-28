@@ -15,6 +15,7 @@ use decodering_core::actions::create_shamir_configuration::CreateShamirConfigura
 use decodering_core::actions::create_user::CreateUser;
 use decodering_core::actions::system_init::SystemInit;
 use decodering_core::actions::update_plugin_config_credentials::UpdatePluginConfigCredentials;
+use decodering_core::audit::Actor;
 use decodering_core::crypto::{encrypt_map, sha256_hex};
 use decodering_core::repository::ShamirRepository;
 use decodering_core::response::AppResponse;
@@ -86,7 +87,7 @@ pub async fn system_init<D: Database + 'static>(
         shamir_init.hash,
     );
     let user = CreateUser::new("root", "root@localhost", "", 1);
-    let api_key = CreateApiKey::init(token_hash, token_prefix, None);
+    let api_key = CreateApiKey::init(Actor::None, token_hash, token_prefix, None);
     let mut plugins: Vec<CreatePluginConfig> = vec![];
     let timestamp = now_ts();
     let key = shamir_init.master_key;
@@ -195,7 +196,7 @@ pub async fn system_status<D: Database + 'static>(app: Data<AppData<D>>) -> impl
 pub async fn system_plugin_config<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<PluginConfigData>,
-    _auth: AuthAdminMiddleware<D>,
+    auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
     let timestamp = now_ts();
     let Some(key) = app.master_key.get() else {
@@ -207,7 +208,7 @@ pub async fn system_plugin_config<D: Database + 'static>(
         let blob = encrypt_map(key, &credentials, backend_name.as_bytes());
         if let Ok(blob) = blob {
             let request_update_plugin =
-                UpdatePluginConfigCredentials::request(backend_name, blob, timestamp);
+                UpdatePluginConfigCredentials::request(auth.actor(), backend_name, blob, timestamp);
 
             let _ = match app.submit(request_update_plugin).await {
                 Ok(resp) => match resp {
