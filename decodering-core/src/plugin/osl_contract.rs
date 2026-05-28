@@ -4,20 +4,13 @@ use serde_json::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
 pub enum Capability {
-    #[serde(rename = "kv.read")]
-    KvRead,
-    #[serde(rename = "kv.write")]
-    KvWrite,
-    #[serde(rename = "kv.destroy")]
-    KvDestroy,
-    #[serde(rename = "kv.soft.delete")]
-    KvSoftDelete,
-    #[serde(rename = "kv.taint")]
-    KvTaint,
-    #[serde(rename = "kv.versioning")]
-    KvVersioning,
-    #[serde(rename = "kv.restore")]
-    KvRestore,
+    Read,
+    Write,
+    Destroy,
+    SoftDelete,
+    Taint,
+    Versioning,
+    Restore,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -53,6 +46,7 @@ pub struct WriteInput {
     /// Arbitrary secret payload (any JSON value)
     #[schemars(with = "serde_json::Value")]
     pub data: Value,
+    pub idempotency_token: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

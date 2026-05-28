@@ -39,12 +39,12 @@ struct MetadataResponse {
 #[plugin_fn]
 pub fn capabilities(_: ()) -> FnResult<Json<Vec<Capability>>> {
     Ok(Json(vec![
-        Capability::KvRead,
-        Capability::KvSoftDelete,
-        Capability::KvDestroy,
-        Capability::KvWrite,
-        Capability::KvVersioning,
-        Capability::KvRestore,
+        Capability::Read,
+        Capability::SoftDelete,
+        Capability::Destroy,
+        Capability::Write,
+        Capability::Versioning,
+        Capability::Restore,
     ]))
 }
 

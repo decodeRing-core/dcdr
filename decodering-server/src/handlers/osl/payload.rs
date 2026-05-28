@@ -8,6 +8,7 @@ pub struct PutSecretRequestData {
     pub store: Store,
     pub data: Value,
     pub options: Options,
+    pub idempotency_token: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -25,7 +26,7 @@ pub struct Options {
 pub struct GetSecretRequestData {
     pub app_id: String,
     pub secret_name: String,
-    pub version: u64,
+    pub version: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]

@@ -13,7 +13,7 @@ use super::error::PluginError;
 use super::secret_backend::SecretBackend;
 use super::wasm::WasmSecretBackend;
 
-const SERVER_CAPABILITIES: [Capability; 1] = [Capability::KvTaint];
+const SERVER_CAPABILITIES: [Capability; 1] = [Capability::Taint];
 
 #[derive(Serialize)]
 pub struct BackendCapabilities {

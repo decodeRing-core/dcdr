@@ -5,6 +5,7 @@ use actix_web::{Responder, web};
 use decodering_core::actions::create_secret_mapping::CreateSecretMapping;
 use decodering_core::actions::delete_secret_mapping::DeleteSecretMapping;
 use decodering_core::actions::update_secret_mapping_taint::UpdateSecretMappingTaint;
+use decodering_core::crypto::sha256_hex;
 use decodering_core::plugin::orchestrator::Orchestrator;
 use decodering_core::plugin::osl_contract::SecretStatus;
 use decodering_core::repository::{
@@ -110,10 +111,26 @@ pub async fn api_put_secret<D: Database + 'static>(
         Err(err) => return ApiResponse::error(err),
     };
 
+    // Idempotency token if required by the vault
+    let token = if let Some(x) = &req.idempotency_token {
+        x.clone()
+    } else {
+        let basis = if req.options.create_only {
+            format!("create:{}:{}", req.app_id, req.secret_name)
+        } else {
+            let sorted: BTreeMap<String, serde_json::Value> =
+                serde_json::from_value(req.data.clone()).unwrap_or_default();
+            let canonical_json = serde_json::to_string(&sorted).unwrap_or_default();
+            let data_hash = sha256_hex(canonical_json.as_bytes());
+            format!("put:{}:{}:{}", req.app_id, req.secret_name, data_hash)
+        };
+        sha256_hex(basis.as_bytes())
+    };
+
     let secret_version =
         match backend_entry
             .backend
-            .put(&req.store.store_path, &req.data, &credentials)
+            .put(&req.store.store_path, &req.data, &token, &credentials)
         {
             Ok(version) => version,
             Err(e) => {
@@ -228,7 +245,7 @@ pub async fn api_get_secret<D: Database + 'static>(
 
     match backend_entry.backend.get(
         &secret_mapping_data.mount_path,
-        Some(req.version.to_string()),
+        req.version.clone(),
         &credentials,
     ) {
         Ok(out) => {
@@ -888,7 +905,7 @@ pub async fn api_get_apps_list<D: Database + 'static>(
     )
 )]
 pub async fn api_get_backends_list<D: Database + 'static>(
-    app: Data<AppData<D>>,
+    _app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {

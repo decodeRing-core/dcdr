@@ -7,6 +7,7 @@ members = [
     "decodering-raft",
     "decodering-db",
     "decodering-plugins/openbao-rs",
+    "decodering-plugins/aws-rs",
 ]
 
 [workspace.package]

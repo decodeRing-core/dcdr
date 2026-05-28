@@ -60,12 +60,14 @@ impl SecretBackend for WasmSecretBackend {
         &self,
         path: &str,
         data: &Value,
+        idempotency_token: &str,
         credential: &BTreeMap<String, Zeroizing<String>>,
     ) -> Result<String, PluginError> {
         let mut plugin = self.instantiate(credential)?;
         let input = WriteInput {
             path: path.to_owned(),
             data: data.to_owned(),
+            idempotency_token: idempotency_token.to_owned(),
         };
         plugin
             .call::<Json<WriteInput>, Json<WriteOutput>>("put_secret", Json(input))

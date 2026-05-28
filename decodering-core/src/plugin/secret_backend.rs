@@ -17,6 +17,7 @@ pub trait SecretBackend: Send + Sync {
         &self,
         path: &str,
         data: &Value,
+        idempotency_token: &str,
         credential: &BTreeMap<String, Zeroizing<String>>,
     ) -> Result<String, PluginError>;
     /// Permently delete secret
