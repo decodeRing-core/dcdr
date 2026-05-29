@@ -460,6 +460,7 @@ where
     U: Tx,
     A: Action,
 {
+    // Policy check
     let descriptor = action.audit_descriptor();
     let output = action.execute(tx).await?;
     let allowed = audit_allowed(&descriptor, Some(raft_index), &output, now_ts());
