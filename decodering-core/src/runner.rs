@@ -14,7 +14,7 @@ where
 
     if let Some(reason) = action.policy_check().await.map_err(ActionError::Db)? {
         let mut tx = db.begin().await.map_err(ActionError::Db)?;
-        let entry = audit_denied(&descriptor, 0, &reason, now_ts());
+        let entry = audit_denied(&descriptor, None, &reason, now_ts());
         tx.audit().insert(&entry).await.map_err(ActionError::Db)?;
         tx.commit().await.map_err(ActionError::Db)?;
         return Err(ActionError::Denied(reason));
@@ -25,7 +25,7 @@ where
 
     match exec_result {
         Ok(output) => {
-            let entry = audit_allowed(&descriptor, 0, &output, now_ts());
+            let entry = audit_allowed(&descriptor, None, &output, now_ts());
             data_tx
                 .audit()
                 .insert(&entry)
@@ -39,7 +39,7 @@ where
             data_tx.rollback().await.map_err(ActionError::Db)?;
 
             let mut audit_tx = db.begin().await.map_err(ActionError::Db)?;
-            let entry = audit_errored(&descriptor, 0, &exec_err, now_ts());
+            let entry = audit_errored(&descriptor, None, &exec_err, now_ts());
             audit_tx
                 .audit()
                 .insert(&entry)

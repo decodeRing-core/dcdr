@@ -11,6 +11,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateShamirConfiguration {
+    pub actor: Actor,
     pub total_shares: i16,
     pub threshold: i16,
     pub validation_hash: Vec<u8>,
@@ -39,16 +40,22 @@ impl From<ShamirEntry> for CreateShamirConfigurationResponse {
 }
 
 impl CreateShamirConfiguration {
-    pub fn new(total_shares: i16, threshold: i16, validation_hash: Vec<u8>) -> Self {
+    pub fn new(actor: Actor, total_shares: i16, threshold: i16, validation_hash: Vec<u8>) -> Self {
         Self {
+            actor,
             total_shares,
             threshold,
             validation_hash,
             timestamp: now_ts(),
         }
     }
-    pub fn request(total_shares: i16, threshold: i16, validation_hash: Vec<u8>) -> AppRequest {
-        let shamir_config = Self::new(total_shares, threshold, validation_hash);
+    pub fn request(
+        actor: Actor,
+        total_shares: i16,
+        threshold: i16,
+        validation_hash: Vec<u8>,
+    ) -> AppRequest {
+        let shamir_config = Self::new(actor, total_shares, threshold, validation_hash);
         AppRequest::CreateShamirConfiguration(shamir_config)
     }
 }
@@ -58,7 +65,7 @@ impl Action for CreateShamirConfiguration {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::ShamirConfigurationCreate,
             revertible: true,
             undoes: None,

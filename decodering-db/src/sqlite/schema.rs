@@ -121,13 +121,14 @@ pub const SCHEMA: &str = r#"
     -- undoes points back to the audit row this one undid (NULL if this isn't an undo).
     CREATE TABLE IF NOT EXISTS audit_log (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-        raft_index          INTEGER NOT NULL,
+        raft_index          INTEGER,
         timestamp           INTEGER NOT NULL,
 
         -- Actor: exactly one of these is set.
         user_id             INTEGER REFERENCES users(id),
         principal_id        TEXT,  -- UUID as TEXT in sqlite; FK to principals(principal_id)
 
+        ip                  TEXT,
         action_type         TEXT NOT NULL,
         target_type         TEXT,
         target_id           TEXT,
@@ -142,6 +143,7 @@ pub const SCHEMA: &str = r#"
         revertible          INTEGER NOT NULL DEFAULT 1,  -- sqlite boolean
         undone_by           INTEGER REFERENCES audit_log(id),
         undoes              INTEGER REFERENCES audit_log(id),
+
 
         CHECK (NOT (user_id IS NOT NULL AND principal_id IS NOT NULL))
     );

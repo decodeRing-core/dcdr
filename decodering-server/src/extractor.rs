@@ -4,6 +4,7 @@ use std::pin::Pin;
 use actix_web::Error;
 use actix_web::FromRequest;
 use actix_web::HttpRequest;
+use actix_web::dev::ConnectionInfo;
 use actix_web::dev::Payload;
 use actix_web::http::header;
 use actix_web::web::Data;
@@ -35,9 +36,11 @@ impl<D> AuthAdminMiddleware<D> {
         }
     }
 
-    pub fn actor(&self) -> Actor {
+    pub fn actor(&self, conn: &ConnectionInfo) -> Actor {
+        let ip = conn.peer_addr().map(str::to_owned);
         Actor::User {
             user_id: self.user.id,
+            ip,
         }
     }
 }
@@ -97,6 +100,23 @@ impl<D> AuthOSLMiddleware<D> {
             principal,
             _marker: PhantomData,
         }
+    }
+
+    pub fn actor(&self, conn: &ConnectionInfo) -> Actor {
+        let ip = conn.peer_addr().map(str::to_owned);
+        if let Some(ref user) = self.user {
+            return Actor::User {
+                user_id: user.id,
+                ip,
+            };
+        }
+        if let Some(ref principal) = self.principal {
+            return Actor::Principal {
+                principal_id: principal.principal_id.clone(),
+                ip,
+            };
+        }
+        Actor::None { ip }
     }
 }
 

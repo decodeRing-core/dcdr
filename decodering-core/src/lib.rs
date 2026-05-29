@@ -11,6 +11,7 @@ pub mod repository;
 pub mod request;
 pub mod response;
 pub mod runner;
+pub mod shamir;
 pub mod time;
 pub mod tpm;
 pub mod tx;

@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use actix_web::dev::ConnectionInfo;
 use actix_web::web::Data;
 use actix_web::{Responder, web};
 use decodering_core::actions::create_secret_mapping::CreateSecretMapping;
@@ -50,6 +51,7 @@ use crate::plugin::get_plugin_config_credentials_for_backend;
     )
 )]
 pub async fn api_put_secret<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<PutSecretRequestData>,
@@ -61,7 +63,7 @@ pub async fn api_put_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
-    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+    let _ = match require_app_grant_for_principal(&conn, &mut db, &app, &auth, &req.app_id).await {
         Ok(grant) => grant,
         Err(err) => return ApiResponse::error(err),
     };
@@ -141,6 +143,7 @@ pub async fn api_put_secret<D: Database + 'static>(
 
     let timestamp = now_ts();
     let secret_mapping = CreateSecretMapping {
+        actor: auth.actor(&conn),
         app_id: application.app_id,
         secret_name: req.secret_name.clone(),
         backend: req.store.backend_ref.clone(),
@@ -182,6 +185,7 @@ pub async fn api_put_secret<D: Database + 'static>(
     )
 )]
 pub async fn api_get_secret<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<GetSecretRequestData>,
@@ -193,7 +197,7 @@ pub async fn api_get_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
-    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+    let _ = match require_app_grant_for_principal(&conn, &mut db, &app, &auth, &req.app_id).await {
         Ok(grant) => grant,
         Err(err) => return ApiResponse::error(err),
     };
@@ -291,6 +295,7 @@ pub async fn api_get_secret<D: Database + 'static>(
     )
 )]
 pub async fn api_destroy_secret<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<DestroySecretRequestData>,
@@ -302,7 +307,7 @@ pub async fn api_destroy_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
-    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+    let _ = match require_app_grant_for_principal(&conn, &mut db, &app, &auth, &req.app_id).await {
         Ok(grant) => grant,
         Err(err) => return ApiResponse::error(err),
     };
@@ -360,7 +365,7 @@ pub async fn api_destroy_secret<D: Database + 'static>(
         }
     }
 
-    let request = DeleteSecretMapping::request(&req.app_id, &req.secret_name);
+    let request = DeleteSecretMapping::request(auth.actor(&conn), &req.app_id, &req.secret_name);
     match app.submit(request).await {
         Ok(resp) => match resp {
             AppResponse::DeleteSecretMapping(out) => ApiDestroySecretResponse::new(out),
@@ -391,6 +396,7 @@ pub async fn api_destroy_secret<D: Database + 'static>(
     )
 )]
 pub async fn api_list_secret<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     req: web::Json<ListSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
@@ -401,7 +407,7 @@ pub async fn api_list_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
-    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+    let _ = match require_app_grant_for_principal(&conn, &mut db, &app, &auth, &req.app_id).await {
         Ok(grant) => grant,
         Err(err) => return ApiResponse::error(err),
     };
@@ -431,6 +437,7 @@ pub async fn api_list_secret<D: Database + 'static>(
     )
 )]
 pub async fn api_taint_secret<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     req: web::Json<TaintSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
@@ -441,7 +448,7 @@ pub async fn api_taint_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
-    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+    let _ = match require_app_grant_for_principal(&conn, &mut db, &app, &auth, &req.app_id).await {
         Ok(grant) => grant,
         Err(err) => return ApiResponse::error(err),
     };
@@ -468,6 +475,7 @@ pub async fn api_taint_secret<D: Database + 'static>(
     };
 
     let request = UpdateSecretMappingTaint::request(
+        auth.actor(&conn),
         &secret_mapping_data.app_id,
         &secret_mapping_data.secret_name,
         true,
@@ -494,6 +502,7 @@ pub async fn api_taint_secret<D: Database + 'static>(
 }
 
 pub async fn api_untaint_secret<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     req: web::Json<UntaintSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
@@ -504,7 +513,7 @@ pub async fn api_untaint_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
-    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+    let _ = match require_app_grant_for_principal(&conn, &mut db, &app, &auth, &req.app_id).await {
         Ok(grant) => grant,
         Err(err) => return ApiResponse::error(err),
     };
@@ -531,6 +540,7 @@ pub async fn api_untaint_secret<D: Database + 'static>(
     };
 
     let request = UpdateSecretMappingTaint::request(
+        auth.actor(&conn),
         &secret_mapping_data.app_id,
         &secret_mapping_data.secret_name,
         false,
@@ -557,6 +567,7 @@ pub async fn api_untaint_secret<D: Database + 'static>(
 }
 
 pub async fn api_is_tainted_secret<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     req: web::Json<IsTaintedSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
@@ -567,7 +578,7 @@ pub async fn api_is_tainted_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
-    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+    let _ = match require_app_grant_for_principal(&conn, &mut db, &app, &auth, &req.app_id).await {
         Ok(grant) => grant,
         Err(err) => return ApiResponse::error(err),
     };
@@ -605,6 +616,7 @@ pub async fn api_is_tainted_secret<D: Database + 'static>(
     )
 )]
 pub async fn api_delete_secret<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<DeleteSecretRequestData>,
@@ -616,7 +628,7 @@ pub async fn api_delete_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
-    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+    let _ = match require_app_grant_for_principal(&conn, &mut db, &app, &auth, &req.app_id).await {
         Ok(grant) => grant,
         Err(err) => return ApiResponse::error(err),
     };
@@ -685,6 +697,7 @@ pub async fn api_delete_secret<D: Database + 'static>(
     )
 )]
 pub async fn api_restore_secret<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<RestoreSecretRequestData>,
@@ -696,7 +709,7 @@ pub async fn api_restore_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
-    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+    let _ = match require_app_grant_for_principal(&conn, &mut db, &app, &auth, &req.app_id).await {
         Ok(grant) => grant,
         Err(err) => return ApiResponse::error(err),
     };
@@ -792,6 +805,7 @@ pub async fn api_get_capabilities<D: Database + 'static>(
     )
 )]
 pub async fn api_describe_secret<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     req: web::Json<DescribeSecretRequestData>,
@@ -803,7 +817,7 @@ pub async fn api_describe_secret<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
-    let _ = match require_app_grant_for_principal(&mut db, &app, &auth, &req.app_id).await {
+    let _ = match require_app_grant_for_principal(&conn, &mut db, &app, &auth, &req.app_id).await {
         Ok(grant) => grant,
         Err(err) => return ApiResponse::error(err),
     };

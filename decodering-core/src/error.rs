@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::fmt;
 
+use crate::shamir::LockError;
+
 #[derive(Debug)]
 pub enum AwsError {
     InvalidStsUrl,
@@ -135,6 +137,7 @@ impl fmt::Display for DenyReason {
 #[derive(Debug)]
 pub enum ExecutionError {
     Db(DbError),
+    Action(String),
     Other(String),
 }
 
@@ -142,6 +145,7 @@ impl ExecutionError {
     pub fn is_business(&self) -> bool {
         match self {
             Self::Db(e) => e.is_business(),
+            Self::Action(_) => true,
             Self::Other(_) => false, // unknown — treat as fatal
         }
     }
@@ -152,6 +156,7 @@ impl fmt::Display for ExecutionError {
         match self {
             Self::Db(e) => write!(f, "db error: {e}"),
             Self::Other(s) => write!(f, "execution error: {s}"),
+            Self::Action(s) => write!(f, "action error: {s}"),
         }
     }
 }
@@ -161,6 +166,12 @@ impl Error for ExecutionError {}
 impl From<DbError> for ExecutionError {
     fn from(e: DbError) -> Self {
         Self::Db(e)
+    }
+}
+
+impl From<LockError> for ExecutionError {
+    fn from(e: LockError) -> Self {
+        Self::Action(e.to_string())
     }
 }
 

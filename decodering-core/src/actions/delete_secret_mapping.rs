@@ -10,13 +10,19 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct DeleteSecretMapping {
+    pub actor: Actor,
     pub app_id: String,
     pub secret_name: String,
 }
 
 impl DeleteSecretMapping {
-    pub fn request(app_id: impl Into<String>, secret_name: impl Into<String>) -> AppRequest {
+    pub fn request(
+        actor: Actor,
+        app_id: impl Into<String>,
+        secret_name: impl Into<String>,
+    ) -> AppRequest {
         let delete_secret = Self {
+            actor,
             app_id: app_id.into(),
             secret_name: secret_name.into(),
         };
@@ -29,7 +35,7 @@ impl Action for DeleteSecretMapping {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::SecretMappingDelete,
             revertible: true,
             undoes: None,

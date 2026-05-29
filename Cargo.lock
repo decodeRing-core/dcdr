@@ -1554,9 +1554,11 @@ name = "decodering-core"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
+ "blahaj",
  "extism",
  "p256",
  "pem",
+ "rand 0.10.1",
  "reqwest",
  "rsa",
  "rustls-pki-types",
@@ -1607,7 +1609,6 @@ dependencies = [
  "actix-http",
  "actix-web",
  "base64",
- "blahaj",
  "clap",
  "decodering-core",
  "decodering-db",

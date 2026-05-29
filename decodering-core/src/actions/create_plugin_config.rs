@@ -10,6 +10,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreatePluginConfig {
+    pub actor: Actor,
     pub backend_name: String,
     pub credentials: Vec<u8>,
     pub updated_at: i64,
@@ -34,16 +35,22 @@ impl From<PluginConfigEntry> for CreatePluginConfigResponse {
 }
 
 impl CreatePluginConfig {
-    pub fn new(backend_name: String, credentials: Vec<u8>, updated_at: i64) -> Self {
+    pub fn new(actor: Actor, backend_name: String, credentials: Vec<u8>, updated_at: i64) -> Self {
         Self {
+            actor,
             backend_name,
             credentials,
             updated_at,
         }
     }
 
-    pub fn request(backend_name: String, credentials: Vec<u8>, updated_at: i64) -> AppRequest {
-        let plugin_config = Self::new(backend_name, credentials, updated_at);
+    pub fn request(
+        actor: Actor,
+        backend_name: String,
+        credentials: Vec<u8>,
+        updated_at: i64,
+    ) -> AppRequest {
+        let plugin_config = Self::new(actor, backend_name, credentials, updated_at);
         AppRequest::CreatePluginConfig(plugin_config)
     }
 }
@@ -53,7 +60,7 @@ impl Action for CreatePluginConfig {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::PluginConfigCreate,
             revertible: true,
             undoes: None,

@@ -1,4 +1,5 @@
 use actix_web::Responder;
+use actix_web::dev::ConnectionInfo;
 use actix_web::web::{Data, Json};
 use decodering_core::actions::create_app::CreateApp;
 use decodering_core::actions::create_app_user::CreateAppUser;
@@ -10,6 +11,7 @@ use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use decodering_core::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
+use decodering_core::audit::Actor;
 use decodering_core::aws::call_sts_get_caller_identity;
 use decodering_core::aws::{normalize_arn, parse_iam_arn, validate_sts_request};
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
@@ -49,6 +51,7 @@ use crate::handlers::response::{ApiResponse, ErrorStatus};
 use base64::{Engine, engine::general_purpose::STANDARD};
 
 pub async fn create_app_user<D: Database + 'static>(
+    conn: ConnectionInfo,
     config: Data<Config>,
     app: Data<AppData<D>>,
     req: Json<CreateAppUserData>,
@@ -57,6 +60,7 @@ pub async fn create_app_user<D: Database + 'static>(
     let timestamp = now_ts();
     let principal_id = Uuid::now_v7().to_string();
     let principal = CreatePrincipal {
+        actor: auth.actor(&conn),
         principal_id: principal_id.clone(),
         name: req.0.name,
         kind: req.0.kind,
@@ -174,6 +178,7 @@ pub async fn create_app_user<D: Database + 'static>(
     };
 
     let principal_credential = CreatePrincipalCredential {
+        actor: auth.actor(&conn),
         credential_id: Uuid::now_v7().to_string(),
         principal_id: principal_id.clone(),
         kind: req.0.credential_kind,
@@ -189,6 +194,7 @@ pub async fn create_app_user<D: Database + 'static>(
     let mut principal_app_grants = vec![];
     for app_id in req.0.apps.unwrap_or_default() {
         let app_grant = CreatePrincipalAppGrant {
+            actor: auth.actor(&conn),
             principal_id: principal_id.clone(),
             app_id: app_id.clone(),
             granted_at: timestamp,
@@ -199,7 +205,7 @@ pub async fn create_app_user<D: Database + 'static>(
         principal_app_grants.push(app_grant);
     }
     let request = CreateAppUser::request(
-        auth.user.id,
+        auth.actor(&conn),
         principal,
         principal_credential,
         principal_app_grants,
@@ -226,9 +232,10 @@ pub async fn create_app_user<D: Database + 'static>(
 }
 
 pub async fn create_app<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     req: Json<CreateAppData>,
-    _auth: AuthAdminMiddleware<D>,
+    auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
@@ -251,7 +258,11 @@ pub async fn create_app<D: Database + 'static>(
         }
     }
 
-    let request = CreateApp::request(Uuid::now_v7().to_string(), req.0.app_name);
+    let request = CreateApp::request(
+        auth.actor(&conn),
+        Uuid::now_v7().to_string(),
+        req.0.app_name,
+    );
     match app.submit(request).await {
         Ok(resp) => match resp {
             AppResponse::CreateApp(a) => ApiCreateAppResponse::new(a.app_id, a.app_name),
@@ -274,9 +285,11 @@ pub async fn create_app<D: Database + 'static>(
 }
 
 pub async fn auth_app_user<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     req: Json<AuthUserData>,
 ) -> impl Responder {
+    let ip = conn.peer_addr().map(str::to_owned);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -308,6 +321,10 @@ pub async fn auth_app_user<D: Database + 'static>(
     let timestamp = now_ts();
     let expires = now_ts_plus(3600);
     let principal_token = CreatePrincipalToken {
+        actor: Actor::Principal {
+            principal_id: principal.principal_id.clone(),
+            ip: ip.clone(),
+        },
         token_id: Uuid::now_v7().to_string(),
         token_hash,
         principal_id: principal.principal_id,
@@ -342,9 +359,11 @@ pub async fn auth_app_user<D: Database + 'static>(
 }
 
 pub async fn auth_aws_app_user<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     req: Json<AuthAwsUserData>,
 ) -> impl Responder {
+    let ip = conn.peer_addr().map(str::to_owned);
     let req = req.into_inner();
 
     let validation = validate_sts_request(&req.method, &req.url, &req.body, &req.headers);
@@ -403,6 +422,10 @@ pub async fn auth_aws_app_user<D: Database + 'static>(
     let timestamp = now_ts();
     let expires = now_ts_plus(3600);
     let principal_token = CreatePrincipalToken {
+        actor: Actor::Principal {
+            principal_id: principal.principal_id.clone(),
+            ip: ip.clone(),
+        },
         token_id: Uuid::now_v7().to_string(),
         token_hash,
         principal_id: principal.principal_id,
@@ -437,9 +460,11 @@ pub async fn auth_aws_app_user<D: Database + 'static>(
 }
 
 pub async fn auth_tpm_app_user<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     req: Json<AuthTpmUserData>,
 ) -> impl Responder {
+    let ip = conn.peer_addr().map(str::to_owned);
     let req = req.into_inner();
     let decoded = (|| -> Result<_, base64::DecodeError> {
         let quote = STANDARD.decode(&req.quote)?;
@@ -565,6 +590,10 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
     }
 
     let consumed_tpm_challenge = UpdateTpmChallengeConsumedAt {
+        actor: Actor::Principal {
+            principal_id: credential.principal_id.clone(),
+            ip: ip.clone(),
+        },
         challenge_id: req.challenge_id,
         consumed_at: now_ts(),
     };
@@ -598,6 +627,10 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
     let timestamp = now_ts();
     let expires = now_ts_plus(3600);
     let principal_token = CreatePrincipalToken {
+        actor: Actor::Principal {
+            principal_id: credential.principal_id.clone(),
+            ip: ip.clone(),
+        },
         token_id: Uuid::now_v7().to_string(),
         token_hash,
         principal_id: credential.principal_id,
@@ -632,9 +665,11 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
 }
 
 pub async fn tpm_challenge_app_user<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
-    req: Json<AuthTpmData>,
+    body: Json<AuthTpmData>,
 ) -> impl Responder {
+    let ip = conn.peer_addr().map(str::to_owned);
     let mut nonce_bytes = [0u8; 32];
     rand::rng().fill_bytes(&mut nonce_bytes);
     let nonce_hex = encode_hex(&nonce_bytes);
@@ -644,9 +679,10 @@ pub async fn tpm_challenge_app_user<D: Database + 'static>(
     let expires_at = now + CHALLENGE_TTL_SECS;
 
     let tpm_challenge = CreateTpmChallenge {
+        actor: Actor::None { ip: ip.clone() },
         challenge_id,
         nonce: nonce_bytes.to_vec(),
-        ek_pubkey_hash: req.0.ek_pubkey_hash,
+        ek_pubkey_hash: body.0.ek_pubkey_hash,
         issued_at: now,
         expires_at,
         consumed_at: None,
@@ -682,6 +718,7 @@ pub async fn auth_aws_iam_app_user<D: Database + 'static>(
 }
 
 pub async fn grant_app_access_user<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     req: Json<AppGrantData>,
     auth: AuthAdminMiddleware<D>,
@@ -714,6 +751,7 @@ pub async fn grant_app_access_user<D: Database + 'static>(
     let mut principal_app_grants = CreatePrincipalAppGrants(vec![]);
     for app_id in req.0.apps {
         let app_grant = CreatePrincipalAppGrant {
+            actor: auth.actor(&conn),
             principal_id: principal.principal_id.clone(),
             app_id: app_id.clone(),
             granted_at: timestamp,
@@ -746,9 +784,10 @@ pub async fn grant_app_access_user<D: Database + 'static>(
 }
 
 pub async fn revoke_app_access_user<D: Database + 'static>(
+    conn: ConnectionInfo,
     app: Data<AppData<D>>,
     req: Json<RevokeAppData>,
-    _auth: AuthAdminMiddleware<D>,
+    auth: AuthAdminMiddleware<D>,
 ) -> impl Responder {
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
@@ -778,6 +817,7 @@ pub async fn revoke_app_access_user<D: Database + 'static>(
     };
 
     let delete_app_grant = DeletePrincipalAppGrant {
+        actor: auth.actor(&conn),
         principal_id: principal_app_grant.principal_id,
         app_id: principal_app_grant.app_id,
     };

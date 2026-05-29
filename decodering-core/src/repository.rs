@@ -204,12 +204,14 @@ pub trait MetaRepository: Send {
     fn set(&mut self, key: &str, value: &str) -> impl Future<Output = Result<(), DbError>> + Send;
 }
 
+#[derive(Debug)]
 pub struct AuditEntry {
-    pub raft_index: i64,
+    pub raft_index: Option<i64>,
     pub timestamp: i64,
 
     pub user_id: Option<i64>,
     pub principal_id: Option<String>,
+    pub ip: Option<String>,
 
     pub action_type: String,
     pub target_type: Option<String>,

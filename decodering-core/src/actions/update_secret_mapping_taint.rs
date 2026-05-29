@@ -11,6 +11,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct UpdateSecretMappingTaint {
+    pub actor: Actor,
     pub secret_name: String,
     pub app_id: String,
     pub taint: bool,
@@ -18,11 +19,13 @@ pub struct UpdateSecretMappingTaint {
 
 impl UpdateSecretMappingTaint {
     pub fn request(
+        actor: Actor,
         app_id: impl Into<String>,
         secret_name: impl Into<String>,
         taint: bool,
     ) -> AppRequest {
         let taint_secret = Self {
+            actor,
             app_id: app_id.into(),
             secret_name: secret_name.into(),
             taint,
@@ -36,7 +39,7 @@ impl Action for UpdateSecretMappingTaint {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::SecretMappingTaint,
             revertible: true,
             undoes: None,

@@ -11,6 +11,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreatePrincipal {
+    pub actor: Actor,
     pub principal_id: String,
     pub name: String,
     pub kind: PrincipalKind,
@@ -53,7 +54,7 @@ impl Action for CreatePrincipal {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::PrincipalCreate,
             revertible: true,
             undoes: None,

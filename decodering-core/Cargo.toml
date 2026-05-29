@@ -22,6 +22,9 @@ reqwest.workspace = true
 schemars.workspace = true
 zeroize.workspace = true
 aes-gcm.workspace = true
+blahaj.workspace = true
+rand.workspace = true
+
 
 [lints]
 workspace = true

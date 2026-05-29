@@ -19,6 +19,7 @@ impl AuditRepository for SqliteAuditRepository<'_> {
                 timestamp,
                 user_id,
                 principal_id,
+                ip,
                 action_type,
                 target_type,
                 target_id,
@@ -30,13 +31,14 @@ impl AuditRepository for SqliteAuditRepository<'_> {
                 revertible,
                 undone_by,
                 undoes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
                 RETURNING id",
         )
         .bind(params.raft_index)
         .bind(params.timestamp)
         .bind(params.user_id)
         .bind(&params.principal_id)
+        .bind(&params.ip)
         .bind(&params.action_type)
         .bind(&params.target_type)
         .bind(&params.target_id)

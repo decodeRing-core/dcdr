@@ -11,6 +11,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateApp {
+    pub actor: Actor,
     pub app_id: String,
     pub app_name: String,
     pub created_at: i64,
@@ -40,9 +41,10 @@ impl From<AppEntry> for CreateAppResponse {
 }
 
 impl CreateApp {
-    pub fn request(app_id: String, app_name: String) -> AppRequest {
+    pub fn request(actor: Actor, app_id: String, app_name: String) -> AppRequest {
         let timestamp = now_ts();
         let app = Self {
+            actor,
             app_id,
             app_name,
             created_at: timestamp,
@@ -57,7 +59,7 @@ impl Action for CreateApp {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::AppCreate,
             revertible: true,
             undoes: None,

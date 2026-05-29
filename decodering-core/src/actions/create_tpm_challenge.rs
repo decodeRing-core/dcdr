@@ -10,6 +10,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateTpmChallenge {
+    pub actor: Actor,
     pub challenge_id: String,
     pub nonce: Vec<u8>,
     pub ek_pubkey_hash: Option<String>,
@@ -49,7 +50,7 @@ impl Action for CreateTpmChallenge {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::TpmChallengeCreate,
             revertible: true,
             undoes: None,

@@ -21,6 +21,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct SystemInit {
+    pub actor: Actor,
     pub shamir: CreateShamirConfiguration,
     pub user: CreateUser,
     pub api_key: CreateApiKey,
@@ -29,12 +30,14 @@ pub struct SystemInit {
 
 impl SystemInit {
     pub fn request(
+        actor: Actor,
         shamir: CreateShamirConfiguration,
         user: CreateUser,
         api_key: CreateApiKey,
         plugin_config: Vec<CreatePluginConfig>,
     ) -> AppRequest {
         let app = Self {
+            actor,
             shamir,
             user,
             api_key,
@@ -49,7 +52,7 @@ impl Action for SystemInit {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::SystemInit,
             revertible: true,
             undoes: None,

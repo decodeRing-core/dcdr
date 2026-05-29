@@ -10,6 +10,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct UpdateTpmChallengeConsumedAt {
+    pub actor: Actor,
     pub challenge_id: String,
     pub consumed_at: i64,
 }
@@ -19,7 +20,7 @@ impl Action for UpdateTpmChallengeConsumedAt {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::TpmChallengeConsume,
             revertible: true,
             undoes: None,

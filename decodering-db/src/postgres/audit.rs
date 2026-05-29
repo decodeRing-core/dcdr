@@ -19,6 +19,7 @@ impl AuditRepository for PostgresAuditRepository<'_> {
                 timestamp,
                 user_id,
                 principal_id,
+                ip,
                 action_type,
                 target_type,
                 target_id,
@@ -30,13 +31,14 @@ impl AuditRepository for PostgresAuditRepository<'_> {
                 revertible,
                 undone_by,
                 undoes)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NULL, $14)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NULL, $15)
                 RETURNING id",
         )
         .bind(params.raft_index)
         .bind(params.timestamp)
         .bind(params.user_id)
         .bind(&params.principal_id)
+        .bind(&params.ip)
         .bind(&params.action_type)
         .bind(&params.target_type)
         .bind(&params.target_id)

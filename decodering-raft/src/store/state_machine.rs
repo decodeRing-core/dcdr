@@ -10,7 +10,7 @@ use crate::raft_types::{
 use crate::rocksdb_log_store::RocksLogStore;
 use crate::store::error::StorageError;
 use decodering_core::action::Action;
-use decodering_core::audit::{ActionOutput, AuditDescriptor};
+use decodering_core::audit::{ActionOutput, AuditDescriptor, audit_errored};
 use decodering_core::audit::{audit_allowed, audit_denied};
 use decodering_core::error::{DenyReason, ExecutionError};
 use decodering_core::repository::{AuditRepository, MetaRepository};
@@ -83,6 +83,7 @@ where
                 let index_i64 = i64::try_from(log_id.index).map_err(|_| {
                     io::Error::new(io::ErrorKind::InvalidData, "raft index overflow")
                 })?;
+                let descriptor = req.audit_descriptor();
                 match run_raft(&mut tx, index_i64, req).await {
                     Ok(out) => out.response,
 
@@ -92,6 +93,11 @@ where
                         // the client sees an error response.
                         tx.rollback().await.map_err(io::Error::other)?;
                         tx = self.db.begin().await.map_err(io::Error::other)?;
+                        let errored = audit_errored(&descriptor, Some(index_i64), &e, now_ts());
+                        tx.audit()
+                            .insert(&errored)
+                            .await
+                            .map_err(io::Error::other)?;
                         AppResponse::Error(e.to_string())
                     }
 
@@ -441,6 +447,7 @@ where
         AppRequest::UpdateSecretMappingTaint(x) => run_action_raft(tx, index, x).await,
         AppRequest::CreatePluginConfig(x) => run_action_raft(tx, index, x).await,
         AppRequest::UpdatePluginConfigCredentials(x) => run_action_raft(tx, index, x).await,
+        AppRequest::SystemUnlock(x) => run_action_raft(tx, index, x).await,
     }
 }
 
@@ -455,7 +462,7 @@ where
 {
     let descriptor = action.audit_descriptor();
     let output = action.execute(tx).await?;
-    let allowed = audit_allowed(&descriptor, raft_index, &output, now_ts());
+    let allowed = audit_allowed(&descriptor, Some(raft_index), &output, now_ts());
     tx.audit().insert(&allowed).await?;
     Ok(output)
 }
@@ -469,7 +476,7 @@ pub async fn run_audit_denied<U>(
 where
     U: Tx,
 {
-    let entry = audit_denied(&descriptor, raft_index, &reason, now_ts());
+    let entry = audit_denied(&descriptor, Some(raft_index), &reason, now_ts());
     tx.audit().insert(&entry).await?;
     Ok(())
 }

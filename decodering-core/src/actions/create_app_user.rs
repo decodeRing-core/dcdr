@@ -16,7 +16,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateAppUser {
-    pub user_id: i64,
+    pub actor: Actor,
     pub principal: CreatePrincipal,
     pub principal_credential: CreatePrincipalCredential,
     pub principal_app_grants: Vec<CreatePrincipalAppGrant>,
@@ -24,13 +24,13 @@ pub struct CreateAppUser {
 
 impl CreateAppUser {
     pub fn request(
-        user_id: i64,
+        actor: Actor,
         principal: CreatePrincipal,
         principal_credential: CreatePrincipalCredential,
         principal_app_grants: Vec<CreatePrincipalAppGrant>,
     ) -> AppRequest {
         let app_user = Self {
-            user_id,
+            actor,
             principal,
             principal_credential,
             principal_app_grants,
@@ -44,7 +44,7 @@ impl Action for CreateAppUser {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::AppUserCreate,
             revertible: true,
             undoes: None,
@@ -87,7 +87,7 @@ impl Action for CreateAppUser {
             response: app_response,
             before_state: None,
             after_state: Some(after),
-            target: Some(Target::User(self.user_id)),
+            target: Some(Target::User(self.actor.get_user_id())),
         })
     }
 }

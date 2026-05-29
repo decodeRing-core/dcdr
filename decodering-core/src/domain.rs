@@ -124,6 +124,7 @@ impl PrincipalCredentialKind {
     }
 }
 
+#[derive(Debug)]
 pub enum AuditOutcome {
     Allowed,
     Denied,

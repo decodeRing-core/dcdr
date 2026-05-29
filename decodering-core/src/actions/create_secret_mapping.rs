@@ -9,6 +9,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateSecretMapping {
+    pub actor: Actor,
     pub app_id: String,
     pub secret_name: String,
     pub backend: String,
@@ -51,7 +52,7 @@ impl Action for CreateSecretMapping {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::SecretMappingCreate,
             revertible: true,
             undoes: None,

@@ -13,6 +13,7 @@ pub struct CreatePrincipalAppGrants(pub Vec<CreatePrincipalAppGrant>);
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreatePrincipalAppGrant {
+    pub actor: Actor,
     pub principal_id: String,
     pub app_id: String,
     pub granted_at: i64,
@@ -52,7 +53,7 @@ impl Action for CreatePrincipalAppGrant {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::PrincipalAppGrantCreate,
             revertible: true,
             undoes: None,
@@ -83,7 +84,10 @@ impl Action for CreatePrincipalAppGrants {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self
+                .0
+                .first()
+                .map_or(Actor::None { ip: None }, |f| f.actor.clone()),
             action_kind: ActionKind::PrincipalAppGrantCreate,
             revertible: true,
             undoes: None,

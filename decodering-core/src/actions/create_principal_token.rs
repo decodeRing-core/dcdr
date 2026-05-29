@@ -10,6 +10,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreatePrincipalToken {
+    pub actor: Actor,
     pub token_id: String,
     pub token_hash: String,
     pub principal_id: String,
@@ -51,7 +52,7 @@ impl Action for CreatePrincipalToken {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::PrincipalCredentialCreate,
             revertible: true,
             undoes: None,

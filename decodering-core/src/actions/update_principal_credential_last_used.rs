@@ -10,6 +10,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct UpdatePrincipalCredentialLastUsed {
+    pub actor: Actor,
     pub credential_id: String,
     pub principal_id: String,
     pub last_used_at: i64,
@@ -20,7 +21,7 @@ impl Action for UpdatePrincipalCredentialLastUsed {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::PrincipalCredentialLastUsedUpdate,
             revertible: true,
             undoes: None,

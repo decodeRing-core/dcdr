@@ -2,6 +2,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::action::Action;
 use crate::actions::create_api_key::CreateApiKey;
 use crate::actions::create_app::CreateApp;
 use crate::actions::create_app_user::CreateAppUser;
@@ -17,10 +18,12 @@ use crate::actions::create_user::CreateUser;
 use crate::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use crate::actions::delete_secret_mapping::DeleteSecretMapping;
 use crate::actions::system_init::SystemInit;
+use crate::actions::system_unlock::SystemUnlock;
 use crate::actions::update_plugin_config_credentials::UpdatePluginConfigCredentials;
 use crate::actions::update_principal_credential_last_used::UpdatePrincipalCredentialLastUsed;
 use crate::actions::update_secret_mapping_taint::UpdateSecretMappingTaint;
 use crate::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
+use crate::audit::AuditDescriptor;
 use crate::error::ActionError;
 use crate::response::AppResponse;
 use crate::runner::run_action_direct;
@@ -47,6 +50,34 @@ pub enum AppRequest {
     UpdatePrincipalCredentialLastUsed(UpdatePrincipalCredentialLastUsed),
     UpdatePluginConfigCredentials(UpdatePluginConfigCredentials),
     SystemInit(SystemInit),
+    SystemUnlock(SystemUnlock),
+}
+
+impl AppRequest {
+    pub fn audit_descriptor(&self) -> AuditDescriptor {
+        match self {
+            Self::CreateApiKey(a) => a.audit_descriptor(),
+            Self::CreateApp(a) => a.audit_descriptor(),
+            Self::CreateUser(a) => a.audit_descriptor(),
+            Self::CreateSecretMapping(a) => a.audit_descriptor(),
+            Self::UpdateSecretMappingTaint(a) => a.audit_descriptor(),
+            Self::DeleteSecretMapping(a) => a.audit_descriptor(),
+            Self::CreateShamirConfiguration(a) => a.audit_descriptor(),
+            Self::CreatePrincipal(a) => a.audit_descriptor(),
+            Self::CreatePrincipalCredential(a) => a.audit_descriptor(),
+            Self::CreatePrincipalToken(a) => a.audit_descriptor(),
+            Self::CreatePrincipalAppGrants(a) => a.audit_descriptor(),
+            Self::DeletePrincipalAppGrant(a) => a.audit_descriptor(),
+            Self::CreatePluginConfig(a) => a.audit_descriptor(),
+            Self::CreateAppUser(a) => a.audit_descriptor(),
+            Self::CreateTpmChallenge(a) => a.audit_descriptor(),
+            Self::UpdateConsumedAt(a) => a.audit_descriptor(),
+            Self::UpdatePrincipalCredentialLastUsed(a) => a.audit_descriptor(),
+            Self::UpdatePluginConfigCredentials(a) => a.audit_descriptor(),
+            Self::SystemInit(a) => a.audit_descriptor(),
+            Self::SystemUnlock(a) => a.audit_descriptor(),
+        }
+    }
 }
 
 impl fmt::Display for AppRequest {
@@ -165,6 +196,9 @@ impl fmt::Display for AppRequest {
             Self::UpdatePluginConfigCredentials(_) => {
                 write!(f, "UpdatePluginConfigCredentials()")
             }
+            Self::SystemUnlock(_) => {
+                write!(f, "SystemUnlock()")
+            }
         }
     }
 }
@@ -208,6 +242,7 @@ impl AppRequest {
             Self::UpdatePluginConfigCredentials(action) => {
                 Ok(run_action_direct(db, action).await?.response)
             }
+            Self::SystemUnlock(action) => Ok(run_action_direct(db, action).await?.response),
         }
     }
 }

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::domain::AuditOutcome;
 use crate::error::{DenyReason, ExecutionError};
@@ -6,23 +7,35 @@ use crate::repository::AuditEntry;
 
 #[derive(Serialize, Clone, Debug, Deserialize)]
 pub enum Actor {
-    User { user_id: i64 },
-    Principal { principal_id: String },
-    None,
+    User {
+        user_id: i64,
+        ip: Option<String>,
+    },
+    Principal {
+        principal_id: String,
+        ip: Option<String>,
+    },
+    None {
+        ip: Option<String>,
+    },
 }
 
 impl Actor {
+    pub fn unauthenticated(ip: Option<String>) -> Self {
+        Self::None { ip }
+    }
+
     pub fn get_id(&self) -> String {
         match self {
-            Self::User { user_id } => user_id.to_string(),
-            Self::Principal { principal_id } => principal_id.to_owned(),
-            Self::None => String::new(),
+            Self::User { user_id, .. } => user_id.to_string(),
+            Self::Principal { principal_id, .. } => principal_id.to_owned(),
+            Self::None { .. } => String::new(),
         }
     }
 
     pub fn get_user_id(&self) -> i64 {
         match self {
-            Self::User { user_id } => user_id.to_owned(),
+            Self::User { user_id, .. } => user_id.to_owned(),
             _ => 0,
         }
     }
@@ -42,6 +55,7 @@ pub enum Target {
     PrincipalToken(String),
     TpmChallenge(String),
     AuditEntry(i64),
+    System,
 }
 
 impl Target {
@@ -59,6 +73,7 @@ impl Target {
             Self::TpmChallenge(_) => "tpm_challenge",
             Self::PrincipalAppGrant(_) => "principal_app_grant",
             Self::Plugin(_) => "plugin",
+            Self::System => "system",
         }
     }
 
@@ -81,6 +96,7 @@ impl Target {
                 .as_deref()
                 .unwrap_or_default()
                 .to_owned(),
+            Self::System => String::new(),
         }
     }
 }
@@ -107,6 +123,7 @@ pub enum ActionKind {
     TpmChallengeCreate,
     TpmChallengeConsume,
     SystemInit,
+    SystemUnlock,
 }
 
 impl ActionKind {
@@ -132,10 +149,12 @@ impl ActionKind {
             Self::PrincipalCredentialLastUsedUpdate => "principal_credential.update",
             Self::PluginConfigCreate => "plugin_config.create",
             Self::PluginConfigCredentialsUpdate => "plugin_config.update",
+            Self::SystemUnlock => "system.unlock",
         }
     }
 }
 
+#[derive(Debug)]
 pub struct AuditDescriptor {
     pub actor: Actor,
     pub action_kind: ActionKind,
@@ -152,11 +171,11 @@ impl AuditDescriptor {
 
 pub fn audit_allowed<O: AuditCapture>(
     descriptor: &AuditDescriptor,
-    raft_index: i64,
+    raft_index: Option<i64>,
     output: &O,
     timestamp: i64,
 ) -> AuditEntry {
-    let (user_id, principal_id) = split_actor(&descriptor.actor);
+    let (user_id, principal_id, ip) = split_actor(&descriptor.actor);
     let (target_type, target_id) = output.target().map_or((None, None), |t| {
         (Some(t.kind_str().to_owned()), Some(t.id_str()))
     });
@@ -165,6 +184,7 @@ pub fn audit_allowed<O: AuditCapture>(
         timestamp,
         user_id,
         principal_id,
+        ip,
         action_type: descriptor.action_kind.as_str().to_owned(),
         target_type,
         target_id,
@@ -180,17 +200,18 @@ pub fn audit_allowed<O: AuditCapture>(
 
 pub fn audit_denied(
     descriptor: &AuditDescriptor,
-    raft_index: i64,
+    raft_index: Option<i64>,
     reason: &DenyReason,
     timestamp: i64,
 ) -> AuditEntry {
-    let (user_id, principal_id) = split_actor(&descriptor.actor);
+    let (user_id, principal_id, ip) = split_actor(&descriptor.actor);
 
     AuditEntry {
         raft_index,
         timestamp,
         user_id,
         principal_id,
+        ip,
         action_type: descriptor.action_kind.as_str().to_owned(),
         target_type: None,
         target_id: None,
@@ -206,17 +227,18 @@ pub fn audit_denied(
 
 pub fn audit_errored(
     descriptor: &AuditDescriptor,
-    raft_index: i64,
+    raft_index: Option<i64>,
     err: &ExecutionError,
     timestamp: i64,
 ) -> AuditEntry {
-    let (user_id, principal_id) = split_actor(&descriptor.actor);
+    let (user_id, principal_id, ip) = split_actor(&descriptor.actor);
 
     AuditEntry {
         raft_index,
         timestamp,
         user_id,
         principal_id,
+        ip,
         action_type: descriptor.action_kind.as_str().to_owned(),
         target_type: None,
         target_id: None,
@@ -225,16 +247,16 @@ pub fn audit_errored(
         before_state: None,
         after_state: None,
         metadata: descriptor.metadata_json(),
-        revertible: false, // errored actions are never revertible
+        revertible: false,
         undoes: None,
     }
 }
 
-fn split_actor(actor: &Actor) -> (Option<i64>, Option<String>) {
+fn split_actor(actor: &Actor) -> (Option<i64>, Option<String>, Option<String>) {
     match actor {
-        Actor::User { user_id } => (Some(*user_id), None),
-        Actor::Principal { principal_id } => (None, Some(principal_id.clone())),
-        Actor::None => (None, None),
+        Actor::User { user_id, ip } => (Some(*user_id), None, ip.clone()),
+        Actor::Principal { principal_id, ip } => (None, Some(principal_id.clone()), ip.clone()),
+        Actor::None { ip } => (None, None, ip.clone()),
     }
 }
 
@@ -246,8 +268,8 @@ pub trait AuditCapture {
 
 pub struct ActionOutput<R> {
     pub response: R,
-    pub before_state: Option<serde_json::Value>,
-    pub after_state: Option<serde_json::Value>,
+    pub before_state: Option<Value>,
+    pub after_state: Option<Value>,
     pub target: Option<Target>,
 }
 
@@ -316,19 +338,23 @@ mod tests {
 
     #[test]
     fn audit_allowed_populates_target_and_state_from_capture() {
-        let desc = descriptor(Actor::User { user_id: 7 });
+        let desc = descriptor(Actor::User {
+            user_id: 7,
+            ip: Some(String::from("127.0.0.1")),
+        });
         let capture = StubCapture {
             before: Some("{\"x\":1}".to_owned()),
             after: Some("{\"x\":2}".to_owned()),
             target: Some(Target::App("app-1".to_owned())),
         };
 
-        let entry = audit_allowed(&desc, 100, &capture, 1_700_000_000);
+        let entry = audit_allowed(&desc, Some(100), &capture, 1_700_000_000);
 
-        assert_eq!(entry.raft_index, 100);
+        assert_eq!(entry.raft_index, Some(100));
         assert_eq!(entry.timestamp, 1_700_000_000);
         assert_eq!(entry.user_id, Some(7));
         assert_eq!(entry.principal_id, None);
+        assert_eq!(entry.ip.as_deref(), Some("127.0.0.1"));
         assert_eq!(entry.action_type, "app.create");
         assert_eq!(entry.target_type.as_deref(), Some("app"));
         assert_eq!(entry.target_id.as_deref(), Some("app-1"));
@@ -344,6 +370,7 @@ mod tests {
     fn audit_allowed_with_no_target_yields_none_target_fields() {
         let desc = descriptor(Actor::Principal {
             principal_id: "p-1".to_owned(),
+            ip: Some(String::from("127.0.0.2")),
         });
         let capture = StubCapture {
             before: None,
@@ -351,10 +378,11 @@ mod tests {
             target: None,
         };
 
-        let entry = audit_allowed(&desc, 1, &capture, 0);
+        let entry = audit_allowed(&desc, Some(1), &capture, 0);
 
         assert_eq!(entry.user_id, None);
         assert_eq!(entry.principal_id.as_deref(), Some("p-1"));
+        assert_eq!(entry.ip.as_deref(), Some("127.0.0.2"));
         assert_eq!(entry.target_type, None);
         assert_eq!(entry.target_id, None);
         assert_eq!(entry.before_state, None);
@@ -364,7 +392,10 @@ mod tests {
     #[test]
     fn audit_denied_forces_non_revertible_and_strips_target_and_state() {
         let desc = AuditDescriptor {
-            actor: Actor::User { user_id: 3 },
+            actor: Actor::User {
+                user_id: 3,
+                ip: Some(String::from("127.0.0.3")),
+            },
             action_kind: ActionKind::SecretMappingGet,
             revertible: true,
             undoes: Some(99),
@@ -372,9 +403,10 @@ mod tests {
         };
         let reason = DenyReason("denied".to_owned());
 
-        let entry = audit_denied(&desc, 10, &reason, 1);
+        let entry = audit_denied(&desc, Some(10), &reason, 1);
 
         assert!(matches!(entry.outcome, AuditOutcome::Denied));
+        assert_eq!(entry.ip.as_deref(), Some("127.0.0.3"));
         assert_eq!(entry.target_type, None);
         assert_eq!(entry.target_id, None);
         assert_eq!(entry.before_state, None);
@@ -388,7 +420,9 @@ mod tests {
     #[test]
     fn audit_errored_forces_non_revertible_and_strips_target_and_state() {
         let desc = AuditDescriptor {
-            actor: Actor::None,
+            actor: Actor::None {
+                ip: Some(String::from("127.0.0.1")),
+            },
             action_kind: ActionKind::SystemInit,
             revertible: true,
             undoes: Some(99),
@@ -396,11 +430,12 @@ mod tests {
         };
         let err = ExecutionError::Other("other".to_owned());
 
-        let entry = audit_errored(&desc, 5, &err, 2);
+        let entry = audit_errored(&desc, Some(5), &err, 2);
 
         assert!(matches!(entry.outcome, AuditOutcome::Error));
         assert_eq!(entry.user_id, None);
         assert_eq!(entry.principal_id, None);
+        assert_eq!(entry.ip.as_deref(), Some("127.0.0.1"));
         assert_eq!(entry.target_type, None);
         assert_eq!(entry.target_id, None);
         assert_eq!(entry.before_state, None);

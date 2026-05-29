@@ -11,6 +11,7 @@ use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateUser {
+    pub actor: Actor,
     pub username: String,
     pub email: String,
     pub password_hash: String,
@@ -42,8 +43,15 @@ impl From<UserEntry> for CreateUserResponse {
 }
 
 impl CreateUser {
-    pub fn new(username: &str, email: &str, password_hash: &str, is_admin: u8) -> Self {
+    pub fn new(
+        actor: Actor,
+        username: &str,
+        email: &str,
+        password_hash: &str,
+        is_admin: u8,
+    ) -> Self {
         Self {
+            actor,
             username: username.to_owned(),
             email: email.to_owned(),
             password_hash: password_hash.to_owned(),
@@ -51,8 +59,14 @@ impl CreateUser {
             created_at: now_ts(),
         }
     }
-    pub fn request(username: &str, email: &str, password_hash: &str, is_admin: u8) -> AppRequest {
-        let user = Self::new(username, email, password_hash, is_admin);
+    pub fn request(
+        actor: Actor,
+        username: &str,
+        email: &str,
+        password_hash: &str,
+        is_admin: u8,
+    ) -> AppRequest {
+        let user = Self::new(actor, username, email, password_hash, is_admin);
         AppRequest::CreateUser(user)
     }
 }
@@ -62,7 +76,7 @@ impl Action for CreateUser {
 
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
-            actor: Actor::None,
+            actor: self.actor.clone(),
             action_kind: ActionKind::UserCreate,
             revertible: true,
             undoes: None,

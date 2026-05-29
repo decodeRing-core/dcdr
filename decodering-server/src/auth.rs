@@ -1,3 +1,4 @@
+use actix_web::dev::ConnectionInfo;
 use actix_web::web::Data;
 use decodering_core::actions::update_principal_credential_last_used::UpdatePrincipalCredentialLastUsed;
 use decodering_core::repository::PrincipalAppGrant;
@@ -14,6 +15,7 @@ use crate::extractor::AuthOSLMiddleware;
 use crate::handlers::response::ErrorStatus;
 
 pub async fn require_app_grant_for_principal<D: Database>(
+    conn: &ConnectionInfo,
     db: &mut <D as Database>::Tx<'_>,
     app: &Data<AppData<D>>,
     auth: &AuthOSLMiddleware<D>,
@@ -27,6 +29,7 @@ pub async fn require_app_grant_for_principal<D: Database>(
         {
             Ok(Some(principal_app_grant)) => {
                 let last_used = UpdatePrincipalCredentialLastUsed {
+                    actor: auth.actor(conn),
                     credential_id: p.credential_id.clone(),
                     principal_id: p.principal_id.clone(),
                     last_used_at: now_ts(),
