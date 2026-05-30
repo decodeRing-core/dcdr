@@ -5,7 +5,7 @@ use crate::actions::create_api_key::CreateApiKey;
 use crate::actions::create_plugin_config::CreatePluginConfig;
 use crate::actions::create_shamir_configuration::CreateShamirConfiguration;
 use crate::actions::create_user::CreateUser;
-use crate::audit::ActionKind;
+use crate::audit::{ActionKind, Target};
 use crate::audit::{ActionOutput, Actor, AuditDescriptor};
 use crate::error::ExecutionError;
 use crate::repository::ApiKeyEntry;
@@ -95,7 +95,7 @@ impl Action for SystemInit {
             response: app_response,
             before_state: None,
             after_state: Some(after),
-            target: None,
+            target: Some(Target::System),
         })
     }
 }

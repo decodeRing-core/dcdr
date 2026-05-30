@@ -17,7 +17,7 @@ pub fn config_app<D: Database + 'static>(cfg: &mut web::ServiceConfig) {
             .configure(write_osl_routes::<D>),
     )
     .service(app_management_routes::<D>())
-    .service(app_system_routes::<D>())
+    .service(web::scope("/system").configure(app_system_routes::<D>))
     .service(
         web::scope("")
             .wrap(RaftBackendOnly::<D>::new())

@@ -498,7 +498,6 @@ dependencies = [
  "http 1.4.1",
  "serde",
  "serde_json",
- "sha2 0.11.0",
 ]
 
 [[package]]
@@ -1544,7 +1543,6 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "decodering-core",
- "dotenvy",
  "schemars 1.2.1",
  "serde_json",
 ]
@@ -1589,7 +1587,6 @@ dependencies = [
  "decodering-db",
  "futures",
  "openraft",
- "rand 0.10.1",
  "reqwest",
  "rocksdb",
  "rusqlite",
@@ -1597,8 +1594,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
- "tracing-subscriber",
- "zeroize",
 ]
 
 [[package]]
@@ -1620,7 +1615,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
- "sha2 0.10.9",
  "tracing",
  "tracing-actix-web",
  "tracing-appender",

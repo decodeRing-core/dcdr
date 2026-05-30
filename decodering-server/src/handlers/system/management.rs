@@ -1,4 +1,5 @@
 use crate::app_data::AppData;
+use crate::audit::{unlock_audit_allowed, unlock_audit_errored};
 use crate::error::ErrorReason;
 use crate::extractor::AuthAdminMiddleware;
 use crate::handlers::response::{ApiResponse, ApiStatus, ErrorStatus, SuccessStatus};
@@ -13,13 +14,12 @@ use decodering_core::actions::create_plugin_config::CreatePluginConfig;
 use decodering_core::actions::create_shamir_configuration::CreateShamirConfiguration;
 use decodering_core::actions::create_user::CreateUser;
 use decodering_core::actions::system_init::SystemInit;
-use decodering_core::actions::system_unlock::SystemUnlock;
 use decodering_core::actions::update_plugin_config_credentials::UpdatePluginConfigCredentials;
 use decodering_core::audit::Actor;
 use decodering_core::crypto::{encrypt_map, sha256_hex};
 use decodering_core::repository::ShamirRepository;
 use decodering_core::response::AppResponse;
-use decodering_core::shamir::initialize_shamir;
+use decodering_core::shamir::{initialize_shamir, unlock};
 use decodering_core::time::now_ts;
 use decodering_core::tx::{Database, Tx};
 use rand::distr::{Alphanumeric, SampleString};
@@ -188,39 +188,32 @@ pub async fn system_unlock<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::InvalidShamirKeys));
     };
 
-    let request_unlock = SystemUnlock::request(
-        Actor::unauthenticated(ip.clone()),
+    let secret = unlock(
         threshold,
-        shamir_configuration.validation_hash,
-        req.0.shards,
+        &shamir_configuration.validation_hash,
+        &req.shards,
     );
-
-    match app.submit(request_unlock).await {
-        Ok(resp) => match resp {
-            AppResponse::SystemUnlock(master_key) => {
-                let out = app.master_key.set(Zeroizing::new(master_key));
-                match out {
-                    Ok(()) => ApiResponse::empty(SuccessStatus::SystemUnlocked.into()),
-                    Err(e) => {
-                        tracing::error!(err=?e, "Unlock error");
-                        ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
-                    }
+    match secret {
+        Ok(secret) => {
+            let out = app.master_key.set(Zeroizing::new(secret));
+            match out {
+                Ok(()) => {
+                    unlock_audit_allowed::<D>(ip, db).await;
+                    ApiResponse::empty(SuccessStatus::SystemUnlocked.into())
+                }
+                Err(e) => {
+                    unlock_audit_errored::<D>(ip, db, "Invalid shards".to_owned()).await;
+                    tracing::error!(err=?e, "Unlock error");
+                    ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
                 }
             }
-            AppResponse::Error(e) => {
-                tracing::error!(%e, "Failed to unlock system");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "unlock system".into(),
-                )))
-            }
-            other_api_response => {
-                tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
-            }
-        },
-        Err(e) => {
-            tracing::error!(%e, "Failed to initialize system");
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+        }
+        Err(err) => {
+            unlock_audit_errored::<D>(ip, db, err.to_string()).await;
+            tracing::error!(e=%err, "Failed to unlock system");
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                "unlock system".into(),
+            )))
         }
     }
 }
@@ -254,7 +247,7 @@ pub async fn system_plugin_config<D: Database + 'static>(
                 timestamp,
             );
 
-            let _ = match app.submit(request_update_plugin).await {
+            match app.submit(request_update_plugin).await {
                 Ok(resp) => match resp {
                     AppResponse::UpdatePluginConfigSecrets(_) => ApiResponse::<()>::new(
                         ApiStatus::Success(SuccessStatus::OperationCompleted),

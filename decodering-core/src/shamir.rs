@@ -66,17 +66,27 @@ impl std::error::Error for LockError {}
 pub fn unlock(
     threshold: u8,
     expected_hash: &[u8],
-    shards: &Vec<Share>,
+    shards: &[Vec<u8>],
 ) -> Result<Vec<u8>, LockError> {
-    if shards.len() < threshold as usize {
+    let shares: Option<Vec<Share>> = shards
+        .iter()
+        .map(|b| Share::try_from(b.as_slice()))
+        .collect::<Result<_, _>>()
+        .ok();
+
+    let Some(shares) = shares else {
+        return Err(LockError::RecoveryFailed("Invalid shards".to_owned()));
+    };
+
+    if shares.len() < threshold as usize {
         return Err(LockError::InsufficientShards {
-            got: shards.len(),
+            got: shares.len(),
             need: threshold,
         });
     }
 
     let secret = Sharks(threshold)
-        .recover(shards.as_slice())
+        .recover(shares.as_slice())
         .map_err(|e| LockError::RecoveryFailed(e.to_owned()))?;
 
     if Sha256::digest(&secret).as_slice() != expected_hash {

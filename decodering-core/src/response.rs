@@ -142,7 +142,6 @@ pub enum AppResponse {
     CreatePluginConfig(CreatePluginConfigResponse),
     UpdatePluginConfigSecrets(Vec<u8>),
     SystemInit(SystemInitResponse),
-    SystemUnlock(Vec<u8>),
     CreateAppUser(CreateAppUserResponse),
     CreateTpmChallenge(CreateTpmChallengeResponse),
     ConsumeTpmChallenge(ConsumeTpmChallengeResponse),
@@ -258,7 +257,6 @@ impl fmt::Display for AppResponse {
             Self::UpdatePluginConfigSecrets(_) => {
                 write!(f, "UpdatePluginConfigSecrets()")
             }
-            Self::SystemUnlock(_) => write!(f, "SystemUnlock"),
         }
     }
 }
