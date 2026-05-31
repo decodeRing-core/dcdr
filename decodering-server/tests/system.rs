@@ -219,7 +219,7 @@ pub async fn unlock_system_addr_failed(
     assert!(body["error"].is_object());
     assert_eq!(body["error"]["code"], "operation-failed");
     assert!(body["error"]["message"].is_string());
-    assert_eq!(body["error"]["detail"], "Internal error.");
+    assert_eq!(body["error"]["detail"], "Failed to unlock system.");
 
     Ok(())
 }
