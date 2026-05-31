@@ -72,18 +72,17 @@ From the decoding-plugins folder, navigate into each vault plugin folder you wan
 ./build.sh
 ```
 
-This compiles the plugins to WebAssembly and copies them into a plugins folder inside dcdr-rs (the directory where you cloned the repository). If you set PLUGIN_DIRECTORY to a different path, compile the plugins manually, see build.sh for details.
-If the build succeeds, you should see a compiled/ folder containing **openbao-rust.wasm**.
-Create a **manifests/** folder next to **compiled/** and add a file named **openbao-rust.yaml** with the following contents:
+This compiles the plugins to WebAssembly and copies them into a plugins folder inside dcdr-rs (the repository directory). If you set PLUGIN_DIRECTORY to a different path, compile the plugins manually, see `build.sh` for details.
+If the build succeeds, you should see a `compiled/` folder containing the `.wasm` files for each plugin you built.
+Each plugin requires a manifest file. Create a `manifests/` folder next to `compiled/` and add a `.yaml` file for each plugin. For example, for `openbao-rs`, create `openbao-rs.yaml` with the following contents:
 
 ```yaml
 wasm:
-  - path: "plugins/compiled/openbao-rust.wasm"
+  - path: "plugins/compiled/openbao-rs.wasm"
 allowed_hosts:
   - "127.0.0.1"
 config:
   vault_addr: "http://127.0.0.1:8200"
-  vault_token: "Your openbao vault token"
   kv_mount: "Your openbao kv mount"
 ```
 
@@ -94,9 +93,11 @@ dcdr-rs
   |- ...
   |- plugins
     |- compiled
-      |- openbao-rust.wasm
+      |- openbao-rs.wasm
+      |- aws-rs.wasm
     |- manifests
-      |- openbao-rust.yaml
+      |- openbao-rs.yaml
+      |- aws-rs.yaml
 ```
 
 ### **Run Nodes**
