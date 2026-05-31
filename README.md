@@ -49,6 +49,7 @@ RAFT_LOG_PREFIX="decodering"
 TRACING_LEVEL=error,decodering=debug,extism=error,extism_pdk=error,tracing_actix_web=info
 # The plugins folder must exist. In this example it lives inside the dcdr-rs folder.
 PLUGIN_DIRECTORY="plugins"
+TPM_TRUST_DIR="/tmp"
 ```
 
 #### **Compiling plugins**
@@ -59,13 +60,13 @@ Run:
 rustup target list --installed
 ```
 
-Install the wasm32-unknown-unknown target if you haven't already. The wasm32-unknown-unknown target means the plugin is not tied to any specific operating system or CPU architecture, it will run anywhere a WASM runtime is available.
+Install the wasm targets if you haven't already. The wasm32-unknown-unknown target means the plugin is not tied to any specific operating system or CPU architecture — it will run anywhere a WASM runtime is available. The wasm32-wasip1 target includes WASI support, enabling access to system interfaces like the filesystem and environment variables.
 
 ```shell
-rustup target add wasm32-unknown-unknown
+rustup target add wasm32-unknown-unknown wasm32-wasip1
 ```
 
-From the decodering-plugins folder, run:
+From the decoding-plugins folder, navigate into each vault plugin folder you want and run:
 
 ```shell
 ./build.sh
