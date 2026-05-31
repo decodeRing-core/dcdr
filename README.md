@@ -196,22 +196,6 @@ curl -X POST 'http://127.0.0.1:21001/raft/add-learner' \
   --data '[3, "127.0.0.1:21003"]'
 ```
 
-#### Add nodes as learners
-
-```sh
-curl -X POST 'http://127.0.0.1:21001/raft/add-learner' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
-  --header 'Content-Type: application/json' \
-  --data '[2, "127.0.0.1:21002"]'
-
-curl -X POST 'http://127.0.0.1:21001/raft/add-learner' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
-  --header 'Content-Type: application/json' \
-  --data '[3, "127.0.0.1:21003"]'
-```
-
 #### Verify nodes have been added as learners
 
 ```sh
