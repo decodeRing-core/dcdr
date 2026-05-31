@@ -25,6 +25,7 @@ pub enum SuccessStatus {
     RaftMetrics,
     RaftAddLearner,
     RaftMembership,
+    RaftShutdown,
     OperationCompleted,
 }
 
@@ -38,6 +39,7 @@ impl SuccessStatus {
             Self::RaftMetrics => "Raft node metrics",
             Self::RaftAddLearner => "Raft learner added",
             Self::RaftMembership => "Raft membership changes",
+            Self::RaftShutdown => "Raft shutdown complete",
             Self::OperationCompleted => "Operation completed",
         }
     }
@@ -50,6 +52,7 @@ impl SuccessStatus {
             | Self::RaftInitialized
             | Self::RaftMetrics
             | Self::RaftAddLearner
+            | Self::RaftShutdown
             | Self::RaftMembership
             | Self::OperationCompleted => StatusCode::OK,
         }

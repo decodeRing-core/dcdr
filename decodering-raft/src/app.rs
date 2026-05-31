@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 use std::io::Cursor;
 
+use openraft::alias::JoinErrorOf;
 use openraft::error::Infallible;
 use openraft::error::decompose::DecomposeResult;
 use openraft::rt::WatchReceiver;
 use openraft::{BasicNode, ChangeMembers, Snapshot};
 
-use crate::NodeId;
 use crate::raft_types::ClientWriteError;
 use crate::raft_types::ClientWriteResponse;
 use crate::raft_types::Fatal;
@@ -19,6 +19,7 @@ use crate::raft_types::VoteRequest;
 use crate::raft_types::VoteResponse;
 use crate::raft_types::{AppendEntriesRequest, RaftError};
 use crate::raft_types::{AppendEntriesResponse, InitializeError};
+use crate::{NodeId, TypeConfig};
 use crate::{Raft, StateMachineStore};
 
 #[derive(Clone)]
@@ -47,6 +48,10 @@ impl RaftBits {
 
     pub fn metrics(&self) -> RaftMetrics {
         self.raft.metrics().borrow_watched().clone()
+    }
+
+    pub async fn shutdown(&self) -> Result<(), JoinErrorOf<TypeConfig>> {
+        self.raft.shutdown().await
     }
 
     pub async fn add_learner(

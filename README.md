@@ -125,7 +125,7 @@ If this is a brand-new Raft cluster (i.e. no Raft state exists yet in RAFT\*LOG_
 Initialize a brand new Raft cluster.
 
 ```
-POST http://127.0.0.1:21001/raft/init
+POST http://HOST:PORT/raft/init
 ```
 
 <details>
@@ -144,7 +144,7 @@ POST http://127.0.0.1:21001/raft/init
 Add a new learner to the cluster. The first parameter is the ID of the learner and the second is the IP address.
 
 ```
-POST http://127.0.0.1:21001/raft/add-learner
+POST http://HOST:PORT/raft/add-learner
 ```
 
 <details>
@@ -161,7 +161,24 @@ POST http://127.0.0.1:21001/raft/add-learner
 View Raft node metrics.
 
 ```
-POST http://127.0.0.1:21001/raft/metrics
+POST http://HOST:PORT/raft/metrics
+```
+
+<details>
+<summary>Request Body</summary>
+
+```json
+[]
+```
+
+</details>
+
+#### Shutdown node
+
+Shutdown Raft node gracefully. Make sure to first remove node from membership.
+
+```
+POST http://HOST:PORT/raft/shutdown
 ```
 
 <details>
@@ -178,7 +195,7 @@ POST http://127.0.0.1:21001/raft/metrics
 Modify the cluster's membership. Add or remove nodes as needed.
 
 ```
-POST http://127.0.0.1:21001/raft/change-membership
+POST http://HOST:PORT/raft/change-membership
 ```
 
 <details>
@@ -287,7 +304,7 @@ POST http://127.0.0.1:21001/raft/change-membership
 Initialize the system. Returns the Shamir key shards and the root user token. This endpoint can only be called once; subsequent calls will return an error.
 
 ```
-POST http://127.0.0.1:21001/system/init
+POST http://HOST:PORT/system/init
 ```
 
 <details>
@@ -308,7 +325,7 @@ POST http://127.0.0.1:21001/system/init
 Unlock node with shards.
 
 ```
-POST http://127.0.0.1:21001/system/unlock
+POST http://HOST:PORT/system/unlock
 ```
 
 <details>
@@ -327,7 +344,7 @@ POST http://127.0.0.1:21001/system/unlock
 Update plugin configuration credentials
 
 ```
-POST http://127.0.0.1:21001/system/plugin/config
+POST http://HOST:PORT/system/plugin/config
 ```
 
 <details>
@@ -350,7 +367,7 @@ POST http://127.0.0.1:21001/system/plugin/config
 View node status.
 
 ```
-POST http://127.0.0.1:21001/system/status
+POST http://HOST:PORT/system/status
 ```
 
 <details>
@@ -371,7 +388,7 @@ POST http://127.0.0.1:21001/system/status
 Create a new application.
 
 ```
-POST http://127.0.0.1:21001/app/create
+POST http://HOST:PORT/app/create
 ```
 
 <details>
@@ -390,7 +407,7 @@ POST http://127.0.0.1:21001/app/create
 Create an application user (principal).
 
 ```
-POST http://127.0.0.1:21001/app/user/create
+POST http://HOST:PORT/app/user/create
 ```
 
 <details>
@@ -451,7 +468,7 @@ POST http://127.0.0.1:21001/app/user/create
 Generate a nonce for TPM attestation.
 
 ```
-POST http://127.0.0.1:21001/app/tpm/challenge
+POST http://HOST:PORT/app/tpm/challenge
 ```
 
 <details>
@@ -468,7 +485,7 @@ POST http://127.0.0.1:21001/app/tpm/challenge
 Authenticate an application user with API key. Returns a short-term token to interact with OSL endpoints.
 
 ```
-POST http://127.0.0.1:21001/app/user/auth
+POST http://HOST:PORT/app/user/auth
 ```
 
 <details>
@@ -488,7 +505,7 @@ POST http://127.0.0.1:21001/app/user/auth
 Authenticate an application user with TPM. Returns a short-term token to interact with OSL endpoints.
 
 ```
-POST http://127.0.0.1:21001/app/user/auth/tpm
+POST http://HOST:PORT/app/user/auth/tpm
 ```
 
 <details>
@@ -521,7 +538,7 @@ POST http://127.0.0.1:21001/app/user/auth/tpm
 Authenticate an application user with AWS role. Returns a short-term token to interact with OSL endpoints.
 
 ```
-POST http://127.0.0.1:21001/app/user/auth/aws
+POST http://HOST:PORT/app/user/auth/aws
 ```
 
 <details>
@@ -549,7 +566,7 @@ POST http://127.0.0.1:21001/app/user/auth/aws
 Grant a user/principal access to one or more applications.
 
 ```
-POST http://127.0.0.1:21001/app/user/grant
+POST http://HOST:PORT/app/user/grant
 ```
 
 <details>
@@ -569,7 +586,7 @@ POST http://127.0.0.1:21001/app/user/grant
 Revoke a user/principal's access to an application.
 
 ```
-POST http://127.0.0.1:21001/app/user/revoke
+POST http://HOST:PORT/app/user/revoke
 ```
 
 <details>
@@ -589,7 +606,7 @@ POST http://127.0.0.1:21001/app/user/revoke
 List applications user/principal's has access to.
 
 ```
-POST http://127.0.0.1:21001/app/list
+POST http://HOST:PORT/app/list
 ```
 
 <details>
@@ -635,4 +652,4 @@ Current implementation status
 - [ ] List syncs
 - [ ] Delete sync
 - [x] List applications
-- [ ] List backends
+- [x] List backends

@@ -6,6 +6,7 @@ use crate::handlers::raft::management::add_learner_raft;
 use crate::handlers::raft::management::change_membership_raft;
 use crate::handlers::raft::management::init_raft;
 use crate::handlers::raft::management::metrics_raft;
+use crate::handlers::raft::management::shutdown_raft;
 use crate::middleware::RaftInitializedHelper;
 use crate::middleware::RaftLeaderHelper;
 
@@ -13,6 +14,7 @@ pub fn raft_management_routes<D: Database + 'static>() -> impl HttpServiceFactor
     web::scope("/raft")
         .route("/init", web::post().to(init_raft::<D>))
         .route("/metrics", web::post().to(metrics_raft::<D>))
+        .route("/shutdown", web::post().to(shutdown_raft::<D>))
         .service(
             web::scope("")
                 .wrap(RaftLeaderHelper::<D>::new())

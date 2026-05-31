@@ -35,10 +35,7 @@ pub async fn init_raft<D: Database + 'static>(
     }
 }
 
-pub async fn metrics_raft<D: Database + 'static>(
-    app: Data<AppData<D>>,
-    _req: Json<Vec<(NodeId, String)>>,
-) -> impl Responder {
+pub async fn metrics_raft<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
     let Some(raft_bits) = &app.raft else {
         tracing::error!("RaftBits not available");
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::RaftNotAvailable));
@@ -88,6 +85,21 @@ pub async fn change_membership_raft<D: Database + 'static>(
         Err(e) => {
             tracing::error!(err=%e, "Raft change membership error");
             ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Raft))
+        }
+    }
+}
+
+pub async fn shutdown_raft<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
+    let Some(raft_bits) = &app.raft else {
+        tracing::error!("RaftBits not available");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::RaftNotAvailable));
+    };
+
+    match raft_bits.shutdown().await {
+        Ok(()) => ApiResponse::empty(SuccessStatus::RaftShutdown.into()),
+        Err(e) => {
+            tracing::error!(err=%e, "Raft error");
+            ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Raft))
         }
     }
 }
