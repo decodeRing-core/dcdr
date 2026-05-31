@@ -1,5 +1,7 @@
 # **DecodeRing Rust Implementation**
 
+[TOC]
+
 ## **Overview**
 
 The project is organized into the following workspaces:
@@ -60,7 +62,7 @@ Run:
 rustup target list --installed
 ```
 
-Install the wasm targets if you haven't already. The wasm32-unknown-unknown target means the plugin is not tied to any specific operating system or CPU architecture — it will run anywhere a WASM runtime is available. The wasm32-wasip1 target includes WASI support, enabling access to system interfaces like the filesystem and environment variables.
+Install the wasm targets if you haven't already. The `wasm32-unknown-unknown` target means the plugin is not tied to any specific operating system or CPU architecture, it will run anywhere a WASM runtime is available. The `wasm32-wasip1` target includes WASI support, enabling access to system interfaces like the filesystem and environment variables.
 
 ```shell
 rustup target add wasm32-unknown-unknown wasm32-wasip1
@@ -74,7 +76,7 @@ From the decoding-plugins folder, navigate into each vault plugin folder you wan
 
 This compiles the plugins to WebAssembly and copies them into a plugins folder inside dcdr-rs (the repository directory). If you set PLUGIN_DIRECTORY to a different path, compile the plugins manually, see `build.sh` for details.
 If the build succeeds, you should see a `compiled/` folder containing the `.wasm` files for each plugin you built.
-Each plugin requires a manifest file. Create a `manifests/` folder next to `compiled/` and add a `.yaml` file for each plugin. For example, for `openbao-rs`, create `openbao-rs.yaml` with the following contents:
+Each plugin requires a manifest file. Create a `manifests/` folder next to `compiled/` and add a `.yaml` file for each plugin.
 
 ```yaml
 wasm:
@@ -82,8 +84,19 @@ wasm:
 allowed_hosts:
   - "127.0.0.1"
 config:
+  type: "OpenBao"
   vault_addr: "http://127.0.0.1:8200"
   kv_mount: "Your openbao kv mount"
+```
+
+```yaml
+wasm:
+  - path: "plugins/compiled/aws-rs.wasm"
+allowed_hosts:
+  - "secretsmanager.ap-southeast-2.amazonaws.com"
+config:
+  type: "AWS Secrets Manager"
+  region: "ap-southeast-2"
 ```
 
 The final layout should look like:
