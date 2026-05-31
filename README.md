@@ -204,8 +204,6 @@ curl -X POST 'http://127.0.0.1:21001/raft/metrics' \
   --header 'Accept: */*'
 ```
 
-You should see the following response:
-
 ```json
 {
   "osl_version": "1.0.0",
@@ -306,8 +304,6 @@ curl -X POST 'http://127.0.0.1:21001/raft/change-membership' \
 }'
 ```
 
-You should see the following response:
-
 ```json
 {
   "osl_version": "1.0.0",
@@ -361,8 +357,6 @@ curl -X POST 'http://127.0.0.1:21001/system/init' \
 }'
 ```
 
-You should see the following response:
-
 ```json
 {
   "osl_version": "1.0.0",
@@ -371,6 +365,134 @@ You should see the following response:
   "data": {
     "shards": ["xxx", "yyy", "zzz", "sss", "bbb"],
     "root_token": "pk_xxxx"
+  }
+}
+```
+
+### Unlock nodes
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/system/unlock' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "shards": [
+      "xxx",
+      "yyy"
+  ],
+}'
+```
+
+### Create Application
+
+**Requires root token** obtained when intializing the system.
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/create' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "app_name": "my-testing-app",
+}
+' \
+  --header 'Authorization: Bearer pk_xxx'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "app_id": "019e7d2e-9048-70d3-b910-e209bb21b21b",
+    "app_name": "my-testing-app"
+  }
+}
+```
+
+### Create Application User/Principal (API Key identity)
+
+**Requires root token** obtained when intializing the system.
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/create' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "my-first-app-user",
+  "kind": "human",
+  "credential_kind": "apiKey",
+}
+' \
+  --header 'Authorization: Bearer pk_xxx'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "token": "pk_yyy",
+    "principal_id": "019e7d30-493b-7263-acd4-a811db0a95df"
+  }
+}
+```
+
+### Grant application access to User/Principal
+
+**Requires root token** obtained when intializing the system.
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/grant' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "principal_id": "019e7d30-493b-7263-acd4-a811db0a95df",
+  "apps": [
+    "019e7d2e-9048-70d3-b910-e209bb21b21b",
+  ]
+}
+' \
+  --header 'Authorization: Bearer pk_xxx'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed"
+}
+```
+
+### Authenticate user/principal for application using API KEY identity to obtain short term token to access OSL endpoints
+
+key is your user's api key obtained from `/app/user/create` (an admin needs to create this for you)
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "app_id": "019e7d30-493b-7263-acd4-a811db0a95df",
+  "key": "pk_yyy",
+}
+'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "token": "tok_As2ZifSUanucbOJ9202n5xNsGlccByrt",
+    "expires_at": 1780220675
   }
 }
 ```
