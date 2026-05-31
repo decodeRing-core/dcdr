@@ -369,7 +369,7 @@ curl -X POST 'http://127.0.0.1:21001/system/init' \
 }
 ```
 
-### Unlock nodes
+#### Unlock nodes
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/system/unlock' \
@@ -384,7 +384,7 @@ curl -X POST 'http://127.0.0.1:21001/system/unlock' \
 }'
 ```
 
-### Create Application
+#### Create Application
 
 **Requires root token** obtained when intializing the system.
 
@@ -412,7 +412,7 @@ curl -X POST 'http://127.0.0.1:21001/app/create' \
 }
 ```
 
-### Create Application User/Principal (API Key identity)
+#### Create Application User/Principal (API Key identity)
 
 **Requires root token** obtained when intializing the system.
 
@@ -442,7 +442,7 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 }
 ```
 
-### Grant application access to User/Principal
+#### Grant application access to User/Principal
 
 **Requires root token** obtained when intializing the system.
 
@@ -469,7 +469,7 @@ curl -X POST 'http://127.0.0.1:21001/app/user/grant' \
 }
 ```
 
-### Authenticate user/principal for application using API KEY identity to obtain short term token to access OSL endpoints
+#### Authenticate user/principal for application using API KEY identity to obtain short term token to access OSL endpoints
 
 key is your user's api key obtained from `/app/user/create` (an admin needs to create this for you)
 
