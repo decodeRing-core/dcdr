@@ -471,7 +471,7 @@ curl -X POST 'http://127.0.0.1:21001/app/user/grant' \
 
 #### Authenticate user/principal for application using API KEY identity to obtain short term token to access OSL endpoints
 
-key is your user's api key obtained from `/app/user/create` (an admin needs to create this for you)
+`key` is your user's api key returned from `/app/user/create` (an admin needs to create this for you)
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
@@ -491,8 +491,79 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
   "status": "operation-completed",
   "message": "Operation completed",
   "data": {
-    "token": "tok_As2ZifSUanucbOJ9202n5xNsGlccByrt",
+    "token": "tok_xxx",
     "expires_at": 1780220675
+  }
+}
+```
+
+#### Store your secret into the vault (OpenBao plugin)
+
+Use your short term token obtained after authentication.
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/osl/v1/secrets/put' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "app_id": "019e7d30-493b-7263-acd4-a811db0a95df",
+  "secret_name": "my-database-credentials",
+  "store": {
+    "backend_ref": "openbao-rs",
+    "store_path": "production-test/my-database-credentials"
+  },
+  "data": {
+    "username": "db_user-new",
+    "password": "super_secret_password-new"
+  },
+  "options": {
+    "create_only": false
+  }
+}' \
+  --header 'Authorization: Bearer tok_xxxx'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "secret_name": "my-database-credentials",
+    "provider_version_id": "11"
+  }
+}
+```
+
+#### Get secret from vault (OpenBao plugin)
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/osl/v1/secrets/get' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "app_id": "019e7d30-493b-7263-acd4-a811db0a95df",
+  "secret_name": "my-database-credentials",
+  "version": "0"
+}
+' \
+  --header 'Authorization: Bearer tok_xxx'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "password": "super_secret_password-new",
+    "username": "db_user-new",
+    "metadata": {
+      "resolved_backend_ref": "openbao-rs",
+      "provider_version_id": "11"
+    }
   }
 }
 ```
