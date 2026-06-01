@@ -135,6 +135,7 @@ pub enum AppResponse {
     CreatePrincipal(CreatePrincipalResponse),
     CreatePrincipalCredential(CreatePrincipalCredentialResponse),
     UpdatePrincipalCredentialLastUsed(i64),
+    UpdatePrincipalCredentialStatus(PrincipalStatus),
     CreatePrincipalToken(CreatePrincipalTokenResponse),
     CreatePrincipalAppGrant(CreatePrincipalAppGrantResponse),
     CreatePrincipalAppGrants(Vec<CreatePrincipalAppGrantResponse>),
@@ -256,6 +257,9 @@ impl fmt::Display for AppResponse {
             Self::UpdateSecretMappingTaint(r) => write!(f, "UpdateSecretMappingTaint(updated={r})"),
             Self::UpdatePluginConfigSecrets(_) => {
                 write!(f, "UpdatePluginConfigSecrets()")
+            }
+            Self::UpdatePrincipalCredentialStatus(_) => {
+                write!(f, "UpdatePrincipalCredentialStatus()")
             }
         }
     }

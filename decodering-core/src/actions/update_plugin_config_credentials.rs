@@ -44,7 +44,7 @@ impl Action for UpdatePluginConfigCredentials {
     fn audit_descriptor(&self) -> AuditDescriptor {
         AuditDescriptor {
             actor: self.actor.clone(),
-            action_kind: ActionKind::PluginConfigCredentialsUpdate,
+            action_kind: ActionKind::PluginConfigUpdate,
             revertible: true,
             undoes: None,
             metadata: None,

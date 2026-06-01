@@ -26,6 +26,7 @@ base64.workspace = true
 serde_with.workspace = true
 zeroize.workspace = true
 uuid.workspace = true
+constant_time_eq.workspace = true
 
 [dev-dependencies]
 reqwest.workspace = true

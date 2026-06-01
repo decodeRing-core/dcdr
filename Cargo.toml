@@ -71,6 +71,10 @@ p256 = { version = "0.13", features = ["ecdsa"] }
 schemars = "1.2.1"
 actix-http = "3.12.1"
 aes-gcm = "0.10"
+hmac = "~0.12.1"
+cfb-mode = "0.9.1"
+aes = "0.9.1"
+constant_time_eq = "0.5.0"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }

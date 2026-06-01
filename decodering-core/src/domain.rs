@@ -68,6 +68,7 @@ pub enum PrincipalStatus {
     Active,
     Disabled,
     Deleted,
+    Pending,
 }
 
 impl FromStr for PrincipalStatus {
@@ -78,6 +79,7 @@ impl FromStr for PrincipalStatus {
             "active" => Self::Active,
             "disabled" => Self::Disabled,
             "deleted" => Self::Deleted,
+            "pending" => Self::Pending,
             other => return Err(UnknownPrincipalStatus(other.to_owned())),
         })
     }
@@ -89,6 +91,7 @@ impl PrincipalStatus {
             Self::Active => "active",
             Self::Disabled => "disabled",
             Self::Deleted => "deleted",
+            Self::Pending => "pending",
         }
     }
 }

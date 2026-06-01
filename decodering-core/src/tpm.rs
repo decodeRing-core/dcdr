@@ -1,8 +1,15 @@
+use aes::Aes128;
+use aes::cipher::{Array, KeyIvInit};
+use rand_08::RngCore;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 use crate::error::TpmVerifyError;
+
+use hmac::{Hmac, Mac};
+use rsa::pkcs8::{DecodePublicKey, EncodePublicKey, LineEnding};
+use rsa::{BigUint, Oaep, RsaPublicKey};
 
 #[derive(Deserialize, Debug)]
 pub struct TpmMaterial {
@@ -13,6 +20,12 @@ pub struct TpmMaterial {
     pub expected_pcrs: Option<HashMap<u8, String>>,
     #[serde(default)]
     pub require_ek_cert: bool,
+    #[serde(default)]
+    pub ak_pubkey_pem: String,
+    #[serde(default)]
+    pub ak_name_hex: String,
+    #[serde(default)]
+    pub activation_secret_hash: String,
 }
 
 const TPM_GENERATED_VALUE: u32 = 0xFF54_4347;
@@ -261,6 +274,192 @@ fn hex_decode(s: &str) -> Option<Vec<u8>> {
         .step_by(2)
         .map(|i| u8::from_str_radix(s.get(i..i + 2)?, 16).ok())
         .collect()
+}
+
+// TCG Algorithm Registry IDs
+const TPM_ALG_RSA: u16 = 0x0001;
+const TPM_ALG_NULL: u16 = 0x0010;
+const TPM_ALG_SHA256: u16 = 0x000B;
+
+#[derive(Debug)]
+pub struct AkPublic {
+    /// TPM object Name: UINT16(nameAlg) || `H_nameAlg(publicArea)`.
+    pub name: Vec<u8>,
+    /// SPKI PEM of the RSA public key, for `verify_quote_signature`.
+    pub pubkey_pem: String,
+}
+
+impl AkPublic {
+    /// Parse a marshaled `TPM2B_PUBLIC` (size-prefixed `TPMT_PUBLIC`) for an
+    /// RSA attestation key: compute its Name and extract the public key.
+    pub fn parse(tpm2b_public: &[u8]) -> Result<Self, TpmVerifyError> {
+        let mut outer = Cursor::new(tpm2b_public);
+        let pa_len = outer.read_u16()? as usize;
+        let public_area = outer.read_bytes(pa_len)?; // the exact bytes we hash for Name
+
+        let mut r = Cursor::new(public_area);
+
+        let key_type = r.read_u16()?;
+        if key_type != TPM_ALG_RSA {
+            return Err(TpmVerifyError::UnsupportedSigAlg); // ECC AK not handled here
+        }
+
+        let name_alg = r.read_u16()?;
+        let _object_attributes = r.read_u32()?;
+        let _auth_policy = r.read_sized_2b()?; // TPM2B_DIGEST
+
+        // TPMS_RSA_PARMS.symmetric : TPMT_SYM_DEF_OBJECT
+        let sym_alg = r.read_u16()?;
+        if sym_alg != TPM_ALG_NULL {
+            // keyBits(UINT16) + mode(UINT16) for AES/SM4/Camellia.
+            // An AK normally has symmetric == NULL, so this branch is unused.
+            r.skip(4)?;
+        }
+
+        // TPMS_RSA_PARMS.scheme : TPMT_RSA_SCHEME
+        let scheme = r.read_u16()?;
+        if scheme != TPM_ALG_NULL {
+            r.skip(2)?; // details = single hashAlg(UINT16) for RSASSA/RSAPSS/OAEP
+        }
+
+        let _key_bits = r.read_u16()?; // e.g. 2048
+        let exponent_raw = r.read_u32()?; // 0 => default 65537
+
+        // unique : TPM2B_PUBLIC_KEY_RSA -> modulus, big-endian
+        let modulus = r.read_sized_2b()?;
+
+        // Name
+        if name_alg != TPM_ALG_SHA256 {
+            return Err(TpmVerifyError::UnsupportedSigAlg); // extend for other nameAlgs
+        }
+        let mut name = Vec::with_capacity(2 + 32);
+        name.extend_from_slice(&name_alg.to_be_bytes());
+        name.extend_from_slice(&Sha256::digest(public_area));
+
+        // public key
+        let exponent = if exponent_raw == 0 {
+            65_537
+        } else {
+            exponent_raw
+        };
+        let pubkey = RsaPublicKey::new(BigUint::from_bytes_be(modulus), BigUint::from(exponent))
+            .map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
+        let pubkey_pem = pubkey
+            .to_public_key_pem(LineEnding::LF)
+            .map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
+
+        Ok(Self { name, pubkey_pem })
+    }
+}
+
+type HmacSha256 = Hmac<Sha256>;
+type Aes128CfbEnc = cfb_mode::Encryptor<Aes128>;
+
+const SEED_LEN: usize = 32; // SHA-256 digest size = EK nameAlg digest size
+
+pub struct MakeCredentialOutput {
+    pub credential_blob: Vec<u8>, // TPM2B_ID_OBJECT, size-prefixed
+    pub secret: Vec<u8>,          // TPM2B_ENCRYPTED_SECRET, size-prefixed
+}
+
+/// Software `TPM2_MakeCredential` for an RSA EK.
+///
+/// Uses the default TCG EK template (nameAlg SHA-256, symmetric AES-128-CFB).
+/// `ak_name` is the full TPM Name (UINT16(nameAlg) || H(publicArea)) from `AkPublic::parse`.
+pub fn make_credential_rsa(
+    ek_pubkey_pem: &str,
+    ak_name: &[u8],
+    secret: &[u8], // credential payload; must be <= SEED_LEN
+) -> Result<MakeCredentialOutput, TpmVerifyError> {
+    if secret.len() > SEED_LEN {
+        return Err(TpmVerifyError::InvalidQuote);
+    }
+    let ek = RsaPublicKey::from_public_key_pem(ek_pubkey_pem)
+        .map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
+
+    let mut rng = rand_08::thread_rng();
+    // Random seed, digest-sized.
+    let mut seed = [0u8; SEED_LEN];
+    rng.fill_bytes(&mut seed);
+    // 2. secret blob = RSA-OAEP(EK_pub, seed); SHA-256; L = b"IDENTITY\0".
+    let padding = Oaep::new_with_label::<Sha256, _>("IDENTITY\0");
+    let enc_secret = ek
+        .encrypt(&mut rng, padding, &seed)
+        .map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
+
+    // 3. symKey = KDFa(SHA256, seed, "STORAGE", ak_name, <empty>, 128)
+    let sym_key = kdfa_sha256(&seed, "STORAGE", ak_name, &[], 128)?;
+
+    // 4. encIdentity = AES-128-CFB(symKey, IV=0) over TPM2B(secret)
+    let mut inner = Vec::with_capacity(2 + secret.len());
+    let secret_len = u16::try_from(secret.len()).map_err(|_| TpmVerifyError::InvalidSize)?;
+    inner.extend_from_slice(&secret_len.to_be_bytes());
+    //inner.extend_from_slice(&(secret.len() as u16).to_be_bytes());
+    inner.extend_from_slice(secret);
+    let mut enc_identity = inner;
+    let key: [u8; 16] = sym_key
+        .as_slice()
+        .try_into()
+        .map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
+    Aes128CfbEnc::new((&key).into(), &Array::default()).encrypt(&mut enc_identity);
+
+    // 5. HMACkey = KDFa(SHA256, seed, "INTEGRITY", <empty>, <empty>, 256)
+    let hmac_key = kdfa_sha256(&seed, "INTEGRITY", &[], &[], 256)?;
+
+    // 6. outerHMAC = HMAC-SHA256(HMACkey, encIdentity || ak_name)
+    let mut mac =
+        HmacSha256::new_from_slice(&hmac_key).map_err(|_| TpmVerifyError::InvalidQuote)?;
+    mac.update(&enc_identity);
+    mac.update(ak_name);
+    let outer_hmac = mac.finalize().into_bytes();
+
+    // 7. idObject = TPM2B_DIGEST(outerHMAC) || encIdentity   (encIdentity raw)
+    let mut id_object = Vec::new();
+    let outer_hmac_len =
+        u16::try_from(outer_hmac.len()).map_err(|_| TpmVerifyError::InvalidSize)?;
+    id_object.extend_from_slice(&outer_hmac_len.to_be_bytes());
+    id_object.extend_from_slice(&outer_hmac);
+    id_object.extend_from_slice(&enc_identity);
+
+    Ok(MakeCredentialOutput {
+        credential_blob: prepend_u16_size(&id_object)?,
+        secret: prepend_u16_size(&enc_secret)?,
+    })
+}
+
+fn prepend_u16_size(b: &[u8]) -> Result<Vec<u8>, TpmVerifyError> {
+    let len = u16::try_from(b.len()).map_err(|_| TpmVerifyError::InvalidSize)?;
+    let mut v = Vec::with_capacity(2 + b.len());
+    v.extend_from_slice(&len.to_be_bytes());
+    v.extend_from_slice(b);
+    Ok(v)
+}
+
+/// `KDFa`, TPM 2.0 Part 1 §11.4.10 — SP800-108 counter mode, HMAC-SHA256.
+/// Per iteration: `counter_be(4)` || label || 0x00 || contextU || contextV || `bits_be(4)`
+fn kdfa_sha256(
+    key: &[u8],
+    label: &str,
+    context_u: &[u8],
+    context_v: &[u8],
+    bits: u32,
+) -> Result<Vec<u8>, TpmVerifyError> {
+    let out_len = (bits as usize).div_ceil(8);
+    let mut out = Vec::new();
+    let mut counter: u32 = 0;
+    while out.len() < out_len {
+        counter += 1;
+        let mut mac = HmacSha256::new_from_slice(key).map_err(|_| TpmVerifyError::InvalidQuote)?;
+        mac.update(&counter.to_be_bytes());
+        mac.update(label.as_bytes());
+        mac.update(&[0u8]); // label terminator
+        mac.update(context_u);
+        mac.update(context_v);
+        mac.update(&bits.to_be_bytes());
+        out.extend_from_slice(&mac.finalize().into_bytes());
+    }
+    out.truncate(out_len);
+    Ok(out)
 }
 
 #[allow(

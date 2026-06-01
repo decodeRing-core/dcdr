@@ -143,6 +143,12 @@ pub trait PrincipalCredentialRepository: Send {
         kind: PrincipalCredentialKind,
         lookup_key: &str,
     ) -> impl Future<Output = Result<Option<PrincipalCredential>, DbError>> + Send;
+    fn get_pending_by_kind_and_credential_and_principal(
+        &mut self,
+        principal_id: String,
+        credential_id: String,
+        kind: PrincipalCredentialKind,
+    ) -> impl Future<Output = Result<Option<PrincipalCredential>, DbError>> + Send;
     fn get_by_credential_and_principal(
         &mut self,
         credential_id: &str,
@@ -152,6 +158,11 @@ pub trait PrincipalCredentialRepository: Send {
         &mut self,
         credential_id: &str,
         last_used_at: i64,
+    ) -> impl Future<Output = Result<u64, DbError>> + Send;
+    fn update_status(
+        &mut self,
+        credential_id: &str,
+        status: PrincipalStatus,
     ) -> impl Future<Output = Result<u64, DbError>> + Send;
 }
 

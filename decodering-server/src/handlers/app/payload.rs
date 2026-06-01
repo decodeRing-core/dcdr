@@ -20,6 +20,7 @@ pub struct TrustedPlatformModuleData {
     pub ek_cert_pem: Option<String>, // optional EK certificate
     pub expected_pcrs: Option<HashMap<u8, String>>, // optional boot-state pinning
     pub require_ek_cert: bool,       // policy
+    pub ak_public_tpm2b_b64: String, // marshaled TPM2B_PUBLIC of the AK
 }
 
 #[derive(Deserialize, Debug)]
@@ -52,7 +53,14 @@ pub struct AuthTpmUserData {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct AuthTpmData {
+pub struct AuthTpmActivationData {
+    pub principal_id: String,
+    pub credential_id: String,
+    pub recovered_secret: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct AuthTpmChallengeData {
     pub ek_pubkey_hash: Option<String>,
 }
 

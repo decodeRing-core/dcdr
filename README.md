@@ -497,7 +497,7 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
 }
 ```
 
-#### Store your secret into the vault (OpenBao plugin)
+#### Put secret into the vault (OpenBao plugin)
 
 Use your short term token obtained after authentication.
 

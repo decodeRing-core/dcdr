@@ -1,6 +1,7 @@
 use actix_web::Responder;
 use actix_web::dev::ConnectionInfo;
 use actix_web::web::{Data, Json};
+use constant_time_eq::constant_time_eq;
 use decodering_core::actions::create_app::CreateApp;
 use decodering_core::actions::create_app_user::CreateAppUser;
 use decodering_core::actions::create_principal::CreatePrincipal;
@@ -10,6 +11,7 @@ use decodering_core::actions::create_principal_credential::CreatePrincipalCreden
 use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
+use decodering_core::actions::update_principal_credential_status::UpdatePrincipalCredentialStatus;
 use decodering_core::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
 use decodering_core::audit::Actor;
 use decodering_core::aws::call_sts_get_caller_identity;
@@ -25,7 +27,9 @@ use decodering_core::repository::{PrincipalAppGrantRepository, PrincipalCredenti
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
 use decodering_core::time::{CHALLENGE_TTL_SECS, now_ts, now_ts_plus};
-use decodering_core::tpm::{TpmMaterial, parse_tpms_attest, verify_pcrs};
+use decodering_core::tpm::{
+    AkPublic, TpmMaterial, make_credential_rsa, parse_tpms_attest, verify_pcrs,
+};
 use decodering_core::tx::{Database, Tx};
 use rand::Rng;
 use rand::distr::{Alphanumeric, SampleString};
@@ -35,19 +39,19 @@ use crate::app_data::AppData;
 use crate::config::Config;
 use crate::error::ErrorReason;
 use crate::extractor::AuthAdminMiddleware;
-use crate::handlers::app::payload::CreateAppData;
-use crate::handlers::app::payload::CreateAppUserData;
+use crate::handlers::app::payload::AuthAwsUserData;
 use crate::handlers::app::payload::RevokeAppData;
 use crate::handlers::app::payload::{AppGrantData, AuthTpmUserData};
-use crate::handlers::app::payload::{AuthAwsUserData, AuthTpmData};
+use crate::handlers::app::payload::{AuthTpmActivationData, CreateAppData};
+use crate::handlers::app::payload::{AuthTpmChallengeData, CreateAppUserData};
 use crate::handlers::app::payload::{AuthUserData, ListAppsData};
-use crate::handlers::app::response::ApiAuthAppUserResponse;
 use crate::handlers::app::response::ApiCreateAppGrantResponse;
 use crate::handlers::app::response::ApiDeleteAppGrantResponse;
 use crate::handlers::app::response::ApiTpmChallengeResponse;
+use crate::handlers::app::response::{ApiAuthAppUserResponse, TpmChallengeData};
 use crate::handlers::app::response::{ApiCreateAppResponse, ApiCreateAppUserResponse};
 use crate::handlers::osl::response::ApiListAppsResponse;
-use crate::handlers::response::{ApiResponse, ErrorStatus};
+use crate::handlers::response::{ApiResponse, ApiStatus, ErrorStatus, SuccessStatus};
 use base64::{Engine, engine::general_purpose::STANDARD};
 
 pub async fn create_app_user<D: Database + 'static>(
@@ -132,6 +136,7 @@ pub async fn create_app_user<D: Database + 'static>(
         }
     };
 
+    let mut tpm_response: TpmChallengeData = TpmChallengeData::default();
     let secret_material = match req.0.credential_kind {
         PrincipalCredentialKind::ApiKey => serde_json::json!({}),
         PrincipalCredentialKind::TrustedPlatformModule => {
@@ -141,11 +146,39 @@ pub async fn create_app_user<D: Database + 'static>(
                     "TPM",
                 )));
             };
+            let ak_pub_2b = STANDARD.decode(&tpm_req.ak_public_tpm2b_b64);
+            let Ok(ak_pub_2b) = ak_pub_2b else {
+                tracing::error!("Invalid public key");
+                return ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::InvalidPublicKey,
+                ));
+            };
+            let ak = AkPublic::parse(&ak_pub_2b);
+            let Ok(ak) = ak else {
+                tracing::error!("Invalid AK public parsing");
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "parse AK".into(),
+                )));
+            };
+            let mut secret = [0u8; 32];
+            rand::rng().fill_bytes(&mut secret);
+            let challenge = make_credential_rsa(&tpm_req.ek_pubkey_pem, &ak.name, &secret);
+            let Ok(challenge) = challenge else {
+                tracing::error!("Failed to create challenge");
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "create challenge".into(),
+                )));
+            };
+            tpm_response.credential_blob = challenge.credential_blob;
+            tpm_response.secret = challenge.secret;
             let material = serde_json::json!({
                 "ek_pubkey_pem":   tpm_req.ek_pubkey_pem,
                 "ek_cert_pem":     tpm_req.ek_cert_pem,
                 "require_ek_cert": tpm_req.require_ek_cert,
                 "expected_pcrs":   tpm_req.expected_pcrs,
+                "ak_pubkey_pem":   ak.pubkey_pem,
+                "ak_name_hex":     encode_hex(&ak.name),
+                "activation_secret_hash": sha256_hex(&secret),
             });
             material
         }
@@ -177,6 +210,11 @@ pub async fn create_app_user<D: Database + 'static>(
         }
     };
 
+    let status = match req.0.credential_kind {
+        PrincipalCredentialKind::TrustedPlatformModule => PrincipalStatus::Pending,
+        _ => PrincipalStatus::Active,
+    };
+
     let principal_credential = CreatePrincipalCredential {
         actor: auth.actor(&conn),
         credential_id: Uuid::now_v7().to_string(),
@@ -184,7 +222,7 @@ pub async fn create_app_user<D: Database + 'static>(
         kind: req.0.credential_kind,
         lookup_key,
         secret_material: secret_material.to_string(),
-        status: PrincipalStatus::Active,
+        status,
         expires_at: req.0.expires_at,
         last_used_at: None,
         created_at: timestamp,
@@ -212,7 +250,19 @@ pub async fn create_app_user<D: Database + 'static>(
     );
     match app.submit(request).await {
         Ok(resp) => match resp {
-            AppResponse::CreateAppUser(_) => ApiCreateAppUserResponse::new(token, principal_id),
+            AppResponse::CreateAppUser(resp) => {
+                let credential_id = resp.principal_credential.credential_id;
+                if req.0.credential_kind == PrincipalCredentialKind::TrustedPlatformModule {
+                    ApiCreateAppUserResponse::tpm(
+                        token,
+                        principal_id,
+                        credential_id,
+                        Some(tpm_response),
+                    )
+                } else {
+                    ApiCreateAppUserResponse::new(token, principal_id, credential_id)
+                }
+            }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app user");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
@@ -667,7 +717,7 @@ pub async fn auth_tpm_app_user<D: Database + 'static>(
 pub async fn tpm_challenge_app_user<D: Database + 'static>(
     conn: ConnectionInfo,
     app: Data<AppData<D>>,
-    body: Json<AuthTpmData>,
+    body: Json<AuthTpmChallengeData>,
 ) -> impl Responder {
     let ip = conn.peer_addr().map(str::to_owned);
     let mut nonce_bytes = [0u8; 32];
@@ -707,6 +757,98 @@ pub async fn tpm_challenge_app_user<D: Database + 'static>(
         Err(e) => {
             tracing::error!(?e);
             ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database))
+        }
+    }
+}
+
+pub async fn tpm_activate_app_user<D: Database + 'static>(
+    conn: ConnectionInfo,
+    app: Data<AppData<D>>,
+    body: Json<AuthTpmActivationData>,
+) -> impl Responder {
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let credential = match db
+        .principal_credential()
+        .get_pending_by_kind_and_credential_and_principal(
+            body.principal_id.clone(),
+            body.credential_id.clone(),
+            PrincipalCredentialKind::TrustedPlatformModule,
+        )
+        .await
+    {
+        Ok(Some(x)) => x,
+        Ok(None) => {
+            tracing::error!("Pending credential not found");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+        }
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+        }
+    };
+
+    if credential.status != PrincipalStatus::Pending || credential.revoked_at.is_some() {
+        tracing::error!(
+            status=credential.status.as_str(),
+            revoked_at=?credential.revoked_at,
+            "Invalid credential"
+        );
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+    }
+
+    let material = serde_json::from_str::<TpmMaterial>(&credential.secret_material);
+    let Ok(material) = material else {
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+    };
+
+    let provided = STANDARD.decode(&body.recovered_secret);
+    let Ok(provided) = provided else {
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+            "parse recovered secret".into(),
+        )));
+    };
+
+    if !constant_time_eq(
+        sha256_hex(&provided).as_bytes(),
+        material.activation_secret_hash.as_bytes(),
+    ) {
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+    }
+    let ip = conn.peer_addr().map(str::to_owned);
+    let status_update = UpdatePrincipalCredentialStatus {
+        actor: Actor::Principal {
+            principal_id: credential.principal_id.clone(),
+            ip,
+        },
+        credential_id: credential.credential_id.clone(),
+        principal_id: credential.principal_id.clone(),
+        status: PrincipalStatus::Active,
+    };
+    let request = AppRequest::UpdatePrincipalCredentialStatus(status_update);
+    match app.submit(request).await {
+        Ok(resp) => match resp {
+            AppResponse::UpdatePrincipalCredentialStatus(_) => {
+                ApiResponse::new(ApiStatus::Success(SuccessStatus::OperationCompleted), None)
+            }
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to update credential status");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "update credential".into(),
+                )))
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "Unexpected AppResponse variant");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
         }
     }
 }

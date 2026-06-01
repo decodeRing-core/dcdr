@@ -36,6 +36,7 @@ pub enum TpmVerifyError {
     NonceMismatch,
     PcrMismatch,
     InvalidPcrSelection,
+    InvalidSize,
 }
 
 impl std::fmt::Display for TpmVerifyError {
@@ -49,6 +50,7 @@ impl std::fmt::Display for TpmVerifyError {
             Self::NonceMismatch => write!(f, "Nonce mismatch"),
             Self::PcrMismatch => write!(f, "PCR mismatch"),
             Self::InvalidPcrSelection => write!(f, "PCR bitmap exceeds 32 bytes"),
+            Self::InvalidSize => write!(f, "Unexpect size"),
         }
     }
 }

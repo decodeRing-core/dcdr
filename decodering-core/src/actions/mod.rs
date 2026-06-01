@@ -15,5 +15,6 @@ pub mod delete_secret_mapping;
 pub mod system_init;
 pub mod update_plugin_config_credentials;
 pub mod update_principal_credential_last_used;
+pub mod update_principal_credential_status;
 pub mod update_secret_mapping_taint;
 pub mod update_tpm_challenge_consumed_at;

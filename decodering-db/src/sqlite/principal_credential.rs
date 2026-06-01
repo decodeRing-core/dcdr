@@ -1,4 +1,5 @@
 use decodering_core::domain::PrincipalCredentialKind;
+use decodering_core::domain::PrincipalStatus;
 use decodering_core::error::DbError;
 use decodering_core::repository::PrincipalCredential;
 use decodering_core::repository::PrincipalCredentialEntry;
@@ -73,6 +74,44 @@ impl PrincipalCredentialRepository for SqlitePrincipalCredentialRepository<'_> {
         Ok(principal_credential.map(Into::into))
     }
 
+    async fn get_pending_by_kind_and_credential_and_principal(
+        &mut self,
+        principal_id: String,
+        credential_id: String,
+        kind: PrincipalCredentialKind,
+    ) -> Result<Option<PrincipalCredential>, DbError> {
+        let principal_credential: Option<PrincipalCredentialRow> =
+            sqlx::query_as::<_, PrincipalCredentialRow>(
+                "SELECT pc.credential_id,
+                    pc.principal_id,
+                    pc.kind,
+                    pc.lookup_key,
+                    pc.secret_material,
+                    pc.status,
+                    pc.expires_at,
+                    pc.last_used_at,
+                    pc.created_at,
+                    pc.revoked_at
+               FROM principal_credentials pc
+               INNER JOIN principals p ON p.principal_id = pc.principal_id
+              WHERE pc.kind = ?
+                AND pc.principal_id = ?
+                AND pc.credential_id = ?
+                AND pc.status = 'pending'
+                AND pc.revoked_at IS NULL
+                AND (pc.expires_at IS NULL OR pc.expires_at > unixepoch())
+                AND p.status = 'active'
+                AND p.deleted_at IS NULL",
+            )
+            .bind(kind.as_str())
+            .bind(principal_id)
+            .bind(credential_id)
+            .fetch_optional(&mut **self.tx)
+            .await
+            .map_err(map_sqlx)?;
+        Ok(principal_credential.map(Into::into))
+    }
+
     async fn get_by_credential_and_principal(
         &mut self,
         credential_id: &str,
@@ -113,6 +152,24 @@ impl PrincipalCredentialRepository for SqlitePrincipalCredentialRepository<'_> {
              WHERE credential_id = ?",
         )
         .bind(last_used_at)
+        .bind(credential_id)
+        .execute(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(result.rows_affected())
+    }
+
+    async fn update_status(
+        &mut self,
+        credential_id: &str,
+        status: PrincipalStatus,
+    ) -> Result<u64, DbError> {
+        let result = sqlx::query(
+            "UPDATE principal_credentials
+             SET status = ?
+             WHERE credential_id = ?",
+        )
+        .bind(status.as_str())
         .bind(credential_id)
         .execute(&mut **self.tx)
         .await

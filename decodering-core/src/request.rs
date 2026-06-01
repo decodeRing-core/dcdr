@@ -20,6 +20,7 @@ use crate::actions::delete_secret_mapping::DeleteSecretMapping;
 use crate::actions::system_init::SystemInit;
 use crate::actions::update_plugin_config_credentials::UpdatePluginConfigCredentials;
 use crate::actions::update_principal_credential_last_used::UpdatePrincipalCredentialLastUsed;
+use crate::actions::update_principal_credential_status::UpdatePrincipalCredentialStatus;
 use crate::actions::update_secret_mapping_taint::UpdateSecretMappingTaint;
 use crate::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
 use crate::audit::AuditDescriptor;
@@ -47,6 +48,7 @@ pub enum AppRequest {
     CreateTpmChallenge(CreateTpmChallenge),
     UpdateConsumedAt(UpdateTpmChallengeConsumedAt),
     UpdatePrincipalCredentialLastUsed(UpdatePrincipalCredentialLastUsed),
+    UpdatePrincipalCredentialStatus(UpdatePrincipalCredentialStatus),
     UpdatePluginConfigCredentials(UpdatePluginConfigCredentials),
     SystemInit(SystemInit),
 }
@@ -73,6 +75,7 @@ impl AppRequest {
             Self::UpdatePrincipalCredentialLastUsed(a) => a.audit_descriptor(),
             Self::UpdatePluginConfigCredentials(a) => a.audit_descriptor(),
             Self::SystemInit(a) => a.audit_descriptor(),
+            Self::UpdatePrincipalCredentialStatus(a) => a.audit_descriptor(),
         }
     }
 }
@@ -176,6 +179,14 @@ impl fmt::Display for AppRequest {
                     update_principal_credential_last_used.principal_id
                 )
             }
+            Self::UpdatePrincipalCredentialStatus(update_principal_credential_status) => {
+                write!(
+                    f,
+                    "UpdatePrincipalCredentialStatus(credential_id={}, principal_id={})",
+                    update_principal_credential_status.credential_id,
+                    update_principal_credential_status.principal_id
+                )
+            }
             Self::CreatePrincipalToken(_) => {
                 write!(f, "CreatePrincipalToken()")
             }
@@ -234,6 +245,9 @@ impl AppRequest {
             }
             Self::CreatePluginConfig(action) => Ok(run_action_direct(db, action).await?.response),
             Self::UpdatePluginConfigCredentials(action) => {
+                Ok(run_action_direct(db, action).await?.response)
+            }
+            Self::UpdatePrincipalCredentialStatus(action) => {
                 Ok(run_action_direct(db, action).await?.response)
             }
         }

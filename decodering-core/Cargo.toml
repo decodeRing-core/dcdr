@@ -24,7 +24,10 @@ zeroize.workspace = true
 aes-gcm.workspace = true
 blahaj.workspace = true
 rand.workspace = true
-
+rand_08 = { package = "rand", version = "~0.8" }
+hmac.workspace = true
+cfb-mode.workspace = true
+aes.workspace = true
 
 [lints]
 workspace = true

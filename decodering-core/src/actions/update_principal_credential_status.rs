@@ -3,20 +3,21 @@ use serde::{Deserialize, Serialize};
 use crate::action::Action;
 use crate::audit::{ActionKind, Target};
 use crate::audit::{ActionOutput, Actor, AuditDescriptor};
+use crate::domain::PrincipalStatus;
 use crate::error::ExecutionError;
 use crate::repository::PrincipalCredentialRepository;
 use crate::response::AppResponse;
 use crate::tx::Tx;
 
 #[derive(Serialize, Debug, Deserialize)]
-pub struct UpdatePrincipalCredentialLastUsed {
+pub struct UpdatePrincipalCredentialStatus {
     pub actor: Actor,
     pub credential_id: String,
     pub principal_id: String,
-    pub last_used_at: i64,
+    pub status: PrincipalStatus,
 }
 
-impl Action for UpdatePrincipalCredentialLastUsed {
+impl Action for UpdatePrincipalCredentialStatus {
     type Output = ActionOutput<AppResponse>;
 
     fn audit_descriptor(&self) -> AuditDescriptor {
@@ -37,11 +38,11 @@ impl Action for UpdatePrincipalCredentialLastUsed {
         let before_state = serde_json::json!(principal_credential);
         let _ = tx
             .principal_credential()
-            .update_last_used(&self.credential_id, self.last_used_at)
+            .update_status(&self.credential_id, self.status)
             .await?;
-        let response = self.last_used_at;
+        let response = self.status;
         let after = serde_json::json!(response);
-        let app_response = AppResponse::UpdatePrincipalCredentialLastUsed(response);
+        let app_response = AppResponse::UpdatePrincipalCredentialStatus(response);
         Ok(ActionOutput {
             response: app_response,
             before_state: Some(before_state),

@@ -11,6 +11,7 @@ use crate::handlers::app::management::create_app_user;
 use crate::handlers::app::management::grant_app_access_user;
 use crate::handlers::app::management::list_app_access_user;
 use crate::handlers::app::management::revoke_app_access_user;
+use crate::handlers::app::management::tpm_activate_app_user;
 use crate::handlers::app::management::tpm_challenge_app_user;
 use crate::middleware::LockState;
 use crate::middleware::RaftInitializedHelper;
@@ -35,6 +36,10 @@ pub fn app_management_routes<D: Database + 'static>() -> impl HttpServiceFactory
         .route(
             "/user/tpm/challenge",
             web::post().to(tpm_challenge_app_user::<D>),
+        )
+        .route(
+            "/user/tpm/activate",
+            web::post().to(tpm_activate_app_user::<D>),
         )
         .route("/create", web::post().to(create_app::<D>))
 }
