@@ -442,9 +442,17 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 }
 ```
 
-#### Grant application access to User/Principal
+#### Create Application User/Principal (TPM identity)
 
 **Requires root token** obtained when intializing the system.
+
+todo!()
+
+#### Create Application User/Principal (AWS Role identity)
+
+**Requires root token** obtained when intializing the system.
+
+todo!()
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/grant' \
@@ -496,6 +504,14 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
   }
 }
 ```
+
+#### Authenticate user/principal for application using TPM identity to obtain short term token to access OSL endpoints
+
+todo!()
+
+#### Authenticate user/principal for application using AWS Role identity to obtain short term token to access OSL endpoints
+
+todo!()
 
 #### Put secret into the vault (OpenBao plugin)
 
