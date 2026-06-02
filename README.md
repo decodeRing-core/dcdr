@@ -412,7 +412,9 @@ curl -X POST 'http://127.0.0.1:21001/app/create' \
 }
 ```
 
-#### Create Application User/Principal (API Key identity)
+#### API Key identity
+
+##### Create Application User/Principal (API Key identity)
 
 **Requires root token** obtained when intializing the system.
 
@@ -442,7 +444,9 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 }
 ```
 
-#### Create Application User/Principal (TPM identity)
+#### TPM identity
+
+##### Create Application User/Principal
 
 **Requires root token** obtained when intializing the system.
 
@@ -495,7 +499,7 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 }
 ```
 
-#### Activate TPM credential
+##### Activate TPM credential
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/tpm/activate' \
@@ -518,7 +522,7 @@ curl -X POST 'http://127.0.0.1:21001/app/user/tpm/activate' \
 }
 ```
 
-#### Create TPM Challenge
+##### Create TPM Challenge
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/tpm/challenge' \
@@ -543,7 +547,9 @@ curl -X POST 'http://127.0.0.1:21001/app/user/tpm/challenge' \
 }
 ```
 
-#### Create Application User/Principal (AWS Role identity)
+#### AWS Role identity
+
+##### Create Application User/Principal (AWS Role identity)
 
 **Requires root token** obtained when intializing the system.
 
