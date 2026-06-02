@@ -1,22 +1,38 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::error::Error;
 
-use crate::schema::generate_schema;
+use crate::{aws_sig::generate_aws_sig, schema::generate_schema};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(long)]
-    generate_schema: bool,
+    #[command(subcommand)]
+    command: Command,
 }
 
+#[derive(Subcommand)]
+enum Command {
+    /// Generate the JSON schema
+    GenerateSchema,
+
+    /// Generate a signed AWS STS `GetCallerIdentity` request and print it as JSON
+    AwsSig {
+        /// AWS region to sign for
+        #[arg(long, default_value = "us-east-1")]
+        region: String,
+    },
+}
+
+mod aws_sig;
 mod schema;
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
-    if args.generate_schema {
-        generate_schema()?;
+    match args.command {
+        Command::GenerateSchema => generate_schema()?,
+        Command::AwsSig { region } => generate_aws_sig(&region).await?,
     }
 
     Ok(())

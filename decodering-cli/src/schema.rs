@@ -1,5 +1,3 @@
-#![allow(clippy::print_stderr)]
-
 use decodering_core::plugin::osl_contract::Capability;
 use decodering_core::plugin::osl_contract::DeleteInput;
 use decodering_core::plugin::osl_contract::DeleteOutput;
@@ -14,6 +12,7 @@ use decodering_core::plugin::osl_contract::RestoreOutput;
 use decodering_core::plugin::osl_contract::WriteInput;
 use decodering_core::plugin::osl_contract::WriteOutput;
 use schemars::schema_for;
+use std::io::Write;
 use std::{error::Error, fs, path::Path};
 
 pub fn generate_schema() -> Result<(), Box<dyn Error>> {
@@ -45,6 +44,7 @@ pub fn generate_schema() -> Result<(), Box<dyn Error>> {
     emit!(DescribeInput, "describe_input");
     emit!(DescribeOutput, "describe_output");
 
-    eprintln!("wrote schemas to {}/", out.display());
+    let mut stdout = std::io::stdout().lock();
+    writeln!(stdout, "Wrote schemas to ./{}/", out.display())?;
     Ok(())
 }
