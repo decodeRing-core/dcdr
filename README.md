@@ -414,7 +414,7 @@ curl -X POST 'http://127.0.0.1:21001/app/create' \
 
 #### API Key identity
 
-##### Create Application User/Principal (API Key identity)
+##### Create Application User/Principal
 
 **Requires root token** obtained when intializing the system.
 
@@ -440,6 +440,34 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
   "data": {
     "token": "pk_yyy",
     "principal_id": "019e7d30-493b-7263-acd4-a811db0a95df"
+  }
+}
+```
+
+##### Authenticate user/principal for application to obtain short term token to access OSL endpoints
+
+`key` is your user's api key returned from `/app/user/create` (an admin needs to create this for you)
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "app_id": "019e7d30-493b-7263-acd4-a811db0a95df",
+  "key": "pk_yyy",
+}
+'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "token": "tok_xxx",
+    "expires_at": 1780220675
   }
 }
 ```
@@ -547,68 +575,7 @@ curl -X POST 'http://127.0.0.1:21001/app/user/tpm/challenge' \
 }
 ```
 
-#### AWS Role identity
-
-##### Create Application User/Principal (AWS Role identity)
-
-**Requires root token** obtained when intializing the system.
-
-todo!()
-
-#### Grant application access to user/principal
-
-```sh
-curl -X POST 'http://127.0.0.1:21001/app/user/grant' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "principal_id": "019e7d30-493b-7263-acd4-a811db0a95df",
-  "apps": [
-    "019e7d2e-9048-70d3-b910-e209bb21b21b",
-  ]
-}
-' \
-  --header 'Authorization: Bearer pk_xxx'
-```
-
-```json
-{
-  "osl_version": "1.0.0",
-  "status": "operation-completed",
-  "message": "Operation completed"
-}
-```
-
-#### Authenticate user/principal for application using API KEY identity to obtain short term token to access OSL endpoints
-
-`key` is your user's api key returned from `/app/user/create` (an admin needs to create this for you)
-
-```sh
-curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "app_id": "019e7d30-493b-7263-acd4-a811db0a95df",
-  "key": "pk_yyy",
-}
-'
-```
-
-```json
-{
-  "osl_version": "1.0.0",
-  "status": "operation-completed",
-  "message": "Operation completed",
-  "data": {
-    "token": "tok_xxx",
-    "expires_at": 1780220675
-  }
-}
-```
-
-#### Authenticate user/principal for application using TPM identity to obtain short term token to access OSL endpoints
+##### Authenticate user/principal for application to obtain short term token to access OSL endpoints
 
 Please adjust the params based on your TPM system. The below is just an example.
 
@@ -648,11 +615,46 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth/tpm' \
 }
 ```
 
-#### Authenticate user/principal for application using AWS Role identity to obtain short term token to access OSL endpoints
+#### AWS Role identity
+
+##### Create Application User/Principal
+
+**Requires root token** obtained when intializing the system.
 
 todo!()
 
-#### Put secret into the vault (OpenBao plugin)
+##### Authenticate user/principal for application to obtain short term token to access OSL endpoints
+
+todo!()
+
+#### Grant application access to user/principal
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/grant' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "principal_id": "019e7d30-493b-7263-acd4-a811db0a95df",
+  "apps": [
+    "019e7d2e-9048-70d3-b910-e209bb21b21b",
+  ]
+}
+' \
+  --header 'Authorization: Bearer pk_xxx'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed"
+}
+```
+
+#### OSL
+
+##### Put secret into the vault (OpenBao plugin)
 
 Use your short term token obtained after authentication.
 
@@ -691,7 +693,7 @@ curl -X POST 'http://127.0.0.1:21001/osl/v1/secrets/put' \
 }
 ```
 
-#### Get secret from vault (OpenBao plugin)
+##### Get secret from vault (OpenBao plugin)
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/osl/v1/secrets/get' \
