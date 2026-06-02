@@ -446,13 +446,110 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 
 **Requires root token** obtained when intializing the system.
 
-todo!()
+Please adjust the params based on your TPM system. The below is just an example.
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/create' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "my-first-app-user-2",
+  "kind": "human",
+  "credential_kind": "trustedPlatformModule",
+  "tpm": {
+    "ek_pubkey_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsWnTrYtkNp8TOWn0Q2Ey\nZgfaSEngOdH15oZbWZbW9vzz/BJReYmitdnj4bNiO4S5lfMOYBk1uImNtqyYZAFQ\nv2q7Fj6TKYSD4WfWGvoT79o+ONcows2BexOrF4iWXpmYU0uBTyXDjFfcd6vMq0lY\nWhmPq3lfzbVmb0+in4RsTv+wEBU479jejnXYXWak0DeuFD5mpx15phRLq7r66olR\n2qAXZFoiiIfKhIk8xriNrmHG4aTFcRyBycmnA9aY2NHTZ4DPUJRo98YEqVoZqiu1\na5PVcjiwK8ia0fap6WAP4GxiheLCbARw9O8/aDqIlp7Gq5AfRnsRIISxMHYF8Fr9\nrQIDAQAB\n-----END PUBLIC KEY-----",
+    "ek_cert_pem": null,
+    "ak_public_tpm2b_b64": "ARgAAQALAAUAcgAAABAAFAALCAAAAAAAAQCdeA4fcWA2LRD9IuUlXAXXgRon2eGaLOXff4srqPg5RHFYVoqBEcav+A4d85aUpU4anW8uKQQNYQwRGzazYQJjmDzkWAgQTxyYBleaEKOexS9HC06twZHCahCDKygNsWpDhpob3638xtmnWMJwCdCjfKQMr2zSRTGBhg+YlEAk/fAja1nTdO4sOS2AbGjq5kTAGdin6PzaanC98dX7TRGCqGCVSNTMqMZCi+QwzCmtXfgGx/g07MV0XfgmS+a3R5oZ3Si2GNWhZBQgfapjvlLW6x76eDkLtAQBjp6Y0MsccvF2SudfX7qNBMwr2bR89IQ6awJxBq3vOZD8/TAYw8Yv",
+    "expected_pcrs": {
+      "0": "0000000000000000000000000000000000000000000000000000000000000000",
+      "1": "0000000000000000000000000000000000000000000000000000000000000000",
+      "2": "0000000000000000000000000000000000000000000000000000000000000000",
+      "3": "0000000000000000000000000000000000000000000000000000000000000000",
+      "4": "0000000000000000000000000000000000000000000000000000000000000000",
+      "5": "0000000000000000000000000000000000000000000000000000000000000000",
+      "6": "0000000000000000000000000000000000000000000000000000000000000000",
+      "7": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "require_ek_cert": false
+  }
+}
+' \
+  --header 'Authorization: Bearer pk_xxx'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "token": "TPM key added",
+    "principal_id": "019e876d-c912-72e2-be11-d270586bae99",
+    "credential_id": "019e876d-c91e-7e62-ae82-059655533271",
+    "tpm": {
+      "credential_blob": "AEQAIGxwsaag77BNhgLVuJzpoDQTyzXScxGxe9/DG/NJdA0yA0M3JaPNqLhKxtEFghw9ZBTJEfZpQP+RXDZRgUpJAdRdvg==",
+      "secret": "AQBI6UJ+Ct9CJLJ6bjyFMPZRQ4SVn9n1aWE3tSOpyU79KX78sDDyJWsXNUShUf9naBK5oSbJdbH2Pp82briqfRDWIghk4ylx8d/UjmjsfgKyYDAi1MNix0vkqNTuGFODl+g1EnI8VJdX6DhaJpr1soNnxOHNh2RwnG4ULQww6rE4ZF0+zV82N4t3XNjMC8TlbdLpJxZem1ulYUXs+VMwjI5DdQIssCGxJoGQ1rpPLgnmRTcpZdlRLFJNUOFZq/STJngI9abE98fwNP8Fo38OKJeSdYX7/hF04ntmavu0pospEOxzcAcecWWi8GcUvT1+g5xMDBekjQmNcadgy26QbcB/"
+    }
+  }
+}
+```
+
+#### Activate TPM credential
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/tpm/activate' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "principal_id": "019e876d-c912-72e2-be11-d270586bae99",
+  "credential_id": "019e876d-c91e-7e62-ae82-059655533271",
+  "recovered_secret": "sQn71hYitxqBYX79cP0TkZr68qn/rrzAMPuYTEb9MSE="
+}
+'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed"
+}
+```
+
+#### Create TPM Challenge
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/tpm/challenge' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+}
+'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "challenge_id": "019e8783-78e0-7b23-9d94-855bd09cee65",
+    "nonce": "94269fcef7e5cc3c3af36864ca2d0f0162d3d5954b2eb4e0b94d38729e72f242",
+    "expires_at": 1780390300
+  }
+}
+```
 
 #### Create Application User/Principal (AWS Role identity)
 
 **Requires root token** obtained when intializing the system.
 
 todo!()
+
+#### Grant application access to user/principal
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/grant' \
@@ -507,7 +604,43 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
 
 #### Authenticate user/principal for application using TPM identity to obtain short term token to access OSL endpoints
 
-todo!()
+Please adjust the params based on your TPM system. The below is just an example.
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/auth/tpm' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "challenge_id": "019e8783-78e0-7b23-9d94-855bd09cee65",
+  "ek_pubkey_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsWnTrYtkNp8TOWn0Q2Ey\nZgfaSEngOdH15oZbWZbW9vzz/BJReYmitdnj4bNiO4S5lfMOYBk1uImNtqyYZAFQ\nv2q7Fj6TKYSD4WfWGvoT79o+ONcows2BexOrF4iWXpmYU0uBTyXDjFfcd6vMq0lY\nWhmPq3lfzbVmb0+in4RsTv+wEBU479jejnXYXWak0DeuFD5mpx15phRLq7r66olR\n2qAXZFoiiIfKhIk8xriNrmHG4aTFcRyBycmnA9aY2NHTZ4DPUJRo98YEqVoZqiu1\na5PVcjiwK8ia0fap6WAP4GxiheLCbARw9O8/aDqIlp7Gq5AfRnsRIISxMHYF8Fr9\nrQIDAQAB\n-----END PUBLIC KEY-----",
+  "ak_pubkey_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnXgOH3FgNi0Q/SLlJVwF\n14EaJ9nhmizl33+LK6j4OURxWFaKgRHGr/gOHfOWlKVOGp1vLikEDWEMERs2s2EC\nY5g85FgIEE8cmAZXmhCjnsUvRwtOrcGRwmoQgysoDbFqQ4aaG9+t/MbZp1jCcAnQ\no3ykDK9s0kUxgYYPmJRAJP3wI2tZ03TuLDktgGxo6uZEwBnYp+j82mpwvfHV+00R\ngqhglUjUzKjGQovkMMwprV34Bsf4NOzFdF34Jkvmt0eaGd0othjVoWQUIH2qY75S\n1use+ng5C7QEAY6emNDLHHLxdkrnX1+6jQTMK9m0fPSEOmsCcQat7zmQ/P0wGMPG\nLwIDAQAB\n-----END PUBLIC KEY-----",
+  "quote": "/1RDR4AYACIAC+1u5uKHqLisPyceqTssrm7vqtJ29hEpMxBRNC36ti8tACCUJp/O9+XMPDrzaGTKLQ8BYtPVlUsutOC5TThynnLyQgAAAAABFnlVAAAABAAAAAABICQBJQASAAAAAAABAAsD/wAAACBTQeayZGl5pw5XZTAHofMQFpQh7JvdnxpWSPda3gBa8Q==",
+  "signature": "ABQACwEAVuW9osVpkOH+i9gud+tdzq9cg/LCmq8l/d+HcC3X78c3Cu7VMlWUs755D18tyUgSSWNKq8X7SmZw3xYA4RiYq3mKyQrJXKY9xulm1MizkfAMANdUP0eyazIvfYQwOKAh9KC3gfS+FmLHrIaYftXWrpxLiMwGIVvKUgvkANtJzgf0niES0g0gVY0SZRfPnpbBcO8tQgrG7eTrHc9S3PH+TrYonQag66zF3HsAhV6lhZiUc/K37bPOKRRfJu5u+Szk00zQ26jQTpDTjox3jqHxHjSk81QPJzi0vujiMmFEppAX5/8+2Z7MzsVSRQxG1Y+xrABgyVBJV1LM9U3MW5/2tg==",
+  "pcrs": {
+    "0": "0000000000000000000000000000000000000000000000000000000000000000",
+    "1": "0000000000000000000000000000000000000000000000000000000000000000",
+    "2": "0000000000000000000000000000000000000000000000000000000000000000",
+    "3": "0000000000000000000000000000000000000000000000000000000000000000",
+    "4": "0000000000000000000000000000000000000000000000000000000000000000",
+    "5": "0000000000000000000000000000000000000000000000000000000000000000",
+    "6": "0000000000000000000000000000000000000000000000000000000000000000",
+    "7": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "token": "tok_qNTJLC48rcu6djhNWjasqzHSU7RBsNOG",
+    "expires_at": 1780393849
+  }
+}
+```
 
 #### Authenticate user/principal for application using AWS Role identity to obtain short term token to access OSL endpoints
 

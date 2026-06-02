@@ -14,7 +14,12 @@ pub fn raft_management_routes<D: Database + 'static>() -> impl HttpServiceFactor
     web::scope("/raft")
         .route("/init", web::post().to(init_raft::<D>))
         .route("/metrics", web::post().to(metrics_raft::<D>))
-        .route("/shutdown", web::post().to(shutdown_raft::<D>))
+        .route(
+            "/shutdown",
+            web::post()
+                .to(shutdown_raft::<D>)
+                .wrap(RaftInitializedHelper::<D>::new()),
+        )
         .service(
             web::scope("")
                 .wrap(RaftLeaderHelper::<D>::new())

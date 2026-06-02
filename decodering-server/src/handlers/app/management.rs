@@ -788,7 +788,7 @@ pub async fn tpm_activate_app_user<D: Database + 'static>(
         }
         Err(e) => {
             tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
         }
     };
 
