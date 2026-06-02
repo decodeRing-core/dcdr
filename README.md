@@ -621,11 +621,68 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth/tpm' \
 
 **Requires root token** obtained when intializing the system.
 
-todo!()
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/create' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "my-first-app-user-11",
+  "kind": "human",
+  "credential_kind": "awsIdentity",
+  "aws": {
+    "role_arn": "arn:aws:iam::195430954655:role/decodering-test-role"
+  }
+}
+' \
+  --header 'Authorization: Bearer pk_xxx'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "token": "AWS role added",
+    "principal_id": "019e87ab-2675-7492-8e3d-c81bc2a17bd0",
+    "credential_id": "019e87ab-2675-7492-8e3d-c82214a403b8"
+  }
+}
+```
 
 ##### Authenticate user/principal for application to obtain short term token to access OSL endpoints
 
-todo!()
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/auth/aws' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "body": "Action=GetCallerIdentity&Version=2011-06-15",
+  "headers": {
+    "authorization": "AWS4-HMAC-SHA256 Credential=ASIAS3AEXW2PW2S6PP3W/20260602/us-east-1/sts/aws4_request, SignedHeaders=content-type;host;x-amz-date;x-amz-security-token, Signature=93d8c4de93030a1a27143843ax35bde9b5805f22859dd213067e134d609fa93f",
+    "content-type": "application/x-www-form-urlencoded",
+    "host": "sts.amazonaws.com",
+    "x-amz-date": "20260602T092945Z",
+    "x-amz-security-token": "xxxx"
+  },
+  "method": "POST",
+  "url": "https://sts.amazonaws.com/"
+}'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "token": "tok_0oKBE94QS7EKMYkodvTY3nSzG83Kb8QW",
+    "expires_at": 1780396403
+  }
+}
+```
 
 #### Grant application access to user/principal
 
@@ -654,7 +711,7 @@ curl -X POST 'http://127.0.0.1:21001/app/user/grant' \
 
 #### OSL
 
-##### Put secret into the vault (OpenBao plugin)
+##### Put secret into the vault. Example using OpenBao plugin
 
 Use your short term token obtained after authentication.
 
@@ -693,7 +750,7 @@ curl -X POST 'http://127.0.0.1:21001/osl/v1/secrets/put' \
 }
 ```
 
-##### Get secret from vault (OpenBao plugin)
+##### Get secret from vault. Example using OpenBao plugin
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/osl/v1/secrets/get' \

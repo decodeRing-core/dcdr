@@ -853,12 +853,6 @@ pub async fn tpm_activate_app_user<D: Database + 'static>(
     }
 }
 
-pub async fn auth_aws_iam_app_user<D: Database + 'static>(
-    _app: Data<AppData<D>>,
-) -> impl Responder {
-    ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Unimplemented))
-}
-
 pub async fn grant_app_access_user<D: Database + 'static>(
     conn: ConnectionInfo,
     app: Data<AppData<D>>,
