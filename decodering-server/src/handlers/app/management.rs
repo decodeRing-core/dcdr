@@ -12,43 +12,42 @@ use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use decodering_core::actions::update_principal_credential_status::UpdatePrincipalCredentialStatus;
-use decodering_core::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
+//use decodering_core::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
 use decodering_core::audit::Actor;
-use decodering_core::aws::call_sts_get_caller_identity;
-use decodering_core::aws::{normalize_arn, parse_iam_arn, validate_sts_request};
-use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
-use decodering_core::crypto::{
-    encode_hex, pem_to_der, sha256_hex, sha256_hex_pem, verify_quote_signature,
-};
+use decodering_core::auth::registry::AuthRegistry;
+use decodering_core::auth::types::{AuthRequest, EnrollRequest};
+//use decodering_core::aws::call_sts_get_caller_identity;
+//use decodering_core::aws::normalize_arn;
+use decodering_core::crypto::{encode_hex, sha256_hex};
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
+use decodering_core::repository::AppRepository;
 use decodering_core::repository::PrincipalRepository;
-use decodering_core::repository::{AppRepository, TpmChallengeRepository};
 use decodering_core::repository::{PrincipalAppGrantRepository, PrincipalCredentialRepository};
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
 use decodering_core::time::{CHALLENGE_TTL_SECS, now_ts, now_ts_plus};
-use decodering_core::tpm::{
-    AkPublic, TpmMaterial, make_credential_rsa, parse_tpms_attest, verify_pcrs,
-};
+use decodering_core::tpm::TpmMaterial;
 use decodering_core::tx::{Database, Tx};
 use rand::Rng;
 use rand::distr::{Alphanumeric, SampleString};
+use serde_json::json;
 use uuid::Uuid;
 
 use crate::app_data::AppData;
 use crate::config::Config;
+//use crate::config::Config;
 use crate::error::ErrorReason;
 use crate::extractor::AuthAdminMiddleware;
-use crate::handlers::app::payload::AuthAwsUserData;
+//use crate::handlers::app::payload::AuthAwsUserData;
+use crate::handlers::app::payload::AppGrantData;
 use crate::handlers::app::payload::RevokeAppData;
-use crate::handlers::app::payload::{AppGrantData, AuthTpmUserData};
 use crate::handlers::app::payload::{AuthTpmActivationData, CreateAppData};
 use crate::handlers::app::payload::{AuthTpmChallengeData, CreateAppUserData};
 use crate::handlers::app::payload::{AuthUserData, ListAppsData};
+use crate::handlers::app::response::ApiAuthAppUserResponse;
 use crate::handlers::app::response::ApiCreateAppGrantResponse;
 use crate::handlers::app::response::ApiDeleteAppGrantResponse;
 use crate::handlers::app::response::ApiTpmChallengeResponse;
-use crate::handlers::app::response::{ApiAuthAppUserResponse, TpmChallengeData};
 use crate::handlers::app::response::{ApiCreateAppResponse, ApiCreateAppUserResponse};
 use crate::handlers::osl::response::ApiListAppsResponse;
 use crate::handlers::response::{ApiResponse, ApiStatus, ErrorStatus, SuccessStatus};
@@ -60,6 +59,7 @@ pub async fn create_app_user<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: Json<CreateAppUserData>,
     auth: AuthAdminMiddleware<D>,
+    registry: Data<AuthRegistry>,
 ) -> impl Responder {
     let timestamp = now_ts();
     let principal_id = Uuid::now_v7().to_string();
@@ -74,155 +74,177 @@ pub async fn create_app_user<D: Database + 'static>(
         deleted_at: None,
     };
 
-    let (token, lookup_key) = match req.0.credential_kind {
-        PrincipalCredentialKind::ApiKey => {
-            let token = format!("pk_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
-            let lookup_key = sha256_hex(token.as_bytes());
-            (token, lookup_key)
-        }
-        PrincipalCredentialKind::TrustedPlatformModule => {
-            let Some(ref tpm_req) = req.0.tpm else {
-                tracing::error!("Missing TPM data");
-                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
-                    "TPM",
-                )));
-            };
-            let ek_der = match pem_to_der(&tpm_req.ek_pubkey_pem) {
-                Ok(x) => x,
-                Err(e) => {
-                    tracing::error!(err=?e, "Invalid EK public key");
-                    return ApiResponse::error(ErrorStatus::OperationFailed(
-                        ErrorReason::InvalidPublicKey,
-                    ));
-                }
-            };
-            let ek_hash = sha256_hex(&ek_der);
-            if tpm_req.require_ek_cert {
-                let cert_pem = tpm_req.ek_cert_pem.as_ref();
-                let Some(cert_pem) = cert_pem else {
-                    tracing::error!("EK cert required");
-                    return ApiResponse::error(ErrorStatus::OperationFailed(
-                        ErrorReason::CertMissing("EK cert"),
-                    ));
-                };
-                let trust_store = TpmTrustStore::from_directory(&config.tpm_trust_dir);
-                let Ok(trust_store) = trust_store else {
-                    tracing::error!("Failed to load trust store");
-                    return ApiResponse::error(ErrorStatus::OperationFailed(
-                        ErrorReason::TrustStore,
-                    ));
-                };
-                tracing::info!(count = trust_store.len(), "loaded TPM trust anchors");
+    let auth_method = registry.get(req.0.credential_kind.as_str());
+    let Some(auth_method) = auth_method else {
+        tracing::error!("Unsupported auth method");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::UnsupportedAuth));
+    };
 
-                if let Err(e) = verify_ek_cert_chain(cert_pem, &tpm_req.ek_pubkey_pem, &trust_store)
-                {
-                    tracing::error!(err=?e, "EK cert verification failed");
-                    return ApiResponse::error(ErrorStatus::OperationFailed(
-                        ErrorReason::CertVerification,
-                    ));
-                }
-            }
-
-            ("TPM key added".to_owned(), ek_hash)
-        }
-        PrincipalCredentialKind::AwsIdentity => {
-            let Some(ref aws_req) = req.0.aws else {
-                tracing::error!("Missing AWS data");
-                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
-                    "role",
-                )));
-            };
-            ("AWS role added".to_owned(), aws_req.role_arn.clone())
+    let auth_resp = match auth_method
+        .enroll(EnrollRequest {
+            principal_id: principal_id.clone(),
+            data: req.0.data.unwrap_or_default(),
+            now: timestamp,
+            config: json!({"tpm_trust_dir": config.tpm_trust_dir}),
+        })
+        .await
+    {
+        Ok(resp) => resp,
+        Err(a) => {
+            tracing::error!("Auth error: {a:?}");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::UnsupportedAuth));
         }
     };
 
-    let mut tpm_response: TpmChallengeData = TpmChallengeData::default();
-    let secret_material = match req.0.credential_kind {
-        PrincipalCredentialKind::ApiKey => serde_json::json!({}),
-        PrincipalCredentialKind::TrustedPlatformModule => {
-            let Some(ref tpm_req) = req.0.tpm else {
-                tracing::error!("Missing TPM data");
-                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
-                    "TPM",
-                )));
-            };
-            let ak_pub_2b = STANDARD.decode(&tpm_req.ak_public_tpm2b_b64);
-            let Ok(ak_pub_2b) = ak_pub_2b else {
-                tracing::error!("Invalid public key");
-                return ApiResponse::error(ErrorStatus::OperationFailed(
-                    ErrorReason::InvalidPublicKey,
-                ));
-            };
-            let ak = AkPublic::parse(&ak_pub_2b);
-            let Ok(ak) = ak else {
-                tracing::error!("Invalid AK public parsing");
-                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "parse AK".into(),
-                )));
-            };
-            let mut secret = [0u8; 32];
-            rand::rng().fill_bytes(&mut secret);
-            let challenge = make_credential_rsa(&tpm_req.ek_pubkey_pem, &ak.name, &secret);
-            let Ok(challenge) = challenge else {
-                tracing::error!("Failed to create challenge");
-                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "create challenge".into(),
-                )));
-            };
-            tpm_response.credential_blob = challenge.credential_blob;
-            tpm_response.secret = challenge.secret;
-            let material = serde_json::json!({
-                "ek_pubkey_pem":   tpm_req.ek_pubkey_pem,
-                "ek_cert_pem":     tpm_req.ek_cert_pem,
-                "require_ek_cert": tpm_req.require_ek_cert,
-                "expected_pcrs":   tpm_req.expected_pcrs,
-                "ak_pubkey_pem":   ak.pubkey_pem,
-                "ak_name_hex":     encode_hex(&ak.name),
-                "activation_secret_hash": sha256_hex(&secret),
-            });
-            material
-        }
-        PrincipalCredentialKind::AwsIdentity => {
-            let Some(ref aws_req) = req.0.aws else {
-                tracing::error!("Missing AWS data");
-                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
-                    "role",
-                )));
-            };
-            let normalized = normalize_arn(&aws_req.role_arn);
-            let Some(normalized) = normalized else {
-                tracing::error!("Failed to normalize role");
-                return ApiResponse::error(ErrorStatus::OperationFailed(
-                    ErrorReason::UnsupportedOrInvalidRoleArn,
-                ));
-            };
-            let parts = parse_iam_arn(&normalized);
-            let Some(parts) = parts else {
-                tracing::error!("Failed to parse role");
-                return ApiResponse::error(ErrorStatus::OperationFailed(
-                    ErrorReason::UnsupportedOrInvalidRoleArn,
-                ));
-            };
-            serde_json::json!({
-                "account_id": parts.account_id,
-                "role_name":  parts.name,
-            })
-        }
-    };
+    // let (token, lookup_key) = match req.0.credential_kind {
+    //     PrincipalCredentialKind::ApiKey => {
+    //         let token = format!("pk_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
+    //         let lookup_key = sha256_hex(token.as_bytes());
+    //         (token, lookup_key)
+    //     }
+    //     PrincipalCredentialKind::TrustedPlatformModule => {
+    //         let Some(ref tpm_req) = req.0.tpm else {
+    //             tracing::error!("Missing TPM data");
+    //             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
+    //                 "TPM",
+    //             )));
+    //         };
+    //         let ek_der = match pem_to_der(&tpm_req.ek_pubkey_pem) {
+    //             Ok(x) => x,
+    //             Err(e) => {
+    //                 tracing::error!(err=?e, "Invalid EK public key");
+    //                 return ApiResponse::error(ErrorStatus::OperationFailed(
+    //                     ErrorReason::InvalidPublicKey,
+    //                 ));
+    //             }
+    //         };
+    //         let ek_hash = sha256_hex(&ek_der);
+    //         if tpm_req.require_ek_cert {
+    //             let cert_pem = tpm_req.ek_cert_pem.as_ref();
+    //             let Some(cert_pem) = cert_pem else {
+    //                 tracing::error!("EK cert required");
+    //                 return ApiResponse::error(ErrorStatus::OperationFailed(
+    //                     ErrorReason::CertMissing("EK cert"),
+    //                 ));
+    //             };
+    //             let trust_store = TpmTrustStore::from_directory(&config.tpm_trust_dir);
+    //             let Ok(trust_store) = trust_store else {
+    //                 tracing::error!("Failed to load trust store");
+    //                 return ApiResponse::error(ErrorStatus::OperationFailed(
+    //                     ErrorReason::TrustStore,
+    //                 ));
+    //             };
+    //             tracing::info!(count = trust_store.len(), "loaded TPM trust anchors");
 
-    let status = match req.0.credential_kind {
-        PrincipalCredentialKind::TrustedPlatformModule => PrincipalStatus::Pending,
-        _ => PrincipalStatus::Active,
-    };
+    //             if let Err(e) = verify_ek_cert_chain(cert_pem, &tpm_req.ek_pubkey_pem, &trust_store)
+    //             {
+    //                 tracing::error!(err=?e, "EK cert verification failed");
+    //                 return ApiResponse::error(ErrorStatus::OperationFailed(
+    //                     ErrorReason::CertVerification,
+    //                 ));
+    //             }
+    //         }
+
+    //         ("TPM key added".to_owned(), ek_hash)
+    //     }
+    //     PrincipalCredentialKind::AwsIdentity => {
+    //         let Some(ref aws_req) = req.0.aws else {
+    //             tracing::error!("Missing AWS data");
+    //             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
+    //                 "role",
+    //             )));
+    //         };
+    //         ("AWS role added".to_owned(), aws_req.role_arn.clone())
+    //     }
+    // };
+
+    // let mut tpm_response: TpmChallengeData = TpmChallengeData::default();
+    // let secret_material = match req.0.credential_kind {
+    //     PrincipalCredentialKind::ApiKey => serde_json::json!({}),
+    //     PrincipalCredentialKind::TrustedPlatformModule => {
+    //         let Some(ref tpm_req) = req.0.tpm else {
+    //             tracing::error!("Missing TPM data");
+    //             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
+    //                 "TPM",
+    //             )));
+    //         };
+    //         let ak_pub_2b = STANDARD.decode(&tpm_req.ak_public_tpm2b_b64);
+    //         let Ok(ak_pub_2b) = ak_pub_2b else {
+    //             tracing::error!("Invalid public key");
+    //             return ApiResponse::error(ErrorStatus::OperationFailed(
+    //                 ErrorReason::InvalidPublicKey,
+    //             ));
+    //         };
+    //         let ak = AkPublic::parse(&ak_pub_2b);
+    //         let Ok(ak) = ak else {
+    //             tracing::error!("Invalid AK public parsing");
+    //             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+    //                 "parse AK".into(),
+    //             )));
+    //         };
+    //         let mut secret = [0u8; 32];
+    //         rand::rng().fill_bytes(&mut secret);
+    //         let challenge = make_credential_rsa(&tpm_req.ek_pubkey_pem, &ak.name, &secret);
+    //         let Ok(challenge) = challenge else {
+    //             tracing::error!("Failed to create challenge");
+    //             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+    //                 "create challenge".into(),
+    //             )));
+    //         };
+    //         tpm_response.credential_blob = challenge.credential_blob;
+    //         tpm_response.secret = challenge.secret;
+    //         let material = serde_json::json!({
+    //             "ek_pubkey_pem":   tpm_req.ek_pubkey_pem,
+    //             "ek_cert_pem":     tpm_req.ek_cert_pem,
+    //             "require_ek_cert": tpm_req.require_ek_cert,
+    //             "expected_pcrs":   tpm_req.expected_pcrs,
+    //             "ak_pubkey_pem":   ak.pubkey_pem,
+    //             "ak_name_hex":     encode_hex(&ak.name),
+    //             "activation_secret_hash": sha256_hex(&secret),
+    //         });
+    //         material
+    //     }
+    //     PrincipalCredentialKind::AwsIdentity => {
+    //         let Some(ref aws_req) = req.0.aws else {
+    //             tracing::error!("Missing AWS data");
+    //             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::MissingData(
+    //                 "role",
+    //             )));
+    //         };
+    //         let normalized = normalize_arn(&aws_req.role_arn);
+    //         let Some(normalized) = normalized else {
+    //             tracing::error!("Failed to normalize role");
+    //             return ApiResponse::error(ErrorStatus::OperationFailed(
+    //                 ErrorReason::UnsupportedOrInvalidRoleArn,
+    //             ));
+    //         };
+    //         let parts = parse_iam_arn(&normalized);
+    //         let Some(parts) = parts else {
+    //             tracing::error!("Failed to parse role");
+    //             return ApiResponse::error(ErrorStatus::OperationFailed(
+    //                 ErrorReason::UnsupportedOrInvalidRoleArn,
+    //             ));
+    //         };
+    //         serde_json::json!({
+    //             "account_id": parts.account_id,
+    //             "role_name":  parts.name,
+    //         })
+    //     }
+    // };
+
+    // let status = match req.0.credential_kind {
+    //     PrincipalCredentialKind::TrustedPlatformModule => PrincipalStatus::Pending,
+    //     _ => PrincipalStatus::Active,
+    // };
 
     let principal_credential = CreatePrincipalCredential {
         actor: auth.actor(&conn),
         credential_id: Uuid::now_v7().to_string(),
         principal_id: principal_id.clone(),
         kind: req.0.credential_kind,
-        lookup_key,
-        secret_material: secret_material.to_string(),
-        status,
+        lookup_key: auth_resp.lookup_key,
+        secret_material: auth_resp.secret_material.to_string(),
+        status: auth_resp.status,
         expires_at: req.0.expires_at,
         last_used_at: None,
         created_at: timestamp,
@@ -252,16 +274,7 @@ pub async fn create_app_user<D: Database + 'static>(
         Ok(resp) => match resp {
             AppResponse::CreateAppUser(resp) => {
                 let credential_id = resp.principal_credential.credential_id;
-                if req.0.credential_kind == PrincipalCredentialKind::TrustedPlatformModule {
-                    ApiCreateAppUserResponse::tpm(
-                        token,
-                        principal_id,
-                        credential_id,
-                        Some(tpm_response),
-                    )
-                } else {
-                    ApiCreateAppUserResponse::new(token, principal_id, credential_id)
-                }
+                ApiCreateAppUserResponse::new(auth_resp.client_payload, principal_id, credential_id)
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app user");
@@ -338,23 +351,56 @@ pub async fn auth_app_user<D: Database + 'static>(
     conn: ConnectionInfo,
     app: Data<AppData<D>>,
     req: Json<AuthUserData>,
+    registry: Data<AuthRegistry>,
 ) -> impl Responder {
     let ip = conn.peer_addr().map(str::to_owned);
+
+    let auth_method = registry.get(req.0.kind.as_str());
+    let Some(auth_method) = auth_method else {
+        tracing::error!("Unsupported auth method");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::UnsupportedAuth));
+    };
+
+    let caps = auth_method.capabilities();
+
+    let challenge_state = None;
+
+    let credential_material = None;
+
+    let timestamp = now_ts();
+
+    let auth_resp = match auth_method
+        .authenticate(AuthRequest {
+            proof: req.proof.clone(),
+            challenge_state,
+            credential_material,
+            now: timestamp,
+            config: serde_json::Value::default(),
+        })
+        .await
+    {
+        Ok(resp) => resp,
+        Err(a) => {
+            tracing::error!("Auth error: {a:?}");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+        }
+    };
+
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
-    let key_hash = sha256_hex(req.key.as_bytes());
     let principal = match db
         .principal()
-        .get_active_by_key(&key_hash, PrincipalStatus::Active)
+        .get_active_by_key(&auth_resp.lookup_key, PrincipalStatus::Active)
         .await
     {
         Ok(Some(app)) => app,
         Ok(None) => {
-            tracing::error!(lookup_key=%key_hash,"Principal not found with lookup key");
+            let metadata = auth_resp.audit_metadata;
+            tracing::error!(lookup_key=%metadata,"Principal not found with lookup key");
             return ApiResponse::error(ErrorStatus::OperationFailed(
                 ErrorReason::PrincipalNotFound,
             ));
@@ -368,7 +414,6 @@ pub async fn auth_app_user<D: Database + 'static>(
     let token = format!("tok_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
     let token_hash = sha256_hex(token.as_bytes());
 
-    let timestamp = now_ts();
     let expires = now_ts_plus(3600);
     let principal_token = CreatePrincipalToken {
         actor: Actor::Principal {
@@ -408,311 +453,311 @@ pub async fn auth_app_user<D: Database + 'static>(
     }
 }
 
-pub async fn auth_aws_app_user<D: Database + 'static>(
-    conn: ConnectionInfo,
-    app: Data<AppData<D>>,
-    req: Json<AuthAwsUserData>,
-) -> impl Responder {
-    let ip = conn.peer_addr().map(str::to_owned);
-    let req = req.into_inner();
+// pub async fn auth_aws_app_user<D: Database + 'static>(
+//     conn: ConnectionInfo,
+//     app: Data<AppData<D>>,
+//     req: Json<AuthAwsUserData>,
+// ) -> impl Responder {
+//     let ip = conn.peer_addr().map(str::to_owned);
+//     let req = req.into_inner();
 
-    let validation = validate_sts_request(&req.method, &req.url, &req.body, &req.headers);
-    if validation.is_err() {
-        tracing::error!("AWS Auth request is not valid");
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-            "validate aws request params".into(),
-        )));
-    }
-    let db = app.db.begin().await;
-    let Ok(mut db) = db else {
-        tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-    };
+//     let validation = validate_sts_request(&req.method, &req.url, &req.body, &req.headers);
+//     if validation.is_err() {
+//         tracing::error!("AWS Auth request is not valid");
+//         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+//             "validate aws request params".into(),
+//         )));
+//     }
+//     let db = app.db.begin().await;
+//     let Ok(mut db) = db else {
+//         tracing::error!("Failed to get a connection to database");
+//         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+//     };
 
-    let identity = call_sts_get_caller_identity(&req.url, req.body, req.headers).await;
-    let identity = match identity {
-        Ok(x) => x,
-        Err(e) => {
-            tracing::error!("STS identity verification failed");
-            let err = e.to_string();
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                err.into(),
-            )));
-        }
-    };
-    let normalized = normalize_arn(&identity.arn);
-    let Some(normalized) = normalized else {
-        tracing::error!("Failed to get role arn");
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-            "get role arn".into(),
-        )));
-    };
+//     let identity = call_sts_get_caller_identity(&req.url, req.body, req.headers).await;
+//     let identity = match identity {
+//         Ok(x) => x,
+//         Err(e) => {
+//             tracing::error!("STS identity verification failed");
+//             let err = e.to_string();
+//             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+//                 err.into(),
+//             )));
+//         }
+//     };
+//     let normalized = normalize_arn(&identity.arn);
+//     let Some(normalized) = normalized else {
+//         tracing::error!("Failed to get role arn");
+//         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+//             "get role arn".into(),
+//         )));
+//     };
 
-    let principal = match db
-        .principal()
-        .get_active_by_key(&normalized, PrincipalStatus::Active)
-        .await
-    {
-        Ok(Some(app)) => app,
-        Ok(None) => {
-            tracing::error!(lookup_key=%normalized,"Principal not found with lookup key");
-            return ApiResponse::error(ErrorStatus::OperationFailed(
-                ErrorReason::PrincipalNotFound,
-            ));
-        }
-        Err(e) => {
-            tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-        }
-    };
+//     let principal = match db
+//         .principal()
+//         .get_active_by_key(&normalized, PrincipalStatus::Active)
+//         .await
+//     {
+//         Ok(Some(app)) => app,
+//         Ok(None) => {
+//             tracing::error!(lookup_key=%normalized,"Principal not found with lookup key");
+//             return ApiResponse::error(ErrorStatus::OperationFailed(
+//                 ErrorReason::PrincipalNotFound,
+//             ));
+//         }
+//         Err(e) => {
+//             tracing::error!(err=?e, "Failed to query database");
+//             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+//         }
+//     };
 
-    let token = format!("tok_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
-    let token_hash = sha256_hex(token.as_bytes());
+//     let token = format!("tok_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
+//     let token_hash = sha256_hex(token.as_bytes());
 
-    let timestamp = now_ts();
-    let expires = now_ts_plus(3600);
-    let principal_token = CreatePrincipalToken {
-        actor: Actor::Principal {
-            principal_id: principal.principal_id.clone(),
-            ip: ip.clone(),
-        },
-        token_id: Uuid::now_v7().to_string(),
-        token_hash,
-        principal_id: principal.principal_id,
-        credential_id: principal.credential_id,
-        issued_at: timestamp,
-        expires_at: expires,
-        revoked_at: None,
-    };
+//     let timestamp = now_ts();
+//     let expires = now_ts_plus(3600);
+//     let principal_token = CreatePrincipalToken {
+//         actor: Actor::Principal {
+//             principal_id: principal.principal_id.clone(),
+//             ip: ip.clone(),
+//         },
+//         token_id: Uuid::now_v7().to_string(),
+//         token_hash,
+//         principal_id: principal.principal_id,
+//         credential_id: principal.credential_id,
+//         issued_at: timestamp,
+//         expires_at: expires,
+//         revoked_at: None,
+//     };
 
-    let request = AppRequest::CreatePrincipalToken(principal_token);
-    match app.submit(request).await {
-        Ok(resp) => match resp {
-            AppResponse::CreatePrincipalToken(r) => {
-                ApiAuthAppUserResponse::new(token, r.expires_at)
-            }
-            AppResponse::Error(e) => {
-                tracing::error!(%e, "Failed to authenticate app user");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "authenticate app user".into(),
-                )))
-            }
-            other_api_response => {
-                tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
-            }
-        },
-        Err(e) => {
-            tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
-        }
-    }
-}
+//     let request = AppRequest::CreatePrincipalToken(principal_token);
+//     match app.submit(request).await {
+//         Ok(resp) => match resp {
+//             AppResponse::CreatePrincipalToken(r) => {
+//                 ApiAuthAppUserResponse::new(token, r.expires_at)
+//             }
+//             AppResponse::Error(e) => {
+//                 tracing::error!(%e, "Failed to authenticate app user");
+//                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+//                     "authenticate app user".into(),
+//                 )))
+//             }
+//             other_api_response => {
+//                 tracing::error!(?other_api_response, "unexpected AppResponse variant");
+//                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
+//             }
+//         },
+//         Err(e) => {
+//             tracing::error!(?e);
+//             ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+//         }
+//     }
+// }
 
-pub async fn auth_tpm_app_user<D: Database + 'static>(
-    conn: ConnectionInfo,
-    app: Data<AppData<D>>,
-    req: Json<AuthTpmUserData>,
-) -> impl Responder {
-    let ip = conn.peer_addr().map(str::to_owned);
-    let req = req.into_inner();
-    let decoded = (|| -> Result<_, base64::DecodeError> {
-        let quote = STANDARD.decode(&req.quote)?;
-        let signature = STANDARD.decode(&req.signature)?;
-        Ok((quote, signature))
-    })();
+// pub async fn auth_tpm_app_user<D: Database + 'static>(
+//     conn: ConnectionInfo,
+//     app: Data<AppData<D>>,
+//     req: Json<AuthTpmUserData>,
+// ) -> impl Responder {
+//     let ip = conn.peer_addr().map(str::to_owned);
+//     let req = req.into_inner();
+//     let decoded = (|| -> Result<_, base64::DecodeError> {
+//         let quote = STANDARD.decode(&req.quote)?;
+//         let signature = STANDARD.decode(&req.signature)?;
+//         Ok((quote, signature))
+//     })();
 
-    let (quote_bytes, signature_bytes) = match decoded {
-        Ok(t) => t,
-        Err(e) => {
-            tracing::warn!("Invalid base64 in auth_tpm request: {e}");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-        }
-    };
+//     let (quote_bytes, signature_bytes) = match decoded {
+//         Ok(t) => t,
+//         Err(e) => {
+//             tracing::warn!("Invalid base64 in auth_tpm request: {e}");
+//             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//         }
+//     };
 
-    let ek_pubkey_hash = sha256_hex_pem(&req.ek_pubkey_pem);
-    let Some(ek_pubkey_hash) = ek_pubkey_hash else {
-        tracing::warn!("Invalid ek_pubkey_pem hash");
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-    };
+//     let ek_pubkey_hash = sha256_hex_pem(&req.ek_pubkey_pem);
+//     let Some(ek_pubkey_hash) = ek_pubkey_hash else {
+//         tracing::warn!("Invalid ek_pubkey_pem hash");
+//         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//     };
 
-    let db = app.db.begin().await;
-    let Ok(mut db) = db else {
-        tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-    };
+//     let db = app.db.begin().await;
+//     let Ok(mut db) = db else {
+//         tracing::error!("Failed to get a connection to database");
+//         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+//     };
 
-    let tpm_challenge = match db.tpm_challenge().get_active(&req.challenge_id).await {
-        Ok(Some(app)) => app,
-        Ok(None) => {
-            tracing::error!(
-                challenge_id = req.challenge_id,
-                "TPM Challenge not found, already consumed, or expired"
-            );
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-        }
-        Err(e) => {
-            tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-        }
-    };
+//     let tpm_challenge = match db.tpm_challenge().get_active(&req.challenge_id).await {
+//         Ok(Some(app)) => app,
+//         Ok(None) => {
+//             tracing::error!(
+//                 challenge_id = req.challenge_id,
+//                 "TPM Challenge not found, already consumed, or expired"
+//             );
+//             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//         }
+//         Err(e) => {
+//             tracing::error!(err=?e, "Failed to query database");
+//             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+//         }
+//     };
 
-    if let Some(hint) = &tpm_challenge.ek_pubkey_hash
-        && hint != &ek_pubkey_hash
-    {
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::ChallengeMismatch));
-    }
+//     if let Some(hint) = &tpm_challenge.ek_pubkey_hash
+//         && hint != &ek_pubkey_hash
+//     {
+//         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::ChallengeMismatch));
+//     }
 
-    let credential = match db
-        .principal_credential()
-        .get_active_by_kind_and_lookup_key(
-            PrincipalCredentialKind::TrustedPlatformModule,
-            &ek_pubkey_hash,
-        )
-        .await
-    {
-        Ok(Some(x)) => x,
-        Ok(None) => {
-            tracing::error!("Active credential not found");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-        }
-        Err(e) => {
-            tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-        }
-    };
+//     let credential = match db
+//         .principal_credential()
+//         .get_active_by_kind_and_lookup_key(
+//             PrincipalCredentialKind::TrustedPlatformModule,
+//             &ek_pubkey_hash,
+//         )
+//         .await
+//     {
+//         Ok(Some(x)) => x,
+//         Ok(None) => {
+//             tracing::error!("Active credential not found");
+//             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//         }
+//         Err(e) => {
+//             tracing::error!(err=?e, "Failed to query database");
+//             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//         }
+//     };
 
-    if credential.status != PrincipalStatus::Active || credential.revoked_at.is_some() {
-        tracing::error!(
-            status=credential.status.as_str(),
-            revoked_at=?credential.revoked_at,
-            "Invalid credential"
-        );
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-    }
+//     if credential.status != PrincipalStatus::Active || credential.revoked_at.is_some() {
+//         tracing::error!(
+//             status=credential.status.as_str(),
+//             revoked_at=?credential.revoked_at,
+//             "Invalid credential"
+//         );
+//         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//     }
 
-    let material = serde_json::from_str::<TpmMaterial>(&credential.secret_material);
-    let Ok(material) = material else {
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-    };
+//     let material = serde_json::from_str::<TpmMaterial>(&credential.secret_material);
+//     let Ok(material) = material else {
+//         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//     };
 
-    if material.ek_pubkey_pem.trim() != req.ek_pubkey_pem.trim() {
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-    }
+//     if material.ek_pubkey_pem.trim() != req.ek_pubkey_pem.trim() {
+//         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//     }
 
-    let verification = verify_quote_signature(&quote_bytes, &signature_bytes, &req.ak_pubkey_pem);
-    if let Err(e) = verification {
-        tracing::error!(
-            err=%e,
-            "Verification failed"
-        );
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-    }
+//     let verification = verify_quote_signature(&quote_bytes, &signature_bytes, &req.ak_pubkey_pem);
+//     if let Err(e) = verification {
+//         tracing::error!(
+//             err=%e,
+//             "Verification failed"
+//         );
+//         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//     }
 
-    let quoted = match parse_tpms_attest(&quote_bytes) {
-        Ok(quoted) => quoted,
-        Err(e) => {
-            tracing::error!(
-                err=%e,
-                "TPM attest failed"
-            );
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-        }
-    };
+//     let quoted = match parse_tpms_attest(&quote_bytes) {
+//         Ok(quoted) => quoted,
+//         Err(e) => {
+//             tracing::error!(
+//                 err=%e,
+//                 "TPM attest failed"
+//             );
+//             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//         }
+//     };
 
-    if quoted.extra_data != tpm_challenge.nonce.as_slice() {
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-    }
+//     if quoted.extra_data != tpm_challenge.nonce.as_slice() {
+//         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//     }
 
-    if let Some(expected) = material.expected_pcrs {
-        let pcrs = req.pcrs.as_ref();
-        let Some(pcrs) = pcrs else {
-            tracing::error!("PCRs required");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-        };
-        if let Err(e) = verify_pcrs(pcrs, &quoted.pcr_digest, &expected, &quoted.pcr_selections) {
-            tracing::error!(
-                err=%e,
-                "PCRS verification"
-            );
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-        }
-    }
+//     if let Some(expected) = material.expected_pcrs {
+//         let pcrs = req.pcrs.as_ref();
+//         let Some(pcrs) = pcrs else {
+//             tracing::error!("PCRs required");
+//             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//         };
+//         if let Err(e) = verify_pcrs(pcrs, &quoted.pcr_digest, &expected, &quoted.pcr_selections) {
+//             tracing::error!(
+//                 err=%e,
+//                 "PCRS verification"
+//             );
+//             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+//         }
+//     }
 
-    let consumed_tpm_challenge = UpdateTpmChallengeConsumedAt {
-        actor: Actor::Principal {
-            principal_id: credential.principal_id.clone(),
-            ip: ip.clone(),
-        },
-        challenge_id: req.challenge_id,
-        consumed_at: now_ts(),
-    };
+//     let consumed_tpm_challenge = UpdateTpmChallengeConsumedAt {
+//         actor: Actor::Principal {
+//             principal_id: credential.principal_id.clone(),
+//             ip: ip.clone(),
+//         },
+//         challenge_id: req.challenge_id,
+//         consumed_at: now_ts(),
+//     };
 
-    let request = AppRequest::UpdateConsumedAt(consumed_tpm_challenge);
-    match app.submit(request).await {
-        Ok(resp) => match resp {
-            AppResponse::ConsumeTpmChallenge(_) => {
-                // Consumed
-            }
-            AppResponse::Error(e) => {
-                tracing::error!(%e, "Failed to consume tpm challenge");
-                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "consume tpm challenge".into(),
-                )));
-            }
-            other_api_response => {
-                tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected));
-            }
-        },
-        Err(e) => {
-            tracing::error!(?e);
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-        }
-    }
+//     let request = AppRequest::UpdateConsumedAt(consumed_tpm_challenge);
+//     match app.submit(request).await {
+//         Ok(resp) => match resp {
+//             AppResponse::ConsumeTpmChallenge(_) => {
+//                 // Consumed
+//             }
+//             AppResponse::Error(e) => {
+//                 tracing::error!(%e, "Failed to consume tpm challenge");
+//                 return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+//                     "consume tpm challenge".into(),
+//                 )));
+//             }
+//             other_api_response => {
+//                 tracing::error!(?other_api_response, "unexpected AppResponse variant");
+//                 return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected));
+//             }
+//         },
+//         Err(e) => {
+//             tracing::error!(?e);
+//             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+//         }
+//     }
 
-    let token = format!("tok_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
-    let token_hash = sha256_hex(token.as_bytes());
+//     let token = format!("tok_{}", Alphanumeric.sample_string(&mut rand::rng(), 32));
+//     let token_hash = sha256_hex(token.as_bytes());
 
-    let timestamp = now_ts();
-    let expires = now_ts_plus(3600);
-    let principal_token = CreatePrincipalToken {
-        actor: Actor::Principal {
-            principal_id: credential.principal_id.clone(),
-            ip: ip.clone(),
-        },
-        token_id: Uuid::now_v7().to_string(),
-        token_hash,
-        principal_id: credential.principal_id,
-        credential_id: credential.credential_id,
-        issued_at: timestamp,
-        expires_at: expires,
-        revoked_at: None,
-    };
+//     let timestamp = now_ts();
+//     let expires = now_ts_plus(3600);
+//     let principal_token = CreatePrincipalToken {
+//         actor: Actor::Principal {
+//             principal_id: credential.principal_id.clone(),
+//             ip: ip.clone(),
+//         },
+//         token_id: Uuid::now_v7().to_string(),
+//         token_hash,
+//         principal_id: credential.principal_id,
+//         credential_id: credential.credential_id,
+//         issued_at: timestamp,
+//         expires_at: expires,
+//         revoked_at: None,
+//     };
 
-    let request = AppRequest::CreatePrincipalToken(principal_token);
-    match app.submit(request).await {
-        Ok(resp) => match resp {
-            AppResponse::CreatePrincipalToken(r) => {
-                ApiAuthAppUserResponse::new(token, r.expires_at)
-            }
-            AppResponse::Error(e) => {
-                tracing::error!(%e, "Failed to authenticate app user");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "authenticate app user".into(),
-                )))
-            }
-            other_api_response => {
-                tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
-            }
-        },
-        Err(e) => {
-            tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
-        }
-    }
-}
+//     let request = AppRequest::CreatePrincipalToken(principal_token);
+//     match app.submit(request).await {
+//         Ok(resp) => match resp {
+//             AppResponse::CreatePrincipalToken(r) => {
+//                 ApiAuthAppUserResponse::new(token, r.expires_at)
+//             }
+//             AppResponse::Error(e) => {
+//                 tracing::error!(%e, "Failed to authenticate app user");
+//                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+//                     "authenticate app user".into(),
+//                 )))
+//             }
+//             other_api_response => {
+//                 tracing::error!(?other_api_response, "unexpected AppResponse variant");
+//                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
+//             }
+//         },
+//         Err(e) => {
+//             tracing::error!(?e);
+//             ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+//         }
+//     }
+// }
 
 pub async fn tpm_challenge_app_user<D: Database + 'static>(
     conn: ConnectionInfo,

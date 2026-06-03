@@ -47,6 +47,7 @@ pub enum ErrorReason {
     Plugin,
     Locked,
     InvalidShamirKeys,
+    UnsupportedAuth,
     UnsupportedBackend,
     UnsupportedOrInvalidRoleArn,
     SecretAlreadyExists,
@@ -95,6 +96,7 @@ impl std::fmt::Display for ErrorReason {
             Self::SystemNotInitialized => f.write_str("System not initialized."),
             Self::UnsupportedOrInvalidRoleArn => f.write_str("Unsupported or invalid role."),
             Self::TaintedSecret => f.write_str("The secret is tainted and inaccessible."),
+            Self::UnsupportedAuth => f.write_str("Unsupported authorization"),
         }
     }
 }
@@ -125,7 +127,9 @@ impl ErrorReason {
                 StatusCode::SERVICE_UNAVAILABLE
             }
             Self::InvalidShamirKeys | Self::Unauthorized | Self::Locked => StatusCode::FORBIDDEN,
-            Self::UnsupportedBackend | Self::Unimplemented => StatusCode::NOT_IMPLEMENTED,
+            Self::UnsupportedBackend | Self::Unimplemented | Self::UnsupportedAuth => {
+                StatusCode::NOT_IMPLEMENTED
+            }
             Self::SecretNotFound | Self::Secret(_) => StatusCode::NOT_FOUND,
             Self::DuplicatedApp | Self::TaintedSecret => StatusCode::CONFLICT,
         }

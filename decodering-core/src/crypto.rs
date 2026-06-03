@@ -5,6 +5,7 @@ use aes_gcm::Aes256Gcm;
 use aes_gcm::Key;
 use aes_gcm::Nonce;
 use aes_gcm::aead::{Aead, AeadCore, KeyInit, OsRng, Payload};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use p256::ecdsa::{Signature as EcdsaSignature, VerifyingKey as EcdsaVerifyingKey};
 use rsa::RsaPublicKey;
 use rsa::pkcs1v15;
@@ -46,6 +47,14 @@ pub fn encode_hex(bytes: &[u8]) -> String {
         out.push(lo as char);
     }
     out
+}
+
+pub fn base64_decode(s: &str) -> Option<Vec<u8>> {
+    STANDARD.decode(s).ok()
+}
+
+pub fn base64_encode(s: Vec<u8>) -> String {
+    STANDARD.encode(s)
 }
 
 // TPM algorithm identifiers (TCG TPM 2.0 spec, Part 2, Table 9)

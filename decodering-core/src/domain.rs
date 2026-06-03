@@ -109,9 +109,9 @@ impl FromStr for PrincipalCredentialKind {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
-            "api_key" => Self::ApiKey,
-            "tpm" => Self::TrustedPlatformModule,
-            "aws_iam" => Self::AwsIdentity,
+            "apiKey" => Self::ApiKey,
+            "trustedPlatformModule" => Self::TrustedPlatformModule,
+            "awsIdentity" => Self::AwsIdentity,
             other => return Err(UnknownPrincipalCredentialKind(other.to_owned())),
         })
     }
@@ -120,9 +120,9 @@ impl FromStr for PrincipalCredentialKind {
 impl PrincipalCredentialKind {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::ApiKey => "api_key",
-            Self::TrustedPlatformModule => "tpm",
-            Self::AwsIdentity => "aws_iam",
+            Self::ApiKey => "apiKey",
+            Self::TrustedPlatformModule => "trustedPlatformModule",
+            Self::AwsIdentity => "awsIdentity",
         }
     }
 }

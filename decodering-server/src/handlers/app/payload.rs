@@ -2,14 +2,16 @@ use std::collections::HashMap;
 
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalKind};
 use serde::Deserialize;
+use serde_json::Value;
 
 #[derive(Deserialize, Debug)]
 pub struct CreateAppUserData {
     pub name: String,
     pub kind: PrincipalKind,
     pub credential_kind: PrincipalCredentialKind,
-    pub tpm: Option<TrustedPlatformModuleData>,
-    pub aws: Option<AwsData>,
+    pub data: Option<Value>,
+    // pub tpm: Option<TrustedPlatformModuleData>,
+    // pub aws: Option<AwsData>,
     pub expires_at: Option<i64>,
     pub apps: Option<Vec<String>>,
 }
@@ -35,7 +37,9 @@ pub struct CreateAppData {
 
 #[derive(Deserialize, Debug)]
 pub struct AuthUserData {
-    pub key: String,
+    pub kind: String,
+    pub proof: Value,
+    //pub key: String,
 }
 
 #[derive(Deserialize, Debug)]

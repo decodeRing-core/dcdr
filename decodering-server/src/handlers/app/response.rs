@@ -1,5 +1,6 @@
 use crate::handlers::response::{ApiResponse, ApiStatus, SuccessStatus};
 use serde::Serialize;
+use serde_json::Value;
 use serde_with::base64::Base64;
 use serde_with::serde_as;
 
@@ -20,7 +21,8 @@ impl ApiCreateAppResponse {
 
 #[derive(Serialize)]
 pub struct ApiCreateAppUserResponse {
-    pub(crate) token: String,
+    #[serde(flatten)]
+    pub(crate) payload: Option<Value>,
     pub(crate) principal_id: String,
     pub(crate) credential_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -29,14 +31,14 @@ pub struct ApiCreateAppUserResponse {
 
 impl ApiCreateAppUserResponse {
     pub(crate) fn new(
-        token: String,
+        payload: Option<Value>,
         principal_id: String,
         credential_id: String,
     ) -> ApiResponse<Self> {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
             Some(Self {
-                token,
+                payload,
                 principal_id,
                 credential_id,
                 tpm: None,
@@ -44,22 +46,22 @@ impl ApiCreateAppUserResponse {
         )
     }
 
-    pub(crate) fn tpm(
-        token: String,
-        principal_id: String,
-        credential_id: String,
-        tpm: Option<TpmChallengeData>,
-    ) -> ApiResponse<Self> {
-        ApiResponse::new(
-            ApiStatus::Success(SuccessStatus::OperationCompleted),
-            Some(Self {
-                token,
-                principal_id,
-                credential_id,
-                tpm,
-            }),
-        )
-    }
+    // pub(crate) fn tpm(
+    //     token: String,
+    //     principal_id: String,
+    //     credential_id: String,
+    //     tpm: Option<TpmChallengeData>,
+    // ) -> ApiResponse<Self> {
+    //     ApiResponse::new(
+    //         ApiStatus::Success(SuccessStatus::OperationCompleted),
+    //         Some(Self {
+    //             token,
+    //             principal_id,
+    //             credential_id,
+    //             tpm,
+    //         }),
+    //     )
+    // }
 }
 
 #[serde_as]

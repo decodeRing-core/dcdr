@@ -4,11 +4,14 @@ use actix_cors::Cors;
 use actix_web::HttpServer;
 use actix_web::middleware::Compress;
 use actix_web::web::Data;
+use decodering_core::auth::registry::AuthRegistry;
 use decodering_core::plugin::orchestrator::Orchestrator;
 use decodering_core::tx::Database;
 use decodering_db::postgres::PostgresDatabase;
 use decodering_db::sqlite::SqliteDatabase;
 use decodering_server::app_data::AppData;
+use decodering_server::auth::native::api_key::ApiKeyMethod;
+use decodering_server::auth::native::tpm::TpmMethod;
 use decodering_server::config::{Config, StorageConfig, load_config};
 use decodering_server::logger::init_tracing;
 use decodering_server::middleware::PropagateRequestId;
@@ -44,6 +47,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
             e
         })?;
 
+    let mut registry = AuthRegistry::default();
+    registry.register(Box::new(ApiKeyMethod::new()));
+    registry.register(Box::new(TpmMethod::new()));
+
     match &config.storage {
         StorageConfig::Raft {
             log_dir,
@@ -52,13 +59,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
             let raft_log_dir = format!("{}/{}.{}.db", log_dir, log_prefix, options.addr);
             let app = AppData::<SqliteDatabase>::init_raft(options.id, raft_log_dir, &options.addr)
                 .await?;
-            run_server(config, app, orchestrator, options.addr)
+            run_server(config, app, orchestrator, registry, options.addr)
                 .await
                 .map_err(Into::into)
         }
         StorageConfig::Postgres { database_url } => {
             let app = AppData::<PostgresDatabase>::new(database_url, options.addr.clone()).await?;
-            run_server(config, app, orchestrator, options.addr)
+            run_server(config, app, orchestrator, registry, options.addr)
                 .await
                 .map_err(Into::into)
         }
@@ -70,6 +77,7 @@ async fn run_server<D>(
     config: Config,
     app: AppData<D>,
     orchestrator: Orchestrator,
+    auth_registry: AuthRegistry,
     addr: String,
 ) -> std::io::Result<()>
 where
@@ -79,6 +87,7 @@ where
     let config_data = Data::new(config.clone());
     let app_data = Data::new(app);
     let orchestrator_data = Data::new(orchestrator);
+    let auth_registry_data = Data::new(auth_registry);
     HttpServer::new(move || {
         let cors = Cors::default()
             .allowed_methods(vec!["GET", "POST"])
@@ -87,6 +96,7 @@ where
             .app_data(config_data.clone())
             .app_data(app_data.clone())
             .app_data(orchestrator_data.clone())
+            .app_data(auth_registry_data.clone())
             .wrap(cors)
             .configure(config_app::<D>)
             .wrap(Compress::default())

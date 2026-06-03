@@ -14,6 +14,8 @@ use crate::error::ErrorReason;
 use crate::extractor::AuthOSLMiddleware;
 use crate::handlers::response::ErrorStatus;
 
+pub mod native;
+
 pub async fn require_app_grant_for_principal<D: Database>(
     conn: &ConnectionInfo,
     db: &mut <D as Database>::Tx<'_>,

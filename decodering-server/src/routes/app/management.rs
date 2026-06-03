@@ -3,8 +3,8 @@ use actix_web::web;
 use decodering_core::tx::Database;
 
 use crate::handlers::app::management::auth_app_user;
-use crate::handlers::app::management::auth_aws_app_user;
-use crate::handlers::app::management::auth_tpm_app_user;
+//use crate::handlers::app::management::auth_aws_app_user;
+//use crate::handlers::app::management::auth_tpm_app_user;
 use crate::handlers::app::management::create_app;
 use crate::handlers::app::management::create_app_user;
 use crate::handlers::app::management::grant_app_access_user;
@@ -26,8 +26,9 @@ pub fn app_management_routes<D: Database + 'static>() -> impl HttpServiceFactory
         .route("/user/list", web::post().to(list_app_access_user::<D>))
         .route("/user/create", web::post().to(create_app_user::<D>))
         .route("/user/auth", web::post().to(auth_app_user::<D>))
-        .route("/user/auth/tpm", web::post().to(auth_tpm_app_user::<D>))
-        .route("/user/auth/aws", web::post().to(auth_aws_app_user::<D>))
+        // .route("/user/auth", web::post().to(auth_app_user::<D>))
+        // .route("/user/auth/tpm", web::post().to(auth_tpm_app_user::<D>))
+        // .route("/user/auth/aws", web::post().to(auth_aws_app_user::<D>))
         .route(
             "/user/tpm/challenge",
             web::post().to(tpm_challenge_app_user::<D>),
