@@ -103,17 +103,17 @@ pub struct CreatePrincipalTokenResponse {
 }
 
 #[derive(Serialize, Debug, Deserialize)]
-pub struct CreateTpmChallengeResponse {
+pub struct CreateAuthChallengeResponse {
     pub challenge_id: String,
-    pub nonce: Vec<u8>,
-    pub ek_pubkey_hash: Option<String>,
+    pub method: String,
+    pub payload: Vec<u8>,
     pub issued_at: i64,
     pub expires_at: i64,
     pub consumed_at: Option<i64>,
 }
 
 #[derive(Serialize, Debug, Deserialize)]
-pub struct ConsumeTpmChallengeResponse {
+pub struct ConsumeAuthChallengeResponse {
     pub challenge_id: String,
 }
 
@@ -144,8 +144,8 @@ pub enum AppResponse {
     UpdatePluginConfigSecrets(Vec<u8>),
     SystemInit(SystemInitResponse),
     CreateAppUser(CreateAppUserResponse),
-    CreateTpmChallenge(CreateTpmChallengeResponse),
-    ConsumeTpmChallenge(ConsumeTpmChallengeResponse),
+    CreateAuthChallenge(CreateAuthChallengeResponse),
+    ConsumeAuthChallenge(ConsumeAuthChallengeResponse),
     Noop,
     Error(String),
 }
@@ -210,18 +210,18 @@ impl fmt::Display for AppResponse {
                     create_principal_credential_response.principal_id
                 )
             }
-            Self::CreateTpmChallenge(create_tpm_challenge) => {
+            Self::CreateAuthChallenge(create_auth_challenge) => {
                 write!(
                     f,
-                    "CreateTpmChallenge(challenge_id={})",
-                    create_tpm_challenge.challenge_id
+                    "CreateAuthChallenge(challenge_id={})",
+                    create_auth_challenge.challenge_id
                 )
             }
-            Self::ConsumeTpmChallenge(consume_tpm_challenge) => {
+            Self::ConsumeAuthChallenge(consume_auth_challenge) => {
                 write!(
                     f,
-                    "ConsumeTpmChallenge(challenge_id={})",
-                    consume_tpm_challenge.challenge_id
+                    "ConsumeAuthChallenge(challenge_id={})",
+                    consume_auth_challenge.challenge_id
                 )
             }
             Self::CreatePrincipalAppGrant(principal_app_grant) => {

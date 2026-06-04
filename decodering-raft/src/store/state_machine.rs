@@ -439,7 +439,7 @@ where
         AppRequest::CreateAppUser(x) => run_action_raft(tx, index, x).await,
         AppRequest::DeleteSecretMapping(x) => run_action_raft(tx, index, x).await,
         AppRequest::CreatePrincipalToken(x) => run_action_raft(tx, index, x).await,
-        AppRequest::CreateTpmChallenge(x) => run_action_raft(tx, index, x).await,
+        AppRequest::CreateAuthChallenge(x) => run_action_raft(tx, index, x).await,
         AppRequest::CreatePrincipalAppGrants(x) => run_action_raft(tx, index, x).await,
         AppRequest::DeletePrincipalAppGrant(x) => run_action_raft(tx, index, x).await,
         AppRequest::UpdateConsumedAt(x) => run_action_raft(tx, index, x).await,

@@ -37,7 +37,7 @@ pub struct CreateAppData {
 
 #[derive(Deserialize, Debug)]
 pub struct AuthUserData {
-    pub kind: String,
+    pub credential_kind: String,
     pub proof: Value,
     //pub key: String,
 }
@@ -57,15 +57,16 @@ pub struct AuthTpmUserData {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct AuthTpmActivationData {
+pub struct AuthActivationData {
     pub principal_id: String,
     pub credential_id: String,
     pub recovered_secret: String,
 }
 
 #[derive(Deserialize, Debug)]
-pub struct AuthTpmChallengeData {
-    pub ek_pubkey_hash: Option<String>,
+pub struct AuthChallengeData {
+    pub credential_kind: String,
+    pub hint: Option<Value>,
 }
 
 #[derive(Deserialize, Debug)]

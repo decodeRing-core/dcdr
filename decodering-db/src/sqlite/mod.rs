@@ -9,6 +9,7 @@ use crate::error::map_sqlx;
 use crate::sqlite::api_key::SqliteApiKeysRepository;
 use crate::sqlite::app::SqliteAppRepository;
 use crate::sqlite::audit::SqliteAuditRepository;
+use crate::sqlite::auth_challenge::SqliteAuthChallengeRepository;
 use crate::sqlite::meta::SqliteMetaRepository;
 use crate::sqlite::plugin_config::SqlitePluginConfigRepository;
 use crate::sqlite::principal::SqlitePrincipalRepository;
@@ -18,12 +19,12 @@ use crate::sqlite::principal_token::SqlitePrincipalTokenRepository;
 use crate::sqlite::schema::SCHEMA;
 use crate::sqlite::secret_mapping::SqliteSecretMappingRepository;
 use crate::sqlite::shamir::SqliteShamirRepository;
-use crate::sqlite::tpm_challenge::SqliteTpmChallengeRepository;
 use crate::sqlite::user::SqliteUserRepository;
 
 mod api_key;
 mod app;
 mod audit;
+mod auth_challenge;
 mod meta;
 mod plugin_config;
 mod principal;
@@ -33,7 +34,6 @@ mod principal_token;
 mod schema;
 mod secret_mapping;
 mod shamir;
-mod tpm_challenge;
 mod user;
 
 pub struct SqliteTx {
@@ -77,8 +77,8 @@ impl Tx for SqliteTx {
         = SqlitePrincipalTokenRepository<'a>
     where
         Self: 'a;
-    type TpmChallengeRepo<'a>
-        = SqliteTpmChallengeRepository<'a>
+    type AuthChallengeRepo<'a>
+        = SqliteAuthChallengeRepository<'a>
     where
         Self: 'a;
     type PrincipalAppGrantRepo<'a>
@@ -90,8 +90,8 @@ impl Tx for SqliteTx {
     where
         Self: 'a;
 
-    fn tpm_challenge(&mut self) -> SqliteTpmChallengeRepository<'_> {
-        SqliteTpmChallengeRepository { tx: &mut self.tx }
+    fn auth_challenge(&mut self) -> SqliteAuthChallengeRepository<'_> {
+        SqliteAuthChallengeRepository { tx: &mut self.tx }
     }
 
     fn principal_app_grant(&mut self) -> SqlitePrincipalAppGrantRepository<'_> {

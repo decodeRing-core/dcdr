@@ -2,6 +2,7 @@ use crate::error::DbError;
 use crate::repository::ApiKeyRepository;
 use crate::repository::AppRepository;
 use crate::repository::AuditRepository;
+use crate::repository::AuthChallengeRepository;
 use crate::repository::MetaRepository;
 use crate::repository::PluginConfigRepository;
 use crate::repository::PrincipalAppGrantRepository;
@@ -10,7 +11,6 @@ use crate::repository::PrincipalRepository;
 use crate::repository::PrincipalTokenRepository;
 use crate::repository::SecretMappingRespository;
 use crate::repository::ShamirRepository;
-use crate::repository::TpmChallengeRepository;
 use crate::repository::UserRepository;
 
 pub trait Tx: Send {
@@ -41,7 +41,7 @@ pub trait Tx: Send {
     type PrincipalTokenRepo<'a>: PrincipalTokenRepository
     where
         Self: 'a;
-    type TpmChallengeRepo<'a>: TpmChallengeRepository
+    type AuthChallengeRepo<'a>: AuthChallengeRepository
     where
         Self: 'a;
     type PrincipalAppGrantRepo<'a>: PrincipalAppGrantRepository
@@ -51,7 +51,7 @@ pub trait Tx: Send {
     where
         Self: 'a;
 
-    fn tpm_challenge(&mut self) -> Self::TpmChallengeRepo<'_>;
+    fn auth_challenge(&mut self) -> Self::AuthChallengeRepo<'_>;
     fn principal_app_grant(&mut self) -> Self::PrincipalAppGrantRepo<'_>;
     fn principal_token(&mut self) -> Self::PrincipalTokenRepo<'_>;
     fn principal_credential(&mut self) -> Self::PrincipalCredentialRepo<'_>;

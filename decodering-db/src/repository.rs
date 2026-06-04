@@ -2,8 +2,8 @@ use std::str::FromStr;
 
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalKind, PrincipalStatus};
 use decodering_core::repository::{
-    App, PluginConfig, Principal, PrincipalAppGrant, PrincipalCredential, SecretMapping, Shamir,
-    TpmChallenge, User,
+    App, AuthChallenge, PluginConfig, Principal, PrincipalAppGrant, PrincipalCredential,
+    SecretMapping, Shamir, User,
 };
 
 #[derive(sqlx::FromRow)]
@@ -145,21 +145,21 @@ impl From<PrincipalRow> for Principal {
 }
 
 #[derive(sqlx::FromRow)]
-pub struct TpmChallengeRow {
+pub struct AuthChallengeRow {
     challenge_id: String,
-    nonce: Vec<u8>,
-    ek_pubkey_hash: Option<String>,
+    method: String,
+    payload: Vec<u8>,
     issued_at: i64,
     expires_at: i64,
     consumed_at: Option<i64>,
 }
 
-impl From<TpmChallengeRow> for TpmChallenge {
-    fn from(r: TpmChallengeRow) -> Self {
+impl From<AuthChallengeRow> for AuthChallenge {
+    fn from(r: AuthChallengeRow) -> Self {
         Self {
             challenge_id: r.challenge_id,
-            nonce: r.nonce,
-            ek_pubkey_hash: r.ek_pubkey_hash,
+            method: r.method,
+            payload: r.payload,
             issued_at: r.issued_at,
             expires_at: r.expires_at,
             consumed_at: r.consumed_at,

@@ -9,6 +9,7 @@ use crate::error::map_sqlx;
 use crate::postgres::api_key::PostgresApiKeysRepository;
 use crate::postgres::app::PostgresAppRepository;
 use crate::postgres::audit::PostgresAuditRepository;
+use crate::postgres::auth_challenge::PostgresAuthChallengeRepository;
 use crate::postgres::plugin_config::PostgresPluginConfigRepository;
 use crate::postgres::principal::PostgresPrincipalRepository;
 use crate::postgres::principal_app_grant::PostgresPrincipalAppGrantRepository;
@@ -16,12 +17,12 @@ use crate::postgres::principal_credential::PostgresPrincipalCredentialRepository
 use crate::postgres::principal_token::PostgresPrincipalTokenRepository;
 use crate::postgres::secret_mapping::PostgresSecretMappingRepository;
 use crate::postgres::shamir::PostgresShamirRepository;
-use crate::postgres::tpm_challenge::PostgresTpmChallengeRepository;
 use crate::postgres::user::PostgresUserRepository;
 
 mod api_key;
 mod app;
 mod audit;
+mod auth_challenge;
 mod plugin_config;
 mod principal;
 mod principal_app_grant;
@@ -29,7 +30,6 @@ mod principal_credential;
 mod principal_token;
 mod secret_mapping;
 mod shamir;
-mod tpm_challenge;
 mod user;
 
 pub struct PostgresTx {
@@ -73,8 +73,8 @@ impl Tx for PostgresTx {
         = PostgresPrincipalTokenRepository<'a>
     where
         Self: 'a;
-    type TpmChallengeRepo<'a>
-        = PostgresTpmChallengeRepository<'a>
+    type AuthChallengeRepo<'a>
+        = PostgresAuthChallengeRepository<'a>
     where
         Self: 'a;
     type PrincipalAppGrantRepo<'a>
@@ -90,8 +90,8 @@ impl Tx for PostgresTx {
         PostgresPrincipalAppGrantRepository { tx: &mut self.tx }
     }
 
-    fn tpm_challenge(&mut self) -> PostgresTpmChallengeRepository<'_> {
-        PostgresTpmChallengeRepository { tx: &mut self.tx }
+    fn auth_challenge(&mut self) -> PostgresAuthChallengeRepository<'_> {
+        PostgresAuthChallengeRepository { tx: &mut self.tx }
     }
 
     fn principal_token(&mut self) -> PostgresPrincipalTokenRepository<'_> {

@@ -4,18 +4,18 @@ use actix_web::web::{Data, Json};
 use constant_time_eq::constant_time_eq;
 use decodering_core::actions::create_app::CreateApp;
 use decodering_core::actions::create_app_user::CreateAppUser;
+use decodering_core::actions::create_auth_challenge::CreateAuthChallenge;
 use decodering_core::actions::create_principal::CreatePrincipal;
 use decodering_core::actions::create_principal_app_grant::CreatePrincipalAppGrant;
 use decodering_core::actions::create_principal_app_grant::CreatePrincipalAppGrants;
 use decodering_core::actions::create_principal_credential::CreatePrincipalCredential;
 use decodering_core::actions::create_principal_token::CreatePrincipalToken;
-use decodering_core::actions::create_tpm_challenge::CreateTpmChallenge;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use decodering_core::actions::update_principal_credential_status::UpdatePrincipalCredentialStatus;
 //use decodering_core::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
 use decodering_core::audit::Actor;
 use decodering_core::auth::registry::AuthRegistry;
-use decodering_core::auth::types::{AuthRequest, EnrollRequest};
+use decodering_core::auth::types::{AuthRequest, ChallengeRequest, EnrollRequest};
 //use decodering_core::aws::call_sts_get_caller_identity;
 //use decodering_core::aws::normalize_arn;
 use decodering_core::crypto::{encode_hex, sha256_hex};
@@ -39,15 +39,15 @@ use crate::config::Config;
 use crate::error::ErrorReason;
 use crate::extractor::AuthAdminMiddleware;
 //use crate::handlers::app::payload::AuthAwsUserData;
-use crate::handlers::app::payload::AppGrantData;
+use crate::handlers::app::payload::CreateAppUserData;
 use crate::handlers::app::payload::RevokeAppData;
-use crate::handlers::app::payload::{AuthTpmActivationData, CreateAppData};
-use crate::handlers::app::payload::{AuthTpmChallengeData, CreateAppUserData};
+use crate::handlers::app::payload::{AppGrantData, AuthChallengeData};
+use crate::handlers::app::payload::{AuthActivationData, CreateAppData};
 use crate::handlers::app::payload::{AuthUserData, ListAppsData};
 use crate::handlers::app::response::ApiAuthAppUserResponse;
+use crate::handlers::app::response::ApiAuthChallengeResponse;
 use crate::handlers::app::response::ApiCreateAppGrantResponse;
 use crate::handlers::app::response::ApiDeleteAppGrantResponse;
-use crate::handlers::app::response::ApiTpmChallengeResponse;
 use crate::handlers::app::response::{ApiCreateAppResponse, ApiCreateAppUserResponse};
 use crate::handlers::osl::response::ApiListAppsResponse;
 use crate::handlers::response::{ApiResponse, ApiStatus, ErrorStatus, SuccessStatus};
@@ -355,7 +355,7 @@ pub async fn auth_app_user<D: Database + 'static>(
 ) -> impl Responder {
     let ip = conn.peer_addr().map(str::to_owned);
 
-    let auth_method = registry.get(req.0.kind.as_str());
+    let auth_method = registry.get(&req.0.credential_kind);
     let Some(auth_method) = auth_method else {
         tracing::error!("Unsupported auth method");
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::UnsupportedAuth));
@@ -451,6 +451,320 @@ pub async fn auth_app_user<D: Database + 'static>(
             ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
         }
     }
+}
+
+pub async fn auth_challenge_app_user<D: Database + 'static>(
+    conn: ConnectionInfo,
+    app: Data<AppData<D>>,
+    body: Json<AuthChallengeData>,
+    registry: Data<AuthRegistry>,
+) -> impl Responder {
+    let ip = conn.peer_addr().map(str::to_owned);
+
+    let auth_method = registry.get(&body.0.credential_kind.as_str());
+    let Some(auth_method) = auth_method else {
+        tracing::error!("Unsupported auth method");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::UnsupportedAuth));
+    };
+
+    let now = now_ts();
+    let mut nonce_bytes = [0u8; 32];
+    rand::rng().fill_bytes(&mut nonce_bytes);
+
+    let auth_resp = match auth_method
+        .challenge(ChallengeRequest {
+            hint: body.0.hint,
+            entropy: nonce_bytes.to_vec(),
+            now,
+            config: serde_json::Value::default(),
+        })
+        .await
+    {
+        Ok(resp) => resp,
+        Err(a) => {
+            tracing::error!("Auth error: {a:?}");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+        }
+    };
+
+    let challenge_id = Uuid::now_v7().to_string();
+    let expires_at = now + CHALLENGE_TTL_SECS;
+
+    let auth_challenge = CreateAuthChallenge {
+        actor: Actor::None { ip: ip.clone() },
+        challenge_id,
+        method: body.0.credential_kind,
+        payload: auth_resp.challenge_state,
+        issued_at: now,
+        expires_at,
+        consumed_at: None,
+    };
+    let tpm_request = AppRequest::CreateAuthChallenge(auth_challenge);
+    match app.submit(tpm_request).await {
+        Ok(resp) => match resp {
+            AppResponse::CreateAuthChallenge(r) => {
+                ApiAuthChallengeResponse::new(r.challenge_id, auth_resp.client_payload, expires_at)
+            }
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to generate auth challenge");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "generate auth challenge".into(),
+                )))
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database))
+        }
+    }
+}
+
+pub async fn auth_activate_app_user<D: Database + 'static>(
+    conn: ConnectionInfo,
+    app: Data<AppData<D>>,
+    body: Json<AuthActivationData>,
+) -> impl Responder {
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let credential = match db
+        .principal_credential()
+        .get_pending_by_kind_and_credential_and_principal(
+            body.principal_id.clone(),
+            body.credential_id.clone(),
+            PrincipalCredentialKind::TrustedPlatformModule,
+        )
+        .await
+    {
+        Ok(Some(x)) => x,
+        Ok(None) => {
+            tracing::error!("Pending credential not found");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+        }
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+        }
+    };
+
+    if credential.status != PrincipalStatus::Pending || credential.revoked_at.is_some() {
+        tracing::error!(
+            status=credential.status.as_str(),
+            revoked_at=?credential.revoked_at,
+            "Invalid credential"
+        );
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+    }
+
+    let material = serde_json::from_str::<TpmMaterial>(&credential.secret_material);
+    let Ok(material) = material else {
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+    };
+
+    let provided = STANDARD.decode(&body.recovered_secret);
+    let Ok(provided) = provided else {
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+            "parse recovered secret".into(),
+        )));
+    };
+
+    if !constant_time_eq(
+        sha256_hex(&provided).as_bytes(),
+        material.activation_secret_hash.as_bytes(),
+    ) {
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+    }
+    let ip = conn.peer_addr().map(str::to_owned);
+    let status_update = UpdatePrincipalCredentialStatus {
+        actor: Actor::Principal {
+            principal_id: credential.principal_id.clone(),
+            ip,
+        },
+        credential_id: credential.credential_id.clone(),
+        principal_id: credential.principal_id.clone(),
+        status: PrincipalStatus::Active,
+    };
+    let request = AppRequest::UpdatePrincipalCredentialStatus(status_update);
+    match app.submit(request).await {
+        Ok(resp) => match resp {
+            AppResponse::UpdatePrincipalCredentialStatus(_) => {
+                ApiResponse::new(ApiStatus::Success(SuccessStatus::OperationCompleted), None)
+            }
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to update credential status");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "update credential".into(),
+                )))
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "Unexpected AppResponse variant");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+        }
+    }
+}
+
+pub async fn grant_app_access_user<D: Database + 'static>(
+    conn: ConnectionInfo,
+    app: Data<AppData<D>>,
+    req: Json<AppGrantData>,
+    auth: AuthAdminMiddleware<D>,
+) -> impl Responder {
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let principal = match db
+        .principal()
+        .get_by_principal_id(&req.0.principal_id, PrincipalStatus::Active)
+        .await
+    {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            tracing::error!(principal_id = req.0.principal_id, "No principal found");
+            return ApiResponse::error(ErrorStatus::OperationFailed(
+                ErrorReason::PrincipalNotFound,
+            ));
+        }
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+        }
+    };
+
+    let timestamp = now_ts();
+    let mut principal_app_grants = CreatePrincipalAppGrants(vec![]);
+    for app_id in req.0.apps {
+        let app_grant = CreatePrincipalAppGrant {
+            actor: auth.actor(&conn),
+            principal_id: principal.principal_id.clone(),
+            app_id: app_id.clone(),
+            granted_at: timestamp,
+            granted_by: Some(auth.user.id),
+            revoked_at: None,
+            revoked_by: None,
+        };
+        principal_app_grants.0.push(app_grant);
+    }
+    let request = AppRequest::CreatePrincipalAppGrants(principal_app_grants);
+    match app.submit(request).await {
+        Ok(resp) => match resp {
+            AppResponse::CreatePrincipalAppGrants(_) => ApiCreateAppGrantResponse::new(),
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to create app grants");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "create app grant".into(),
+                )))
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+        }
+    }
+}
+
+pub async fn revoke_app_access_user<D: Database + 'static>(
+    conn: ConnectionInfo,
+    app: Data<AppData<D>>,
+    req: Json<RevokeAppData>,
+    auth: AuthAdminMiddleware<D>,
+) -> impl Responder {
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let principal_app_grant = match db
+        .principal_app_grant()
+        .get_by_app_id_and_principal_id(&req.0.app_id, &req.0.principal_id)
+        .await
+    {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            tracing::error!(
+                principal_id = req.0.principal_id,
+                "No principal app grant found"
+            );
+            return ApiResponse::error(ErrorStatus::OperationFailed(
+                ErrorReason::PrincipalNotFound,
+            ));
+        }
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+        }
+    };
+
+    let delete_app_grant = DeletePrincipalAppGrant {
+        actor: auth.actor(&conn),
+        principal_id: principal_app_grant.principal_id,
+        app_id: principal_app_grant.app_id,
+    };
+    let request = AppRequest::DeletePrincipalAppGrant(delete_app_grant);
+    match app.submit(request).await {
+        Ok(resp) => match resp {
+            AppResponse::DeletePrincipalAppGrant(_) => ApiDeleteAppGrantResponse::new(),
+            AppResponse::Error(e) => {
+                tracing::error!(%e, "Failed to revoke app grant");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
+                    "revoke app grant".into(),
+                )))
+            }
+            other_api_response => {
+                tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
+            }
+        },
+        Err(e) => {
+            tracing::error!(?e);
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+        }
+    }
+}
+
+pub async fn list_app_access_user<D: Database + 'static>(
+    app: Data<AppData<D>>,
+    req: Json<ListAppsData>,
+    _auth: AuthAdminMiddleware<D>,
+) -> impl Responder {
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let principal_app_grants = match db
+        .principal_app_grant()
+        .get_by_principal_id_after(&req.0.principal_id, req.0.after_app_id.as_deref(), 64)
+        .await
+    {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::error!(err=?e, "Failed to query database");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+        }
+    };
+
+    ApiListAppsResponse::new(principal_app_grants)
 }
 
 // pub async fn auth_aws_app_user<D: Database + 'static>(
@@ -758,294 +1072,3 @@ pub async fn auth_app_user<D: Database + 'static>(
 //         }
 //     }
 // }
-
-pub async fn tpm_challenge_app_user<D: Database + 'static>(
-    conn: ConnectionInfo,
-    app: Data<AppData<D>>,
-    body: Json<AuthTpmChallengeData>,
-) -> impl Responder {
-    let ip = conn.peer_addr().map(str::to_owned);
-    let mut nonce_bytes = [0u8; 32];
-    rand::rng().fill_bytes(&mut nonce_bytes);
-    let nonce_hex = encode_hex(&nonce_bytes);
-
-    let challenge_id = Uuid::now_v7().to_string();
-    let now = now_ts();
-    let expires_at = now + CHALLENGE_TTL_SECS;
-
-    let tpm_challenge = CreateTpmChallenge {
-        actor: Actor::None { ip: ip.clone() },
-        challenge_id,
-        nonce: nonce_bytes.to_vec(),
-        ek_pubkey_hash: body.0.ek_pubkey_hash,
-        issued_at: now,
-        expires_at,
-        consumed_at: None,
-    };
-    let tpm_request = AppRequest::CreateTpmChallenge(tpm_challenge);
-    match app.submit(tpm_request).await {
-        Ok(resp) => match resp {
-            AppResponse::CreateTpmChallenge(r) => {
-                ApiTpmChallengeResponse::new(r.challenge_id, nonce_hex, expires_at)
-            }
-            AppResponse::Error(e) => {
-                tracing::error!(%e, "Failed to generate tpm challenge");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "generate tpm challenge".into(),
-                )))
-            }
-            other_api_response => {
-                tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
-            }
-        },
-        Err(e) => {
-            tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database))
-        }
-    }
-}
-
-pub async fn tpm_activate_app_user<D: Database + 'static>(
-    conn: ConnectionInfo,
-    app: Data<AppData<D>>,
-    body: Json<AuthTpmActivationData>,
-) -> impl Responder {
-    let db = app.db.begin().await;
-    let Ok(mut db) = db else {
-        tracing::error!("Failed to get a connection to database");
-        return ApiResponse::<()>::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-    };
-
-    let credential = match db
-        .principal_credential()
-        .get_pending_by_kind_and_credential_and_principal(
-            body.principal_id.clone(),
-            body.credential_id.clone(),
-            PrincipalCredentialKind::TrustedPlatformModule,
-        )
-        .await
-    {
-        Ok(Some(x)) => x,
-        Ok(None) => {
-            tracing::error!("Pending credential not found");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-        }
-        Err(e) => {
-            tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-        }
-    };
-
-    if credential.status != PrincipalStatus::Pending || credential.revoked_at.is_some() {
-        tracing::error!(
-            status=credential.status.as_str(),
-            revoked_at=?credential.revoked_at,
-            "Invalid credential"
-        );
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-    }
-
-    let material = serde_json::from_str::<TpmMaterial>(&credential.secret_material);
-    let Ok(material) = material else {
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-    };
-
-    let provided = STANDARD.decode(&body.recovered_secret);
-    let Ok(provided) = provided else {
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-            "parse recovered secret".into(),
-        )));
-    };
-
-    if !constant_time_eq(
-        sha256_hex(&provided).as_bytes(),
-        material.activation_secret_hash.as_bytes(),
-    ) {
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
-    }
-    let ip = conn.peer_addr().map(str::to_owned);
-    let status_update = UpdatePrincipalCredentialStatus {
-        actor: Actor::Principal {
-            principal_id: credential.principal_id.clone(),
-            ip,
-        },
-        credential_id: credential.credential_id.clone(),
-        principal_id: credential.principal_id.clone(),
-        status: PrincipalStatus::Active,
-    };
-    let request = AppRequest::UpdatePrincipalCredentialStatus(status_update);
-    match app.submit(request).await {
-        Ok(resp) => match resp {
-            AppResponse::UpdatePrincipalCredentialStatus(_) => {
-                ApiResponse::new(ApiStatus::Success(SuccessStatus::OperationCompleted), None)
-            }
-            AppResponse::Error(e) => {
-                tracing::error!(%e, "Failed to update credential status");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "update credential".into(),
-                )))
-            }
-            other_api_response => {
-                tracing::error!(?other_api_response, "Unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
-            }
-        },
-        Err(e) => {
-            tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
-        }
-    }
-}
-
-pub async fn grant_app_access_user<D: Database + 'static>(
-    conn: ConnectionInfo,
-    app: Data<AppData<D>>,
-    req: Json<AppGrantData>,
-    auth: AuthAdminMiddleware<D>,
-) -> impl Responder {
-    let db = app.db.begin().await;
-    let Ok(mut db) = db else {
-        tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-    };
-
-    let principal = match db
-        .principal()
-        .get_by_principal_id(&req.0.principal_id, PrincipalStatus::Active)
-        .await
-    {
-        Ok(Some(p)) => p,
-        Ok(None) => {
-            tracing::error!(principal_id = req.0.principal_id, "No principal found");
-            return ApiResponse::error(ErrorStatus::OperationFailed(
-                ErrorReason::PrincipalNotFound,
-            ));
-        }
-        Err(e) => {
-            tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-        }
-    };
-
-    let timestamp = now_ts();
-    let mut principal_app_grants = CreatePrincipalAppGrants(vec![]);
-    for app_id in req.0.apps {
-        let app_grant = CreatePrincipalAppGrant {
-            actor: auth.actor(&conn),
-            principal_id: principal.principal_id.clone(),
-            app_id: app_id.clone(),
-            granted_at: timestamp,
-            granted_by: Some(auth.user.id),
-            revoked_at: None,
-            revoked_by: None,
-        };
-        principal_app_grants.0.push(app_grant);
-    }
-    let request = AppRequest::CreatePrincipalAppGrants(principal_app_grants);
-    match app.submit(request).await {
-        Ok(resp) => match resp {
-            AppResponse::CreatePrincipalAppGrants(_) => ApiCreateAppGrantResponse::new(),
-            AppResponse::Error(e) => {
-                tracing::error!(%e, "Failed to create app grants");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "create app grant".into(),
-                )))
-            }
-            other_api_response => {
-                tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
-            }
-        },
-        Err(e) => {
-            tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
-        }
-    }
-}
-
-pub async fn revoke_app_access_user<D: Database + 'static>(
-    conn: ConnectionInfo,
-    app: Data<AppData<D>>,
-    req: Json<RevokeAppData>,
-    auth: AuthAdminMiddleware<D>,
-) -> impl Responder {
-    let db = app.db.begin().await;
-    let Ok(mut db) = db else {
-        tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-    };
-
-    let principal_app_grant = match db
-        .principal_app_grant()
-        .get_by_app_id_and_principal_id(&req.0.app_id, &req.0.principal_id)
-        .await
-    {
-        Ok(Some(p)) => p,
-        Ok(None) => {
-            tracing::error!(
-                principal_id = req.0.principal_id,
-                "No principal app grant found"
-            );
-            return ApiResponse::error(ErrorStatus::OperationFailed(
-                ErrorReason::PrincipalNotFound,
-            ));
-        }
-        Err(e) => {
-            tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-        }
-    };
-
-    let delete_app_grant = DeletePrincipalAppGrant {
-        actor: auth.actor(&conn),
-        principal_id: principal_app_grant.principal_id,
-        app_id: principal_app_grant.app_id,
-    };
-    let request = AppRequest::DeletePrincipalAppGrant(delete_app_grant);
-    match app.submit(request).await {
-        Ok(resp) => match resp {
-            AppResponse::DeletePrincipalAppGrant(_) => ApiDeleteAppGrantResponse::new(),
-            AppResponse::Error(e) => {
-                tracing::error!(%e, "Failed to revoke app grant");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "revoke app grant".into(),
-                )))
-            }
-            other_api_response => {
-                tracing::error!(?other_api_response, "unexpected AppResponse variant");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unexpected))
-            }
-        },
-        Err(e) => {
-            tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
-        }
-    }
-}
-
-pub async fn list_app_access_user<D: Database + 'static>(
-    app: Data<AppData<D>>,
-    req: Json<ListAppsData>,
-    _auth: AuthAdminMiddleware<D>,
-) -> impl Responder {
-    let db = app.db.begin().await;
-    let Ok(mut db) = db else {
-        tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-    };
-
-    let principal_app_grants = match db
-        .principal_app_grant()
-        .get_by_principal_id_after(&req.0.principal_id, req.0.after_app_id.as_deref(), 64)
-        .await
-    {
-        Ok(p) => p,
-        Err(e) => {
-            tracing::error!(err=?e, "Failed to query database");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
-        }
-    };
-
-    ApiListAppsResponse::new(principal_app_grants)
-}

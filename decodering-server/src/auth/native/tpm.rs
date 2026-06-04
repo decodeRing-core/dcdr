@@ -172,7 +172,7 @@ impl AuthMethod for TpmMethod {
 
         Ok(ChallengeResponse {
             client_payload: serde_json::json!({ "nonce": nonce_hex }),
-            challenge_state: nonce, // opaque to host; we read it back at auth
+            challenge_state: nonce,
         })
     }
 

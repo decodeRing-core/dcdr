@@ -51,29 +51,29 @@ pub trait PrincipalAppGrantRepository: Send {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct TpmChallenge {
+pub struct AuthChallenge {
     pub challenge_id: String,
-    pub nonce: Vec<u8>,
-    pub ek_pubkey_hash: Option<String>,
+    pub method: String,
+    pub payload: Vec<u8>,
     pub issued_at: i64,
     pub expires_at: i64,
     pub consumed_at: Option<i64>,
 }
 
 #[derive(Debug, Clone)]
-pub struct TpmChallengeEntry {
+pub struct AuthChallengeEntry {
     pub challenge_id: String,
-    pub nonce: Vec<u8>,
-    pub ek_pubkey_hash: Option<String>,
+    pub method: String,
+    pub payload: Vec<u8>,
     pub issued_at: i64,
     pub expires_at: i64,
     pub consumed_at: Option<i64>,
 }
 
-pub trait TpmChallengeRepository: Send {
+pub trait AuthChallengeRepository: Send {
     fn insert(
         &mut self,
-        tpm_challenge: &TpmChallengeEntry,
+        auth_challenge: &AuthChallengeEntry,
     ) -> impl Future<Output = Result<String, DbError>> + Send;
     fn update_consumed(
         &mut self,
@@ -83,7 +83,7 @@ pub trait TpmChallengeRepository: Send {
     fn get_active(
         &mut self,
         challenge_id: &str,
-    ) -> impl Future<Output = Result<Option<TpmChallenge>, DbError>> + Send;
+    ) -> impl Future<Output = Result<Option<AuthChallenge>, DbError>> + Send;
     fn delete_expired(&mut self) -> impl Future<Output = Result<u64, DbError>> + Send;
 }
 

@@ -1,8 +1,6 @@
 use crate::handlers::response::{ApiResponse, ApiStatus, SuccessStatus};
 use serde::Serialize;
 use serde_json::Value;
-use serde_with::base64::Base64;
-use serde_with::serde_as;
 
 #[derive(Serialize)]
 pub struct ApiCreateAppResponse {
@@ -25,8 +23,6 @@ pub struct ApiCreateAppUserResponse {
     pub(crate) payload: Option<Value>,
     pub(crate) principal_id: String,
     pub(crate) credential_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) tpm: Option<TpmChallengeData>,
 }
 
 impl ApiCreateAppUserResponse {
@@ -41,36 +37,9 @@ impl ApiCreateAppUserResponse {
                 payload,
                 principal_id,
                 credential_id,
-                tpm: None,
             }),
         )
     }
-
-    // pub(crate) fn tpm(
-    //     token: String,
-    //     principal_id: String,
-    //     credential_id: String,
-    //     tpm: Option<TpmChallengeData>,
-    // ) -> ApiResponse<Self> {
-    //     ApiResponse::new(
-    //         ApiStatus::Success(SuccessStatus::OperationCompleted),
-    //         Some(Self {
-    //             token,
-    //             principal_id,
-    //             credential_id,
-    //             tpm,
-    //         }),
-    //     )
-    // }
-}
-
-#[serde_as]
-#[derive(Serialize, Default)]
-pub struct TpmChallengeData {
-    #[serde_as(as = "Base64")]
-    pub credential_blob: Vec<u8>,
-    #[serde_as(as = "Base64")]
-    pub secret: Vec<u8>,
 }
 
 #[derive(Serialize)]
@@ -89,19 +58,20 @@ impl ApiAuthAppUserResponse {
 }
 
 #[derive(Serialize)]
-pub struct ApiTpmChallengeResponse {
+pub struct ApiAuthChallengeResponse {
     pub(crate) challenge_id: String,
-    pub(crate) nonce: String,
+    #[serde(flatten)]
+    pub(crate) payload: Value,
     pub(crate) expires_at: i64,
 }
 
-impl ApiTpmChallengeResponse {
-    pub(crate) fn new(challenge_id: String, nonce: String, expires_at: i64) -> ApiResponse<Self> {
+impl ApiAuthChallengeResponse {
+    pub(crate) fn new(challenge_id: String, payload: Value, expires_at: i64) -> ApiResponse<Self> {
         ApiResponse::new(
             ApiStatus::Success(SuccessStatus::OperationCompleted),
             Some(Self {
                 challenge_id,
-                nonce,
+                payload,
                 expires_at,
             }),
         )

@@ -6,6 +6,7 @@ use crate::action::Action;
 use crate::actions::create_api_key::CreateApiKey;
 use crate::actions::create_app::CreateApp;
 use crate::actions::create_app_user::CreateAppUser;
+use crate::actions::create_auth_challenge::CreateAuthChallenge;
 use crate::actions::create_plugin_config::CreatePluginConfig;
 use crate::actions::create_principal::CreatePrincipal;
 use crate::actions::create_principal_app_grant::CreatePrincipalAppGrants;
@@ -13,16 +14,15 @@ use crate::actions::create_principal_credential::CreatePrincipalCredential;
 use crate::actions::create_principal_token::CreatePrincipalToken;
 use crate::actions::create_secret_mapping::CreateSecretMapping;
 use crate::actions::create_shamir_configuration::CreateShamirConfiguration;
-use crate::actions::create_tpm_challenge::CreateTpmChallenge;
 use crate::actions::create_user::CreateUser;
 use crate::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use crate::actions::delete_secret_mapping::DeleteSecretMapping;
 use crate::actions::system_init::SystemInit;
+use crate::actions::update_auth_challenge_consumed_at::UpdateAuthChallengeConsumedAt;
 use crate::actions::update_plugin_config_credentials::UpdatePluginConfigCredentials;
 use crate::actions::update_principal_credential_last_used::UpdatePrincipalCredentialLastUsed;
 use crate::actions::update_principal_credential_status::UpdatePrincipalCredentialStatus;
 use crate::actions::update_secret_mapping_taint::UpdateSecretMappingTaint;
-use crate::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
 use crate::audit::AuditDescriptor;
 use crate::error::ActionError;
 use crate::response::AppResponse;
@@ -45,8 +45,8 @@ pub enum AppRequest {
     DeletePrincipalAppGrant(DeletePrincipalAppGrant),
     CreatePluginConfig(CreatePluginConfig),
     CreateAppUser(CreateAppUser),
-    CreateTpmChallenge(CreateTpmChallenge),
-    UpdateConsumedAt(UpdateTpmChallengeConsumedAt),
+    CreateAuthChallenge(CreateAuthChallenge),
+    UpdateConsumedAt(UpdateAuthChallengeConsumedAt),
     UpdatePrincipalCredentialLastUsed(UpdatePrincipalCredentialLastUsed),
     UpdatePrincipalCredentialStatus(UpdatePrincipalCredentialStatus),
     UpdatePluginConfigCredentials(UpdatePluginConfigCredentials),
@@ -70,7 +70,7 @@ impl AppRequest {
             Self::DeletePrincipalAppGrant(a) => a.audit_descriptor(),
             Self::CreatePluginConfig(a) => a.audit_descriptor(),
             Self::CreateAppUser(a) => a.audit_descriptor(),
-            Self::CreateTpmChallenge(a) => a.audit_descriptor(),
+            Self::CreateAuthChallenge(a) => a.audit_descriptor(),
             Self::UpdateConsumedAt(a) => a.audit_descriptor(),
             Self::UpdatePrincipalCredentialLastUsed(a) => a.audit_descriptor(),
             Self::UpdatePluginConfigCredentials(a) => a.audit_descriptor(),
@@ -150,11 +150,11 @@ impl fmt::Display for AppRequest {
                     delete_secret_mapping.app_id, delete_secret_mapping.secret_name
                 )
             }
-            Self::CreateTpmChallenge(create_tpm_challenge) => {
+            Self::CreateAuthChallenge(create_auth_challenge) => {
                 write!(
                     f,
-                    "CreateTpmChallenge(challenge_id={})",
-                    create_tpm_challenge.challenge_id,
+                    "CreateAuthChallenge(challenge_id={})",
+                    create_auth_challenge.challenge_id,
                 )
             }
             Self::CreatePrincipalAppGrants(create_principal_app_grants) => {
@@ -235,7 +235,7 @@ impl AppRequest {
             Self::DeletePrincipalAppGrant(action) => {
                 Ok(run_action_direct(db, action).await?.response)
             }
-            Self::CreateTpmChallenge(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::CreateAuthChallenge(action) => Ok(run_action_direct(db, action).await?.response),
             Self::UpdateConsumedAt(action) => Ok(run_action_direct(db, action).await?.response),
             Self::UpdatePrincipalCredentialLastUsed(action) => {
                 Ok(run_action_direct(db, action).await?.response)

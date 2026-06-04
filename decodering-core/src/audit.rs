@@ -53,7 +53,7 @@ pub enum Target {
     PrincipalCredential(String),
     PrincipalAppGrant(Option<String>),
     PrincipalToken(String),
-    TpmChallenge(String),
+    AuthChallenge(String),
     AuditEntry(i64),
     System,
 }
@@ -70,7 +70,7 @@ impl Target {
             Self::Principal(_) => "principal",
             Self::PrincipalCredential(_) => "principal_credential",
             Self::PrincipalToken(_) => "principal_token",
-            Self::TpmChallenge(_) => "tpm_challenge",
+            Self::AuthChallenge(_) => "auth_challenge",
             Self::PrincipalAppGrant(_) => "principal_app_grant",
             Self::Plugin(_) => "plugin",
             Self::System => "system",
@@ -91,7 +91,7 @@ impl Target {
                 principal_credential_id.to_owned()
             }
             Self::PrincipalToken(principal_token_id) => principal_token_id.to_owned(),
-            Self::TpmChallenge(tpm_challenge_id) => tpm_challenge_id.to_owned(),
+            Self::AuthChallenge(auth_challenge_id) => auth_challenge_id.to_owned(),
             Self::PrincipalAppGrant(principal_app_grant) => principal_app_grant
                 .as_deref()
                 .unwrap_or_default()
@@ -120,8 +120,8 @@ pub enum ActionKind {
     SecretMappingTaint,
     ShamirConfigurationCreate,
     AppUserCreate,
-    TpmChallengeCreate,
-    TpmChallengeConsume,
+    AuthChallengeCreate,
+    AuthChallengeConsume,
     SystemInit,
     SystemUnlock,
 }
@@ -142,8 +142,8 @@ impl ActionKind {
             Self::PrincipalCredentialCreate => "principal_credential.create",
             Self::PrincipalTokenCreate => "principal_token.create",
             Self::AppUserCreate => "app_user.create",
-            Self::TpmChallengeCreate => "tpm_challenge.create",
-            Self::TpmChallengeConsume => "tpm_challenge.consume",
+            Self::AuthChallengeCreate => "auth_challenge.create",
+            Self::AuthChallengeConsume => "auth_challenge.consume",
             Self::PrincipalAppGrantCreate => "principal_app_grant.create",
             Self::PrincipalAppGrantDelete => "principal_app_grant.delete",
             Self::PrincipalCredentialUpdate => "principal_credential.update",
