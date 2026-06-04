@@ -18,26 +18,14 @@ use decodering_core::crypto::base64_encode;
 use decodering_core::crypto::encode_hex;
 use decodering_core::crypto::pem_to_der;
 use decodering_core::crypto::sha256_hex;
-use decodering_core::crypto::verify_quote_signature;
 use decodering_core::domain::PrincipalStatus;
-use decodering_core::tpm::{AkPublic, make_credential_rsa, parse_tpms_attest, verify_pcrs};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub struct TpmMethod;
-
-impl TpmMethod {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for TpmMethod {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+use crate::tpm::utils::{
+    AkPublic, make_credential_rsa, parse_tpms_attest, verify_pcrs, verify_quote_signature,
+};
 
 #[derive(Deserialize)]
 struct TpmEnrollData {
@@ -75,6 +63,20 @@ struct TpmAuthProof {
 #[derive(Deserialize)]
 struct TpmActivateProof {
     recovered_secret: String, // base64
+}
+
+pub struct TpmMethod;
+
+impl TpmMethod {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for TpmMethod {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[async_trait]

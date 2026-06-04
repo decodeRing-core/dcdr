@@ -8,6 +8,7 @@ members = [
     "decodering-db",
     "decodering-plugins/openbao-rs",
     "decodering-plugins/aws-rs",
+    "decodering-auth",
 ]
 
 [workspace.package]
@@ -20,6 +21,7 @@ publish = false
 decodering-core = { path = "decodering-core" }
 decodering-raft = { path = "decodering-raft" }
 decodering-db = { path = "decodering-db" }
+decodering-auth = { path = "decodering-auth" }
 
 serde_with = { version = "3.20.0", features = ["base64", "macros"] }
 # Targeting a specific rusqlite version to match the same libsqlite3-sys version used by sqlx

@@ -1,0 +1,27 @@
+[package]
+name = "decodering-auth"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+decodering-core.workspace = true
+
+async-trait.workspace = true
+rand.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+constant_time_eq.workspace = true
+sha2.workspace = true
+rsa.workspace = true
+p256.workspace = true
+hmac.workspace = true
+rand_08 = { package = "rand", version = "~0.8" }
+cfb-mode.workspace = true
+tracing.workspace = true
+aes.workspace = true
+
+
+[lints]
+workspace = true

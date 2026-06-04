@@ -1,12 +1,15 @@
 use async_trait::async_trait;
 
 use decodering_core::auth::method::{AuthMethod, Capabilities};
-use decodering_core::auth::types::{
-    AuthError, AuthRequest, AuthResponse, EnrollRequest, EnrollResponse,
-};
-use decodering_core::aws::{
-    call_sts_get_caller_identity, normalize_arn, parse_iam_arn, validate_sts_request,
-};
+use decodering_core::auth::types::AuthError;
+use decodering_core::auth::types::AuthRequest;
+use decodering_core::auth::types::AuthResponse;
+use decodering_core::auth::types::EnrollRequest;
+use decodering_core::auth::types::EnrollResponse;
+use decodering_core::aws::call_sts_get_caller_identity;
+use decodering_core::aws::normalize_arn;
+use decodering_core::aws::parse_iam_arn;
+use decodering_core::aws::validate_sts_request;
 use decodering_core::domain::PrincipalStatus;
 
 use serde::Deserialize;

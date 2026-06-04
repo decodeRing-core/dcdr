@@ -1902,6 +1902,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "decodering-auth"
+version = "0.1.0"
+dependencies = [
+ "aes 0.9.1",
+ "async-trait",
+ "cfb-mode",
+ "constant_time_eq",
+ "decodering-core",
+ "hmac 0.12.1",
+ "p256",
+ "rand 0.10.1",
+ "rand 0.8.6",
+ "rsa",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tracing",
+]
+
+[[package]]
 name = "decodering-cli"
 version = "0.1.0"
 dependencies = [
@@ -1925,20 +1945,14 @@ dependencies = [
 name = "decodering-core"
 version = "0.1.0"
 dependencies = [
- "aes 0.9.1",
  "aes-gcm",
  "async-trait",
  "base64 0.22.1",
  "blahaj",
- "cfb-mode",
  "extism",
- "hmac 0.12.1",
- "p256",
  "pem",
  "rand 0.10.1",
- "rand 0.8.6",
  "reqwest",
- "rsa",
  "rustls-pki-types",
  "rustls-webpki",
  "schemars 1.2.1",
@@ -1983,10 +1997,9 @@ dependencies = [
  "actix-cors",
  "actix-http",
  "actix-web",
- "async-trait",
  "base64 0.22.1",
  "clap",
- "constant_time_eq",
+ "decodering-auth",
  "decodering-core",
  "decodering-db",
  "decodering-raft",
