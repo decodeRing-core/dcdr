@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::OnceLock};
 
 use reqwest::Client;
 
-use crate::error::AwsError;
+use crate::aws::error::AwsError;
 
 #[derive(Debug)]
 pub struct ParsedArn {

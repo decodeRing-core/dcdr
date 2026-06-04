@@ -2,8 +2,6 @@ pub mod action;
 pub mod actions;
 pub mod audit;
 pub mod auth;
-pub mod aws;
-pub mod cert;
 pub mod crypto;
 pub mod domain;
 pub mod error;

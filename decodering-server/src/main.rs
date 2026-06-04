@@ -5,7 +5,7 @@ use actix_web::HttpServer;
 use actix_web::middleware::Compress;
 use actix_web::web::Data;
 use decodering_auth::api_key::ApiKeyMethod;
-use decodering_auth::aws::AwsMethod;
+use decodering_auth::aws::auth::AwsMethod;
 use decodering_auth::tpm::auth::TpmMethod;
 use decodering_core::auth::registry::AuthRegistry;
 use decodering_core::plugin::orchestrator::Orchestrator;

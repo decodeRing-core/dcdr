@@ -12,7 +12,6 @@ use decodering_core::auth::types::ChallengeResponse;
 use decodering_core::auth::types::EnrollRequest;
 use decodering_core::auth::types::EnrollResponse;
 use decodering_core::auth::types::ResolveRequest;
-use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
 use decodering_core::crypto::base64_decode;
 use decodering_core::crypto::base64_encode;
 use decodering_core::crypto::encode_hex;
@@ -23,6 +22,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::tpm::cert::{TpmTrustStore, verify_ek_cert_chain};
 use crate::tpm::utils::{
     AkPublic, make_credential_rsa, parse_tpms_attest, verify_pcrs, verify_quote_signature,
 };

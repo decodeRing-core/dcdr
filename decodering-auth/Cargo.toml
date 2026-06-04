@@ -21,7 +21,10 @@ rand_08 = { package = "rand", version = "~0.8" }
 cfb-mode.workspace = true
 tracing.workspace = true
 aes.workspace = true
-
+x509-parser.workspace = true
+rustls-webpki.workspace = true
+rustls-pki-types.workspace = true
+reqwest.workspace = true
 
 [lints]
 workspace = true

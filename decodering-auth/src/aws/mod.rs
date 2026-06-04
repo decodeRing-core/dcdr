@@ -1,4 +1,3 @@
 pub mod auth;
-pub mod cert;
 pub mod error;
 pub mod utils;

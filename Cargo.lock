@@ -1914,11 +1914,15 @@ dependencies = [
  "p256",
  "rand 0.10.1",
  "rand 0.8.6",
+ "reqwest",
  "rsa",
+ "rustls-pki-types",
+ "rustls-webpki",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "tracing",
+ "x509-parser",
 ]
 
 [[package]]
@@ -1952,16 +1956,12 @@ dependencies = [
  "extism",
  "pem",
  "rand 0.10.1",
- "reqwest",
- "rustls-pki-types",
- "rustls-webpki",
  "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_norway",
  "sha2 0.10.9",
  "tracing",
- "x509-parser",
  "zeroize",
 ]
 

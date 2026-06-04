@@ -6,14 +6,15 @@ use decodering_core::auth::types::AuthRequest;
 use decodering_core::auth::types::AuthResponse;
 use decodering_core::auth::types::EnrollRequest;
 use decodering_core::auth::types::EnrollResponse;
-use decodering_core::aws::call_sts_get_caller_identity;
-use decodering_core::aws::normalize_arn;
-use decodering_core::aws::parse_iam_arn;
-use decodering_core::aws::validate_sts_request;
 use decodering_core::domain::PrincipalStatus;
 
 use serde::Deserialize;
 use std::collections::HashMap;
+
+use crate::aws::utils::call_sts_get_caller_identity;
+use crate::aws::utils::normalize_arn;
+use crate::aws::utils::parse_iam_arn;
+use crate::aws::utils::validate_sts_request;
 
 pub struct AwsMethod;
 
