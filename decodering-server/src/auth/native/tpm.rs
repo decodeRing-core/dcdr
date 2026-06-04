@@ -1,15 +1,24 @@
-// decodering-server/src/auth/native/tpm.rs
 use async_trait::async_trait;
 
+use constant_time_eq::constant_time_eq;
 use decodering_core::auth::method::{AuthMethod, Capabilities};
-use decodering_core::auth::types::{
-    ActivateRequest, ActivateResponse, AuthError, AuthRequest, AuthResponse, ChallengeRequest,
-    ChallengeResponse, EnrollRequest, EnrollResponse, ResolveRequest,
-};
+use decodering_core::auth::types::ActivateRequest;
+use decodering_core::auth::types::ActivateResponse;
+use decodering_core::auth::types::AuthError;
+use decodering_core::auth::types::AuthRequest;
+use decodering_core::auth::types::AuthResponse;
+use decodering_core::auth::types::ChallengeRequest;
+use decodering_core::auth::types::ChallengeResponse;
+use decodering_core::auth::types::EnrollRequest;
+use decodering_core::auth::types::EnrollResponse;
+use decodering_core::auth::types::ResolveRequest;
 use decodering_core::cert::{TpmTrustStore, verify_ek_cert_chain};
-use decodering_core::crypto::{
-    base64_decode, base64_encode, encode_hex, pem_to_der, sha256_hex, verify_quote_signature,
-};
+use decodering_core::crypto::base64_decode;
+use decodering_core::crypto::base64_encode;
+use decodering_core::crypto::encode_hex;
+use decodering_core::crypto::pem_to_der;
+use decodering_core::crypto::sha256_hex;
+use decodering_core::crypto::verify_quote_signature;
 use decodering_core::domain::PrincipalStatus;
 use decodering_core::tpm::{AkPublic, make_credential_rsa, parse_tpms_attest, verify_pcrs};
 use rand::Rng;
@@ -157,8 +166,10 @@ impl AuthMethod for TpmMethod {
         let recovered = base64_decode(&proof.recovered_secret)
             .ok_or_else(|| AuthError::InvalidProof("recovered_secret b64".to_owned()))?;
 
-        // Compare hashes — we only stored the hash of the secret.
-        if sha256_hex(&recovered) != material.activation_secret_hash {
+        if !constant_time_eq(
+            sha256_hex(&recovered).as_bytes(),
+            material.activation_secret_hash.as_bytes(),
+        ) {
             return Err(AuthError::ActivationFailed("secret mismatch".to_owned()));
         }
         Ok(ActivateResponse { activated: true })
@@ -251,10 +262,11 @@ impl AuthMethod for TpmMethod {
         let ek_der = pem_to_der(&proof.ek_pubkey_pem)
             .map_err(|e| AuthError::InvalidProof(format!("bad EK pubkey: {e}")))?;
 
+        let ek_hash = sha256_hex(&ek_der);
         Ok(AuthResponse {
-            lookup_key: sha256_hex(&ek_der),
+            lookup_key: ek_hash.clone(),
             audit_metadata: serde_json::json!({
-                "ek_sha256_prefix": &sha256_hex(&ek_der)[..16],
+                "ek_sha256_prefix": ek_hash.chars().take(16).collect::<String>(),
             }),
         })
     }

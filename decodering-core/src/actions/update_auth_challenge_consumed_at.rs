@@ -37,6 +37,7 @@ impl Action for UpdateAuthChallengeConsumedAt {
             .await?;
         let auth_challenge_response = ConsumeAuthChallengeResponse {
             challenge_id: challenge_id.clone(),
+            payload: challenge.map(|f| f.payload).unwrap_or_default(),
         };
         let after = serde_json::json!(auth_challenge_response);
         let app_response = AppResponse::ConsumeAuthChallenge(auth_challenge_response);

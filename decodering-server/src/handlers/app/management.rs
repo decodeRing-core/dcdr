@@ -1,7 +1,8 @@
+use std::str::FromStr;
+
 use actix_web::Responder;
 use actix_web::dev::ConnectionInfo;
 use actix_web::web::{Data, Json};
-use constant_time_eq::constant_time_eq;
 use decodering_core::actions::create_app::CreateApp;
 use decodering_core::actions::create_app_user::CreateAppUser;
 use decodering_core::actions::create_auth_challenge::CreateAuthChallenge;
@@ -11,14 +12,17 @@ use decodering_core::actions::create_principal_app_grant::CreatePrincipalAppGran
 use decodering_core::actions::create_principal_credential::CreatePrincipalCredential;
 use decodering_core::actions::create_principal_token::CreatePrincipalToken;
 use decodering_core::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
+use decodering_core::actions::update_auth_challenge_consumed_at::UpdateAuthChallengeConsumedAt;
 use decodering_core::actions::update_principal_credential_status::UpdatePrincipalCredentialStatus;
 //use decodering_core::actions::update_tpm_challenge_consumed_at::UpdateTpmChallengeConsumedAt;
 use decodering_core::audit::Actor;
 use decodering_core::auth::registry::AuthRegistry;
-use decodering_core::auth::types::{AuthRequest, ChallengeRequest, EnrollRequest};
+use decodering_core::auth::types::{
+    ActivateRequest, AuthRequest, ChallengeRequest, EnrollRequest, ResolveRequest,
+};
 //use decodering_core::aws::call_sts_get_caller_identity;
 //use decodering_core::aws::normalize_arn;
-use decodering_core::crypto::{encode_hex, sha256_hex};
+use decodering_core::crypto::sha256_hex;
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
 use decodering_core::repository::AppRepository;
 use decodering_core::repository::PrincipalRepository;
@@ -26,7 +30,6 @@ use decodering_core::repository::{PrincipalAppGrantRepository, PrincipalCredenti
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
 use decodering_core::time::{CHALLENGE_TTL_SECS, now_ts, now_ts_plus};
-use decodering_core::tpm::TpmMaterial;
 use decodering_core::tx::{Database, Tx};
 use rand::Rng;
 use rand::distr::{Alphanumeric, SampleString};
@@ -51,7 +54,6 @@ use crate::handlers::app::response::ApiDeleteAppGrantResponse;
 use crate::handlers::app::response::{ApiCreateAppResponse, ApiCreateAppUserResponse};
 use crate::handlers::osl::response::ApiListAppsResponse;
 use crate::handlers::response::{ApiResponse, ApiStatus, ErrorStatus, SuccessStatus};
-use base64::{Engine, engine::general_purpose::STANDARD};
 
 pub async fn create_app_user<D: Database + 'static>(
     conn: ConnectionInfo,
@@ -350,28 +352,116 @@ pub async fn create_app<D: Database + 'static>(
 pub async fn auth_app_user<D: Database + 'static>(
     conn: ConnectionInfo,
     app: Data<AppData<D>>,
-    req: Json<AuthUserData>,
+    body: Json<AuthUserData>,
     registry: Data<AuthRegistry>,
 ) -> impl Responder {
     let ip = conn.peer_addr().map(str::to_owned);
 
-    let auth_method = registry.get(&req.0.credential_kind);
+    let auth_method = registry.get(&body.0.credential_kind);
     let Some(auth_method) = auth_method else {
         tracing::error!("Unsupported auth method");
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::UnsupportedAuth));
     };
 
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to database");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
     let caps = auth_method.capabilities();
 
-    let challenge_state = None;
+    let credential = if caps.requires_resolve {
+        let lookup_key = auth_method
+            .resolve(ResolveRequest {
+                proof: body.0.proof.clone(),
+                config: serde_json::Value::default(),
+            })
+            .await;
+        let Ok(lookup_key) = lookup_key else {
+            tracing::error!("Failed to get lookup_key");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+        };
+        let credential = match db
+            .principal_credential()
+            .get_active_by_kind_and_lookup_key(
+                PrincipalCredentialKind::TrustedPlatformModule,
+                &lookup_key,
+            )
+            .await
+        {
+            Ok(Some(x)) => x,
+            Ok(None) => {
+                tracing::error!("Active credential not found");
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+            }
+            Err(e) => {
+                tracing::error!(err=?e, "Failed to query database");
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+            }
+        };
 
-    let credential_material = None;
+        if credential.status != PrincipalStatus::Active || credential.revoked_at.is_some() {
+            tracing::error!(
+                status=credential.status.as_str(),
+                revoked_at=?credential.revoked_at,
+                "Invalid credential"
+            );
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+        }
+        Some(credential)
+    } else {
+        None
+    };
+
+    let challenge_state = if caps.requires_challenge {
+        let challenge_id =
+            if let Some(x) = body.0.proof.get("challenge_id").and_then(|v| v.as_str()) {
+                x.to_owned()
+            } else {
+                tracing::error!("Expected challenge_id param");
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+            };
+
+        let consumed_tpm_challenge = UpdateAuthChallengeConsumedAt {
+            actor: Actor::unauthenticated(ip.clone()),
+            challenge_id,
+            consumed_at: now_ts(),
+        };
+
+        let request = AppRequest::UpdateConsumedAt(consumed_tpm_challenge);
+        match app.submit(request).await {
+            Ok(resp) => match resp {
+                AppResponse::ConsumeAuthChallenge(resp) => Some(resp.payload),
+                AppResponse::Error(e) => {
+                    tracing::error!(%e, "Failed to consume tpm challenge");
+                    return ApiResponse::error(ErrorStatus::OperationFailed(
+                        ErrorReason::GenericFail("consume tpm challenge".into()),
+                    ));
+                }
+                other_api_response => {
+                    tracing::error!(?other_api_response, "unexpected AppResponse variant");
+                    return ApiResponse::error(ErrorStatus::OperationFailed(
+                        ErrorReason::Unexpected,
+                    ));
+                }
+            },
+            Err(e) => {
+                tracing::error!(?e);
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+            }
+        }
+    } else {
+        None
+    };
 
     let timestamp = now_ts();
 
+    let credential_material =
+        credential.and_then(|f| serde_json::Value::from_str(&f.secret_material).ok());
     let auth_resp = match auth_method
         .authenticate(AuthRequest {
-            proof: req.proof.clone(),
+            proof: body.proof.clone(),
             challenge_state,
             credential_material,
             now: timestamp,
@@ -384,12 +474,6 @@ pub async fn auth_app_user<D: Database + 'static>(
             tracing::error!("Auth error: {a:?}");
             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
         }
-    };
-
-    let db = app.db.begin().await;
-    let Ok(mut db) = db else {
-        tracing::error!("Failed to get a connection to database");
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
     };
 
     let principal = match db
@@ -461,7 +545,7 @@ pub async fn auth_challenge_app_user<D: Database + 'static>(
 ) -> impl Responder {
     let ip = conn.peer_addr().map(str::to_owned);
 
-    let auth_method = registry.get(&body.0.credential_kind.as_str());
+    let auth_method = registry.get(&body.0.credential_kind);
     let Some(auth_method) = auth_method else {
         tracing::error!("Unsupported auth method");
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::UnsupportedAuth));
@@ -527,7 +611,14 @@ pub async fn auth_activate_app_user<D: Database + 'static>(
     conn: ConnectionInfo,
     app: Data<AppData<D>>,
     body: Json<AuthActivationData>,
+    registry: Data<AuthRegistry>,
 ) -> impl Responder {
+    let auth_method = registry.get(&body.0.credential_kind);
+    let Some(auth_method) = auth_method else {
+        tracing::error!("Unsupported auth method");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::UnsupportedAuth));
+    };
+
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -563,24 +654,34 @@ pub async fn auth_activate_app_user<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
     }
 
-    let material = serde_json::from_str::<TpmMaterial>(&credential.secret_material);
+    let material = serde_json::from_str(&credential.secret_material);
     let Ok(material) = material else {
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
     };
 
-    let provided = STANDARD.decode(&body.recovered_secret);
-    let Ok(provided) = provided else {
-        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-            "parse recovered secret".into(),
-        )));
+    let timestamp = now_ts();
+    let auth_resp = match auth_method
+        .activate(ActivateRequest {
+            principal_id: body.0.principal_id,
+            credential_id: body.0.credential_id,
+            credential_material: material,
+            proof: body.0.proof,
+            now: timestamp,
+            config: serde_json::Value::default(),
+        })
+        .await
+    {
+        Ok(resp) => resp,
+        Err(a) => {
+            tracing::error!("Auth error: {a:?}");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+        }
     };
 
-    if !constant_time_eq(
-        sha256_hex(&provided).as_bytes(),
-        material.activation_secret_hash.as_bytes(),
-    ) {
+    if !auth_resp.activated {
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
     }
+
     let ip = conn.peer_addr().map(str::to_owned);
     let status_update = UpdatePrincipalCredentialStatus {
         actor: Actor::Principal {

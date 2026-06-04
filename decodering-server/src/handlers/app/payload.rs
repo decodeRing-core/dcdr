@@ -58,9 +58,10 @@ pub struct AuthTpmUserData {
 
 #[derive(Deserialize, Debug)]
 pub struct AuthActivationData {
+    pub credential_kind: String,
     pub principal_id: String,
     pub credential_id: String,
-    pub recovered_secret: String,
+    pub proof: Value,
 }
 
 #[derive(Deserialize, Debug)]

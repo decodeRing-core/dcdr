@@ -115,6 +115,7 @@ pub struct CreateAuthChallengeResponse {
 #[derive(Serialize, Debug, Deserialize)]
 pub struct ConsumeAuthChallengeResponse {
     pub challenge_id: String,
+    pub payload: Vec<u8>,
 }
 
 #[derive(Serialize, Debug, Deserialize)]
