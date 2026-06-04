@@ -11,6 +11,7 @@ use decodering_db::postgres::PostgresDatabase;
 use decodering_db::sqlite::SqliteDatabase;
 use decodering_server::app_data::AppData;
 use decodering_server::auth::native::api_key::ApiKeyMethod;
+use decodering_server::auth::native::aws::AwsMethod;
 use decodering_server::auth::native::tpm::TpmMethod;
 use decodering_server::config::{Config, StorageConfig, load_config};
 use decodering_server::logger::init_tracing;
@@ -50,6 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
     let mut registry = AuthRegistry::default();
     registry.register(Box::new(ApiKeyMethod::new()));
     registry.register(Box::new(TpmMethod::new()));
+    registry.register(Box::new(AwsMethod::new()));
 
     match &config.storage {
         StorageConfig::Raft {

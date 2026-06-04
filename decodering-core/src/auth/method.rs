@@ -1,7 +1,13 @@
-use crate::auth::types::{
-    ActivateRequest, ActivateResponse, AuthError, AuthRequest, AuthResponse, ChallengeRequest,
-    ChallengeResponse, EnrollRequest, EnrollResponse, ResolveRequest,
-};
+use crate::auth::types::ActivateRequest;
+use crate::auth::types::ActivateResponse;
+use crate::auth::types::AuthError;
+use crate::auth::types::AuthRequest;
+use crate::auth::types::AuthResponse;
+use crate::auth::types::ChallengeRequest;
+use crate::auth::types::ChallengeResponse;
+use crate::auth::types::EnrollRequest;
+use crate::auth::types::EnrollResponse;
+use crate::auth::types::ResolveRequest;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -22,19 +28,19 @@ pub trait AuthMethod: Send + Sync {
     /// ENROLL — admin creates a credential.
     async fn enroll(&self, req: EnrollRequest) -> Result<EnrollResponse, AuthError>;
 
-    /// ACTIVATE — confirm a pending credential (TPM only).
-    async fn activate(&self, req: ActivateRequest) -> Result<ActivateResponse, AuthError> {
+    /// ACTIVATE — confirm a pending credential
+    async fn activate(&self, _req: ActivateRequest) -> Result<ActivateResponse, AuthError> {
         Err(AuthError::UnsupportedOperation)
     }
 
-    /// CHALLENGE — issue a nonce/challenge before authentication (TPM only).
-    async fn challenge(&self, req: ChallengeRequest) -> Result<ChallengeResponse, AuthError> {
+    /// CHALLENGE — issue a nonce/challenge before authentication.
+    async fn challenge(&self, _req: ChallengeRequest) -> Result<ChallengeResponse, AuthError> {
         Err(AuthError::UnsupportedOperation)
     }
 
     /// RESOLVE — extract the credential `lookup_key` from a proof WITHOUT verifying,
     /// so the host can fetch stored credential material before `verify()`.
-    async fn resolve(&self, req: ResolveRequest) -> Result<String, AuthError> {
+    async fn resolve(&self, _req: ResolveRequest) -> Result<String, AuthError> {
         Err(AuthError::UnsupportedOperation)
     }
 
