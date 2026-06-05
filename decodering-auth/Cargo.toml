@@ -28,6 +28,7 @@ reqwest.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
+rcgen = "0.14.8"
 
 [lints]
 workspace = true

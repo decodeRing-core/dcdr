@@ -181,3 +181,198 @@ pub fn verify_ek_cert_chain(
 
     Ok(())
 }
+
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::cast_possible_truncation)]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    use rcgen::{
+        BasicConstraints, CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose,
+        IsCa, Issuer, KeyPair, KeyUsagePurpose,
+    };
+
+    struct Ca {
+        cert: rcgen::Certificate,
+        issuer: Issuer<'static, KeyPair>,
+    }
+
+    fn dn(cn: &str) -> DistinguishedName {
+        let mut d = DistinguishedName::new();
+        d.push(DnType::CommonName, cn);
+        d
+    }
+
+    fn make_ca() -> Ca {
+        let mut params = CertificateParams::new(vec![]).unwrap();
+        params.distinguished_name = dn("Test TPM CA");
+        params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+        params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
+        let key = KeyPair::generate().unwrap();
+        let cert = params.self_signed(&key).unwrap();
+        let issuer = Issuer::new(params, key);
+        Ca { cert, issuer }
+    }
+
+    /// Returns (`ek_cert_pem`, `ek_spki_pubkey_pem`). The leaf is signed by `ca`,
+    /// has client-auth EKU (`verify_for_usage` requires `client_auth`), and a
+    /// validity window controlled by the caller.
+    fn make_ek_leaf(
+        ca: &Ca,
+        not_before_offset_days: i64,
+        not_after_offset_days: i64,
+    ) -> (String, String) {
+        use rcgen::date_time_ymd;
+        let mut params = CertificateParams::new(vec![]).unwrap();
+        params.distinguished_name = dn("Test EK");
+        params.is_ca = IsCa::NoCa;
+        params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ClientAuth];
+        // Crude window control via fixed dates relative to a base year.
+        let base = 2025;
+        params.not_before = date_time_ymd((base) + (not_before_offset_days / 365) as i32, 1, 1);
+        params.not_after = date_time_ymd((base) + (not_after_offset_days / 365) as i32, 1, 1);
+        let leaf_key = KeyPair::generate().unwrap();
+        let leaf = params.signed_by(&leaf_key, &ca.issuer).unwrap();
+        (leaf.pem(), leaf_key.public_key_pem())
+    }
+
+    fn trust_store_from_pems(pems: &[String], tag: &str) -> TpmTrustStore {
+        let d = tmpdir(tag);
+        for (i, pem) in pems.iter().enumerate() {
+            fs::write(d.join(format!("ca{i}.pem")), pem).unwrap();
+        }
+        let store = TpmTrustStore::from_directory(&d).unwrap();
+        let _ = fs::remove_dir_all(&d);
+        store
+    }
+
+    #[test]
+    fn verify_ek_cert_rejects_invalid_pem() {
+        let ca = make_ca();
+        let store = trust_store_from_pems(&[ca.cert.pem()], "vbadpem");
+        let (_, ek_pub) = make_ek_leaf(&ca, -365, 3650);
+        let r = verify_ek_cert_chain("not a pem", &ek_pub, &store);
+        assert!(matches!(r, Err(EkCertError::InvalidPem)));
+    }
+
+    #[test]
+    fn verify_ek_cert_rejects_invalid_expected_pubkey_pem() {
+        let ca = make_ca();
+        let store = trust_store_from_pems(&[ca.cert.pem()], "vbadexp");
+        let (ek_cert, _) = make_ek_leaf(&ca, -365, 3650);
+        let r = verify_ek_cert_chain(&ek_cert, "garbage", &store);
+        assert!(matches!(r, Err(EkCertError::InvalidPem)));
+    }
+
+    #[test]
+    fn verify_ek_cert_rejects_pubkey_mismatch() {
+        let ca = make_ca();
+        let store = trust_store_from_pems(&[ca.cert.pem()], "vmismatch");
+        let (ek_cert, _) = make_ek_leaf(&ca, -365, 3650);
+        // Expected pubkey from a *different* leaf.
+        let (_, other_pub) = make_ek_leaf(&ca, -365, 3650);
+        let r = verify_ek_cert_chain(&ek_cert, &other_pub, &store);
+        assert!(matches!(r, Err(EkCertError::PubkeyMismatch)));
+    }
+
+    #[test]
+    fn verify_ek_cert_rejects_expired() {
+        let ca = make_ca();
+        let store = trust_store_from_pems(&[ca.cert.pem()], "vexpired");
+        // not_after well in the past.
+        let (ek_cert, ek_pub) = make_ek_leaf(&ca, -3650, -1825);
+        let r = verify_ek_cert_chain(&ek_cert, &ek_pub, &store);
+        assert!(matches!(r, Err(EkCertError::Expired)));
+    }
+
+    #[test]
+    fn verify_ek_cert_rejects_not_yet_valid() {
+        let ca = make_ca();
+        let store = trust_store_from_pems(&[ca.cert.pem()], "vnotyet");
+        // not_before well in the future.
+        let (ek_cert, ek_pub) = make_ek_leaf(&ca, 3650, 7300);
+        let r = verify_ek_cert_chain(&ek_cert, &ek_pub, &store);
+        assert!(matches!(r, Err(EkCertError::NotYetValid)));
+    }
+
+    #[test]
+    fn verify_ek_cert_rejects_untrusted_issuer() {
+        let ca = make_ca();
+        let other_ca = make_ca();
+        // Trust store has only the *other* CA; leaf is signed by `ca`.
+        let store = trust_store_from_pems(&[other_ca.cert.pem()], "vuntrusted");
+        let (ek_cert, ek_pub) = make_ek_leaf(&ca, -365, 3650);
+        let r = verify_ek_cert_chain(&ek_cert, &ek_pub, &store);
+        assert!(
+            matches!(
+                r,
+                Err(EkCertError::UntrustedIssuer | EkCertError::SignatureInvalid)
+            ),
+            "got {r:?}"
+        );
+    }
+
+    #[test]
+    fn verify_ek_cert_chain_succeeds() {
+        let ca = make_ca();
+        let store = trust_store_from_pems(&[ca.cert.pem()], "vok");
+        let (ek_cert, ek_pub) = make_ek_leaf(&ca, -365, 3650);
+        let r = verify_ek_cert_chain(&ek_cert, &ek_pub, &store);
+        assert!(r.is_ok(), "expected Ok, got {r:?}");
+    }
+
+    fn tmpdir(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("tpm_trust_test_{name}_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn trust_store_empty_dir_errors() {
+        let d = tmpdir("empty");
+        let r = TpmTrustStore::from_directory(&d);
+        assert!(matches!(r, Err(TrustStoreError::NoCertsFound)));
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn trust_store_missing_dir_is_io_error() {
+        let r = TpmTrustStore::from_directory("/no/such/path/xyz");
+        assert!(matches!(r, Err(TrustStoreError::Io(_))));
+    }
+
+    #[test]
+    fn trust_store_ignores_unknown_extensions() {
+        // A dir with only a .txt file → no candidate certs → NoCertsFound.
+        let d = tmpdir("txtonly");
+        fs::write(d.join("readme.txt"), b"hello").unwrap();
+        let r = TpmTrustStore::from_directory(&d);
+        assert!(matches!(r, Err(TrustStoreError::NoCertsFound)));
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn trust_store_rejects_malformed_pem() {
+        let d = tmpdir("badpem");
+        fs::write(
+            d.join("bad.pem"),
+            b"-----BEGIN CERTIFICATE-----\nnotbase64\n-----END CERTIFICATE-----\n",
+        )
+        .unwrap();
+        let r = TpmTrustStore::from_directory(&d);
+        assert!(matches!(r, Err(TrustStoreError::InvalidCert { .. })));
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn trust_store_rejects_malformed_der() {
+        let d = tmpdir("badder");
+        fs::write(d.join("bad.der"), b"\x00\x01\x02not a cert").unwrap();
+        let r = TpmTrustStore::from_directory(&d);
+        assert!(matches!(r, Err(TrustStoreError::InvalidCert { .. })));
+        let _ = fs::remove_dir_all(&d);
+    }
+}
