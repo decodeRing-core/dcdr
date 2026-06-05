@@ -21,11 +21,11 @@ enum Command {
         #[arg(long, default_value = "us-east-1")]
         region: String,
     },
-    TpmParams {
-        /// Emit progress messages to stderr
-        #[arg(long, short = 'd')]
-        debug: bool,
-    },
+    // TpmParams {
+    //     /// Emit progress messages to stderr
+    //     #[arg(long, short = 'd')]
+    //     debug: bool,
+    // },
 }
 
 mod aws_sig;
@@ -39,7 +39,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     match args.command {
         Command::GenerateSchema => generate_schema()?,
         Command::AwsSig { region } => generate_aws_sig(&region).await?,
-        Command::TpmParams { debug } => generate_tpm_params(debug)?,
+        //Command::TpmParams { debug } => todo!(),
     }
 
     Ok(())

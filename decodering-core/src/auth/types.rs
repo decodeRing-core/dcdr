@@ -46,7 +46,7 @@ pub struct ActivateRequest {
     pub config: serde_json::Value,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ActivateResponse {
     pub activated: bool,
 }

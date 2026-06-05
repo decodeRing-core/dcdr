@@ -102,3 +102,197 @@ impl AuthMethod for AwsMethod {
         })
     }
 }
+
+#[allow(clippy::unwrap_used)]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn enroll_req(data: serde_json::Value) -> EnrollRequest {
+        EnrollRequest {
+            principal_id: "p1".to_owned(),
+            data,
+            now: 0,
+            config: json!({}),
+        }
+    }
+
+    fn auth_req(proof: serde_json::Value) -> AuthRequest {
+        AuthRequest {
+            proof,
+            challenge_state: None,
+            credential_material: None,
+            now: 0,
+            config: json!({}),
+        }
+    }
+
+    // ---- metadata ----
+
+    #[test]
+    fn kind_is_aws_identity() {
+        assert_eq!(AwsMethod::new().kind(), "awsIdentity");
+    }
+
+    #[test]
+    fn capabilities_are_self_contained() {
+        let caps = AwsMethod::new().capabilities();
+        assert_eq!(caps.kind, "awsIdentity");
+        assert!(!caps.requires_activation);
+        assert!(!caps.requires_challenge);
+        assert!(!caps.requires_resolve);
+    }
+
+    #[test]
+    fn default_matches_new() {
+        assert_eq!(AwsMethod.kind(), AwsMethod::new().kind());
+    }
+
+    // ---- enroll ----
+
+    #[tokio::test]
+    async fn enroll_role_arn_succeeds() {
+        let resp = AwsMethod::new()
+            .enroll(enroll_req(json!({
+                "role_arn": "arn:aws:iam::123456789012:role/MyRole"
+            })))
+            .await
+            .unwrap();
+
+        assert_eq!(resp.lookup_key, "arn:aws:iam::123456789012:role/MyRole");
+        assert!(matches!(resp.status, PrincipalStatus::Active));
+        assert!(resp.client_payload.is_none());
+        assert_eq!(
+            resp.secret_material.get("account_id").unwrap(),
+            "123456789012"
+        );
+        assert_eq!(resp.secret_material.get("role_name").unwrap(), "MyRole");
+    }
+
+    #[tokio::test]
+    async fn enroll_user_arn_succeeds() {
+        let resp = AwsMethod::new()
+            .enroll(enroll_req(json!({
+                "role_arn": "arn:aws:iam::123456789012:user/Alice"
+            })))
+            .await
+            .unwrap();
+
+        assert_eq!(resp.lookup_key, "arn:aws:iam::123456789012:user/Alice");
+        assert_eq!(resp.secret_material.get("role_name").unwrap(), "Alice");
+    }
+
+    #[tokio::test]
+    async fn enroll_normalizes_assumed_role() {
+        let resp = AwsMethod::new()
+            .enroll(enroll_req(json!({
+                "role_arn": "arn:aws:sts::123456789012:assumed-role/MyRole/sess"
+            })))
+            .await
+            .unwrap();
+
+        assert_eq!(resp.lookup_key, "arn:aws:iam::123456789012:role/MyRole");
+        assert_eq!(resp.secret_material.get("role_name").unwrap(), "MyRole");
+    }
+
+    #[tokio::test]
+    async fn enroll_rejects_missing_role_arn_field() {
+        let err = AwsMethod::new()
+            .enroll(enroll_req(json!({})))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidEnrollmentData(_)));
+    }
+
+    #[tokio::test]
+    async fn enroll_rejects_wrong_type() {
+        let err = AwsMethod::new()
+            .enroll(enroll_req(json!({ "role_arn": 123 })))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidEnrollmentData(_)));
+    }
+
+    #[tokio::test]
+    async fn enroll_rejects_unnormalizable_arn() {
+        let err = AwsMethod::new()
+            .enroll(enroll_req(json!({ "role_arn": "not-an-arn" })))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidEnrollmentData(_)));
+    }
+
+    #[tokio::test]
+    async fn enroll_rejects_federated_user_arn() {
+        let err = AwsMethod::new()
+            .enroll(enroll_req(json!({
+                "role_arn": "arn:aws:sts::123456789012:federated-user/Alice"
+            })))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidEnrollmentData(_)));
+    }
+
+    // ---- authenticate (non-network branches) ----
+
+    #[tokio::test]
+    async fn authenticate_rejects_malformed_proof() {
+        let err = AwsMethod::new()
+            .authenticate(auth_req(json!({ "method": "POST" })))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidProof(_)));
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_non_object_proof() {
+        let err = AwsMethod::new()
+            .authenticate(auth_req(json!("string")))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidProof(_)));
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_invalid_sts_url() {
+        let err = AwsMethod::new()
+            .authenticate(auth_req(json!({
+                "method": "POST",
+                "url": "https://evil.example.com/",
+                "body": "Action=GetCallerIdentity",
+                "headers": { "Authorization": "x" }
+            })))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidProof(_)));
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_wrong_action() {
+        let err = AwsMethod::new()
+            .authenticate(auth_req(json!({
+                "method": "POST",
+                "url": "https://sts.amazonaws.com/",
+                "body": "Action=AssumeRole",
+                "headers": { "Authorization": "x" }
+            })))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidProof(_)));
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_missing_authorization_header() {
+        let err = AwsMethod::new()
+            .authenticate(auth_req(json!({
+                "method": "POST",
+                "url": "https://sts.amazonaws.com/",
+                "body": "Action=GetCallerIdentity",
+                "headers": {}
+            })))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidProof(_)));
+    }
+}

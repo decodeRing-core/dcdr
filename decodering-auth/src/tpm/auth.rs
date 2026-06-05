@@ -252,3 +252,495 @@ impl AuthMethod for TpmMethod {
         })
     }
 }
+
+#[allow(clippy::unwrap_used, clippy::indexing_slicing)]
+#[allow(clippy::cast_possible_truncation)]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use decodering_core::crypto::sha256_hex;
+    use rsa::pkcs1v15::SigningKey as Pkcs1v15SigningKey;
+    use rsa::pkcs8::{EncodePublicKey, LineEnding};
+    use rsa::rand_core::OsRng;
+    use rsa::signature::{SignatureEncoding, Signer as _};
+    use rsa::{RsaPrivateKey, RsaPublicKey, traits::PublicKeyParts};
+    use serde_json::json;
+    use sha2::{Digest, Sha256};
+
+    const TPM_GENERATED_VALUE: u32 = 0xFF54_4347;
+    const TPM_ST_ATTEST_QUOTE: u16 = 0x8018;
+    const TPM_ALG_RSA: u16 = 0x0001;
+    const TPM_ALG_NULL: u16 = 0x0010;
+    const TPM_ALG_SHA256: u16 = 0x000B;
+    const TPM_ALG_RSASSA: u16 = 0x0014;
+
+    fn rsa_keypair() -> (RsaPrivateKey, String) {
+        let priv_key = RsaPrivateKey::new(&mut OsRng, 2048).unwrap();
+        let pem = RsaPublicKey::from(&priv_key)
+            .to_public_key_pem(LineEnding::LF)
+            .unwrap();
+        (priv_key, pem)
+    }
+
+    /// Build a marshaled `TPM2B_PUBLIC` for an RSA key matchin`AkPublic::parse`se's
+    /// expected layout. Modulus is taken from `pub_key`.
+    fn build_ak_tpm2b(pub_key: &RsaPublicKey) -> Vec<u8> {
+        let modulus = pub_key.n().to_bytes_be();
+        let mut pa = Vec::new();
+        pa.extend_from_slice(&TPM_ALG_RSA.to_be_bytes()); // type
+        pa.extend_from_slice(&TPM_ALG_SHA256.to_be_bytes()); // nameAlg
+        pa.extend_from_slice(&0u32.to_be_bytes()); // objectAttributes
+        pa.extend_from_slice(&0u16.to_be_bytes()); // authPolicy (TPM2B, empty)
+        pa.extend_from_slice(&TPM_ALG_NULL.to_be_bytes()); // symmetric = NULL
+        pa.extend_from_slice(&TPM_ALG_NULL.to_be_bytes()); // scheme = NULL
+        pa.extend_from_slice(&2048u16.to_be_bytes()); // keyBits
+        pa.extend_from_slice(&0u32.to_be_bytes()); // exponent = 0 => 65537
+        pa.extend_from_slice(&(modulus.len() as u16).to_be_bytes());
+        pa.extend_from_slice(&modulus); // unique (modulus)
+
+        let mut out = Vec::new();
+        out.extend_from_slice(&(pa.len() as u16).to_be_bytes());
+        out.extend_from_slice(&pa);
+        out
+    }
+
+    /// Compute the AK Name the same way `AkPublic::parse` does:
+    /// UINT16(nameAlg) || SHA256(publicArea).
+    fn ak_name_from_tpm2b(tpm2b: &[u8]) -> Vec<u8> {
+        let pa_len = u16::from_be_bytes([tpm2b[0], tpm2b[1]]) as usize;
+        let public_area = &tpm2b[2..2 + pa_len];
+        let mut name = Vec::new();
+        name.extend_from_slice(&TPM_ALG_SHA256.to_be_bytes());
+        name.extend_from_slice(&Sha256::digest(public_area));
+        name
+    }
+
+    fn build_tpms_attest(extra_data: &[u8], pcr_digest: &[u8]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&TPM_GENERATED_VALUE.to_be_bytes());
+        buf.extend_from_slice(&TPM_ST_ATTEST_QUOTE.to_be_bytes());
+        buf.extend_from_slice(&0u16.to_be_bytes()); // qualifiedSigner (empty)
+        buf.extend_from_slice(&(extra_data.len() as u16).to_be_bytes());
+        buf.extend_from_slice(extra_data);
+        buf.extend_from_slice(&[0u8; 17]); // clockInfo
+        buf.extend_from_slice(&[0u8; 8]); // firmwareVersion
+        // One PCR selection: SHA256, PCR 0
+        buf.extend_from_slice(&1u32.to_be_bytes()); // count
+        buf.extend_from_slice(&TPM_ALG_SHA256.to_be_bytes());
+        buf.push(1); // sizeOfSelect
+        buf.push(0b0000_0001); // PCR 0
+        buf.extend_from_slice(&(pcr_digest.len() as u16).to_be_bytes());
+        buf.extend_from_slice(pcr_digest);
+        buf
+    }
+
+    fn build_rsa_tpmt_sig(sig_bytes: &[u8]) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&TPM_ALG_RSASSA.to_be_bytes());
+        out.extend_from_slice(&TPM_ALG_SHA256.to_be_bytes());
+        out.extend_from_slice(&(sig_bytes.len() as u16).to_be_bytes());
+        out.extend_from_slice(sig_bytes);
+        out
+    }
+
+    fn enroll_req(data: serde_json::Value, config: serde_json::Value) -> EnrollRequest {
+        EnrollRequest {
+            principal_id: "p1".to_owned(),
+            data,
+            now: 0,
+            config,
+        }
+    }
+    fn auth_req(
+        proof: serde_json::Value,
+        cs: Option<Vec<u8>>,
+        cm: Option<serde_json::Value>,
+    ) -> AuthRequest {
+        AuthRequest {
+            proof,
+            challenge_state: cs,
+            credential_material: cm,
+            now: 0,
+            config: json!({}),
+        }
+    }
+    fn activate_req(cm: serde_json::Value, proof: serde_json::Value) -> ActivateRequest {
+        ActivateRequest {
+            principal_id: "p1".to_owned(),
+            credential_id: "c1".to_owned(),
+            credential_material: cm,
+            proof,
+            now: 0,
+            config: json!({}),
+        }
+    }
+
+    #[test]
+    fn kind_and_capabilities() {
+        let m = TpmMethod::new();
+        assert_eq!(m.kind(), "trustedPlatformModule");
+        let c = m.capabilities();
+        assert!(c.requires_activation && c.requires_challenge && c.requires_resolve);
+    }
+
+    #[test]
+    fn default_constructs() {
+        let _ = <TpmMethod as Default>::default();
+    }
+
+    #[tokio::test]
+    async fn challenge_echoes_entropy() {
+        let resp = TpmMethod::new()
+            .challenge(ChallengeRequest {
+                hint: None,
+                entropy: vec![0xab, 0xcd],
+                now: 0,
+                config: json!({}),
+            })
+            .await
+            .unwrap();
+        assert_eq!(resp.challenge_state, vec![0xab, 0xcd]);
+        assert_eq!(resp.client_payload["nonce"], "abcd");
+    }
+
+    #[tokio::test]
+    async fn resolve_returns_ek_hash() {
+        let (_, ek_pem) = rsa_keypair();
+        let ek_der = pem_to_der(&ek_pem).unwrap();
+        let resp = TpmMethod::new()
+            .resolve(ResolveRequest {
+                proof: json!({
+                    "ek_pubkey_pem": ek_pem, "ak_pubkey_pem": "x",
+                    "quote": "", "signature": ""
+                }),
+                config: json!({}),
+            })
+            .await
+            .unwrap();
+        assert_eq!(resp, sha256_hex(&ek_der));
+    }
+
+    #[tokio::test]
+    async fn resolve_rejects_bad_proof() {
+        let err = TpmMethod::new()
+            .resolve(ResolveRequest {
+                proof: json!({}),
+                config: json!({}),
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidProof(_)));
+    }
+
+    #[tokio::test]
+    async fn enroll_succeeds_end_to_end() {
+        let (_, ek_pem) = rsa_keypair();
+        let (ak_priv, _) = rsa_keypair();
+        let ak_pub = RsaPublicKey::from(&ak_priv);
+        let ak_2b = build_ak_tpm2b(&ak_pub);
+        let ak_2b_b64 = base64_encode(ak_2b.clone());
+
+        let resp = TpmMethod::new()
+            .enroll(enroll_req(
+                json!({
+                    "ek_pubkey_pem": ek_pem,
+                    "ak_public_tpm2b_b64": ak_2b_b64,
+                }),
+                json!({}),
+            ))
+            .await
+            .unwrap();
+
+        assert!(matches!(resp.status, PrincipalStatus::Pending));
+        let ek_der = pem_to_der(&ek_pem).unwrap();
+        assert_eq!(resp.lookup_key, sha256_hex(&ek_der));
+
+        let payload = resp.client_payload.unwrap();
+        assert!(payload.get("credential_blob").is_some());
+        assert!(payload.get("secret").is_some());
+
+        // Material round-trips and carries the derived AK name.
+        let expected_name = ak_name_from_tpm2b(&ak_2b);
+        assert_eq!(
+            resp.secret_material["ak_name_hex"],
+            encode_hex(&expected_name)
+        );
+        assert_eq!(resp.secret_material["require_ek_cert"], false);
+    }
+
+    #[tokio::test]
+    async fn enroll_rejects_missing_fields() {
+        let err = TpmMethod::new()
+            .enroll(enroll_req(json!({}), json!({})))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidEnrollmentData(_)));
+    }
+
+    #[tokio::test]
+    async fn enroll_rejects_bad_ek() {
+        let err = TpmMethod::new()
+            .enroll(enroll_req(
+                json!({ "ek_pubkey_pem": "nope", "ak_public_tpm2b_b64": "AAAA" }),
+                json!({}),
+            ))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidEnrollmentData(_)));
+    }
+
+    #[tokio::test]
+    async fn enroll_rejects_bad_ak_b64() {
+        let (_, ek_pem) = rsa_keypair();
+        let err = TpmMethod::new()
+            .enroll(enroll_req(
+                json!({ "ek_pubkey_pem": ek_pem, "ak_public_tpm2b_b64": "!!!" }),
+                json!({}),
+            ))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidEnrollmentData(_)));
+    }
+
+    #[tokio::test]
+    async fn enroll_require_ek_cert_without_cert_fails() {
+        let (_, ek_pem) = rsa_keypair();
+        let (ak_priv, _) = rsa_keypair();
+        let ak_2b_b64 = base64_encode(build_ak_tpm2b(&RsaPublicKey::from(&ak_priv)));
+        let err = TpmMethod::new()
+            .enroll(enroll_req(
+                json!({
+                    "ek_pubkey_pem": ek_pem,
+                    "ak_public_tpm2b_b64": ak_2b_b64,
+                    "require_ek_cert": true
+                }),
+                json!({}),
+            ))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidEnrollmentData(_)));
+    }
+
+    fn material_json(ek_pem: &str, ak_pem: &str, secret_hash: &str) -> serde_json::Value {
+        json!({
+            "ek_pubkey_pem": ek_pem, "ek_cert_pem": null, "require_ek_cert": false,
+            "expected_pcrs": null, "ak_pubkey_pem": ak_pem, "ak_name_hex": "00",
+            "activation_secret_hash": secret_hash
+        })
+    }
+
+    #[tokio::test]
+    async fn activate_accepts_correct_secret() {
+        let secret = b"the-secret".to_vec();
+        let mat = material_json("e", "a", &sha256_hex(&secret));
+        let resp = TpmMethod::new()
+            .activate(activate_req(
+                mat,
+                json!({ "recovered_secret": base64_encode(secret) }),
+            ))
+            .await
+            .unwrap();
+        assert!(resp.activated);
+    }
+
+    #[tokio::test]
+    async fn activate_rejects_wrong_secret() {
+        let mat = material_json("e", "a", &sha256_hex(b"real"));
+        let err = TpmMethod::new()
+            .activate(activate_req(
+                mat,
+                json!({ "recovered_secret": base64_encode(b"wrong".to_vec()) }),
+            ))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::ActivationFailed(_)));
+    }
+
+    #[tokio::test]
+    async fn activate_rejects_bad_material() {
+        let err = TpmMethod::new()
+            .activate(activate_req(
+                json!({}),
+                json!({ "recovered_secret": "AAAA" }),
+            ))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::Internal(_)));
+    }
+
+    #[tokio::test]
+    async fn activate_rejects_non_b64_secret() {
+        let mat = material_json("e", "a", &sha256_hex(b"x"));
+        let err = TpmMethod::new()
+            .activate(activate_req(mat, json!({ "recovered_secret": "!!!" })))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidProof(_)));
+    }
+
+    /// Build a complete, valid auth request: EK matches material, AK signs a
+    /// quote whose extraData == nonce.
+    fn valid_auth_setup(
+        nonce: &[u8],
+        pcr_digest: &[u8],
+        expected_pcrs: Option<&serde_json::Value>,
+        pcrs_in_proof: Option<serde_json::Value>,
+    ) -> (serde_json::Value, Vec<u8>, serde_json::Value) {
+        let (_, ek_pem) = rsa_keypair();
+        let (ak_priv, ak_pem) = rsa_keypair();
+
+        let quote = build_tpms_attest(nonce, pcr_digest);
+        let signing_key = Pkcs1v15SigningKey::<Sha256>::new(ak_priv);
+        let sig = signing_key.sign(&quote).to_bytes();
+        let tpmt_sig = build_rsa_tpmt_sig(&sig);
+
+        let mut proof = json!({
+            "ek_pubkey_pem": ek_pem,
+            "ak_pubkey_pem": ak_pem,
+            "quote": base64_encode(quote),
+            "signature": base64_encode(tpmt_sig),
+        });
+        if let Some(p) = pcrs_in_proof {
+            proof["pcrs"] = p;
+        }
+
+        let material = json!({
+            "ek_pubkey_pem": ek_pem, "ek_cert_pem": null, "require_ek_cert": false,
+            "expected_pcrs": expected_pcrs, "ak_pubkey_pem": ak_pem,
+            "ak_name_hex": "00", "activation_secret_hash": sha256_hex(b"x")
+        });
+        (proof, nonce.to_vec(), material)
+    }
+
+    #[tokio::test]
+    async fn authenticate_succeeds_without_pcrs() {
+        let nonce = vec![1, 2, 3, 4];
+        let (proof, cs, mat) = valid_auth_setup(&nonce, &[0u8; 32], None, None);
+        let ek_pem = proof["ek_pubkey_pem"].as_str().unwrap().to_owned();
+
+        let resp = TpmMethod::new()
+            .authenticate(auth_req(proof, Some(cs), Some(mat)))
+            .await
+            .unwrap();
+
+        let ek_der = pem_to_der(&ek_pem).unwrap();
+        assert_eq!(resp.lookup_key, sha256_hex(&ek_der));
+        assert_eq!(
+            resp.audit_metadata["ek_sha256_prefix"],
+            sha256_hex(&ek_der).chars().take(16).collect::<String>()
+        );
+    }
+
+    #[tokio::test]
+    async fn authenticate_succeeds_with_pcr_policy() {
+        // pcrDigest must equal SHA256(pcr0_value) for the single PCR-0 selection.
+        let pcr0 = [0xAAu8; 32];
+        let digest = Sha256::digest(pcr0);
+        let pcrs = json!({ "0": "aa".repeat(32) });
+        let expected = json!({ "0": "aa".repeat(32) });
+
+        let nonce = vec![9, 9];
+        let (proof, cs, mat) = valid_auth_setup(&nonce, &digest, Some(&expected), Some(pcrs));
+
+        let resp = TpmMethod::new()
+            .authenticate(auth_req(proof, Some(cs), Some(mat)))
+            .await
+            .unwrap();
+        assert!(!resp.lookup_key.is_empty());
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_pcr_policy_without_pcrs_sent() {
+        let pcr0 = [0xAAu8; 32];
+        let digest = Sha256::digest(pcr0);
+        let expected = json!({ "0": "aa".repeat(32) });
+        let nonce = vec![1];
+        // No pcrs in proof.
+        let (proof, cs, mat) = valid_auth_setup(&nonce, &digest, Some(&expected), None);
+
+        let err = TpmMethod::new()
+            .authenticate(auth_req(proof, Some(cs), Some(mat)))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::VerificationFailed(_)));
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_nonce_mismatch() {
+        let (proof, _cs, mat) = valid_auth_setup(&[1, 2, 3], &[0u8; 32], None, None);
+        // Hand a different challenge_state than what's baked into the quote.
+        let err = TpmMethod::new()
+            .authenticate(auth_req(proof, Some(vec![9, 9, 9]), Some(mat)))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::VerificationFailed(_)));
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_bad_signature() {
+        let nonce = vec![1, 2, 3, 4];
+        let (mut proof, cs, mat) = valid_auth_setup(&nonce, &[0u8; 32], None, None);
+        // Corrupt the signature (still valid base64, wrong bytes).
+        proof["signature"] = json!(base64_encode(build_rsa_tpmt_sig(&[0xFFu8; 256])));
+        let err = TpmMethod::new()
+            .authenticate(auth_req(proof, Some(cs), Some(mat)))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::VerificationFailed(_)));
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_ek_mismatch() {
+        let nonce = vec![1];
+        let (mut proof, cs, mat) = valid_auth_setup(&nonce, &[0u8; 32], None, None);
+        let (_, other_ek) = rsa_keypair();
+        proof["ek_pubkey_pem"] = json!(other_ek);
+        let err = TpmMethod::new()
+            .authenticate(auth_req(proof, Some(cs), Some(mat)))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::VerificationFailed(_)));
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_missing_challenge_state() {
+        let (proof, _cs, mat) = valid_auth_setup(&[1], &[0u8; 32], None, None);
+        let err = TpmMethod::new()
+            .authenticate(auth_req(proof, None, Some(mat)))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::Internal(_)));
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_missing_material() {
+        let (proof, cs, _mat) = valid_auth_setup(&[1], &[0u8; 32], None, None);
+        let err = TpmMethod::new()
+            .authenticate(auth_req(proof, Some(cs), None))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::Internal(_)));
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_non_b64_quote() {
+        let (mut proof, cs, mat) = valid_auth_setup(&[1], &[0u8; 32], None, None);
+        proof["quote"] = json!("!!!");
+        let err = TpmMethod::new()
+            .authenticate(auth_req(proof, Some(cs), Some(mat)))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidProof(_)));
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_unparseable_quote() {
+        let (mut proof, cs, mat) = valid_auth_setup(&[1], &[0u8; 32], None, None);
+        proof["quote"] = json!(base64_encode(b"garbage".to_vec()));
+        let err = TpmMethod::new()
+            .authenticate(auth_req(proof, Some(cs), Some(mat)))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::VerificationFailed(_)));
+    }
+}

@@ -4,6 +4,10 @@ use actix_web::App;
 use actix_web::HttpServer;
 use actix_web::rt::{net::TcpStream, spawn, task::JoinHandle, time};
 use actix_web::web::Data;
+use decodering_auth::api_key::ApiKeyMethod;
+use decodering_auth::aws::auth::AwsMethod;
+use decodering_auth::tpm::auth::TpmMethod;
+use decodering_core::auth::registry::AuthRegistry;
 use decodering_db::sqlite::SqliteDatabase;
 use decodering_raft::Raft;
 use decodering_server::routes::config::config_app;
@@ -31,6 +35,11 @@ pub async fn spawn_node(id: u64) -> Result<Node, Box<dyn std::error::Error + Sen
     let config = test_config();
     init_tracing_once(&config, &addr);
 
+    let mut registry = AuthRegistry::default();
+    registry.register(Box::new(ApiKeyMethod::new()));
+    registry.register(Box::new(TpmMethod::new()));
+    registry.register(Box::new(AwsMethod::new()));
+
     let (orchestrator, app_data) = sqlite_raft_storage(&config, id, &addr)
         .await?
         .ok_or("sqlite_raft_storage returned None")?;
@@ -44,12 +53,14 @@ pub async fn spawn_node(id: u64) -> Result<Node, Box<dyn std::error::Error + Sen
     let config_data = Data::new(config);
     let app_data_wrapper = Data::new(app_data);
     let orchestrator_data = Data::new(orchestrator);
+    let auth_registry_data = Data::new(registry);
 
     let server = HttpServer::new(move || {
         App::new()
             .app_data(config_data.clone())
             .app_data(app_data_wrapper.clone())
             .app_data(orchestrator_data.clone())
+            .app_data(auth_registry_data.clone())
             .configure(config_app::<SqliteDatabase>)
     })
     .workers(1)

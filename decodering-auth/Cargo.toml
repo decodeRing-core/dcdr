@@ -26,5 +26,8 @@ rustls-webpki.workspace = true
 rustls-pki-types.workspace = true
 reqwest.workspace = true
 
+[dev-dependencies]
+tokio.workspace = true
+
 [lints]
 workspace = true

@@ -162,7 +162,7 @@ async fn test_revoke_app_grant_app() -> Result<(), Box<dyn std::error::Error + S
 }
 
 #[actix_web::test]
-async fn test_create_tpm_challenge() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn test_create_auth_challenge() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let n1 = spawn_node(1).await?;
 
     step_init_raft_addr(&n1.addr).await?;
@@ -179,7 +179,7 @@ async fn test_create_tpm_challenge() -> Result<(), Box<dyn std::error::Error + S
     unlock_system_addr_success(&n1.addr, &shards).await?;
     status_system_addr_unlocked(&n1.addr).await?;
 
-    create_tpm_challenge_addr_success(&n1.addr, &token).await?;
+    create_auth_challenge_addr_success(&n1.addr, &token).await?;
     Ok(())
 }
 
@@ -273,9 +273,9 @@ pub async fn create_app_user_api_key_addr_success(
 
     assert!(body["data"].is_object());
 
-    assert!(body["data"]["token"].is_string());
+    assert!(body["data"]["key"].is_string());
     assert!(body["data"]["principal_id"].is_string());
-    let token = serde_json::from_value(body["data"]["token"].clone())?;
+    let token = serde_json::from_value(body["data"]["key"].clone())?;
     let principal_id = serde_json::from_value(body["data"]["principal_id"].clone())?;
     Ok((token, principal_id))
 }
@@ -395,26 +395,28 @@ pub async fn list_apps_addr_success(
     Ok(())
 }
 
-pub async fn create_tpm_challenge_addr(
+pub async fn create_auth_challenge_addr(
     addr: &str,
     token: &str,
     expected_status: u16,
 ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
     let resp = reqwest::Client::new()
-        .post(format!("http://{addr}/app/user/tpm/challenge"))
+        .post(format!("http://{addr}/app/user/auth/challenge"))
         .bearer_auth(token)
-        .json(&serde_json::json!({}))
+        .json(&serde_json::json!({
+            "credential_kind": "trustedPlatformModule",
+        }))
         .send()
         .await?;
     assert_eq!(resp.status(), expected_status);
     Ok(resp)
 }
 
-pub async fn create_tpm_challenge_addr_success(
+pub async fn create_auth_challenge_addr_success(
     addr: &str,
     token: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let resp = create_tpm_challenge_addr(addr, token, 200).await?;
+    let resp = create_auth_challenge_addr(addr, token, 200).await?;
 
     let body: serde_json::Value = resp.json().await?;
     assert_eq!(body["osl_version"], "1.0.0");

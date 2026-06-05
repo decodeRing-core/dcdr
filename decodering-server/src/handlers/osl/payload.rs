@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde_json::Value;
+use utoipa::ToSchema;
 
 #[derive(Deserialize, Debug)]
 pub struct PutSecretRequestData {
@@ -22,7 +23,7 @@ pub struct Options {
     pub create_only: bool,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct GetSecretRequestData {
     pub app_id: String,
     pub secret_name: String,

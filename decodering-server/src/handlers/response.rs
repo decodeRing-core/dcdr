@@ -1,9 +1,12 @@
+#![allow(clippy::option_if_let_else)]
+
 use std::fmt;
 
 use actix_web::body::BoxBody;
 use actix_web::http::StatusCode;
 use actix_web::{HttpRequest, HttpResponse, Responder, ResponseError};
 use serde::Serialize;
+use utoipa::ToSchema;
 
 use crate::error::ErrorReason;
 
@@ -15,7 +18,7 @@ pub enum ApiStatus {
     Error(ErrorStatus),
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum SuccessStatus {
     SystemInitialized,
@@ -126,7 +129,7 @@ impl ResponseError for ErrorStatus {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiResponse<T> {
     osl_version: &'static str,
 
@@ -146,7 +149,7 @@ pub struct ApiResponse<T> {
     http_status: StatusCode,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiErrorBody {
     code: &'static str,
     message: &'static str,

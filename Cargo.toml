@@ -81,11 +81,14 @@ aws-config = { version = "1.8.18", features = ["credentials-login"] }
 aws-sigv4 = "1.4.5"
 aws-credential-types = { version = "1.2.14", features = [] }
 async-trait = "0.1.89"
+utoipa = { version = "5.5.0", features = ["preserve_order"] }
+utoipa-swagger-ui = { version = "9", features = ["actix-web"] }
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
 cargo = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
 
 unwrap_used = "deny"
 expect_used = "deny"

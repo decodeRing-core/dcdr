@@ -7,6 +7,7 @@ use decodering_core::{
 };
 use serde::Serialize;
 use serde_json::Value;
+use utoipa::ToSchema;
 
 use crate::handlers::response::{ApiResponse, ApiStatus, SuccessStatus};
 
@@ -28,15 +29,15 @@ impl ApiPutSecretResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiGetSecretResponse {
     #[serde(flatten)]
     data: Value,
     metadata: ApiGetSecretMetadataResponse,
 }
 
-#[derive(Serialize)]
-struct ApiGetSecretMetadataResponse {
+#[derive(Serialize, ToSchema)]
+pub struct ApiGetSecretMetadataResponse {
     resolved_backend_ref: String,
     provider_version_id: String,
 }

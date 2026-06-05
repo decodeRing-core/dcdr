@@ -27,6 +27,8 @@ base64.workspace = true
 serde_with.workspace = true
 zeroize.workspace = true
 uuid.workspace = true
+utoipa.workspace = true
+utoipa-swagger-ui.workspace = true
 
 [dev-dependencies]
 reqwest.workspace = true
