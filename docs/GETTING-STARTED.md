@@ -470,6 +470,54 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
 }'
 ```
 
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "token": "tok_xxx",
+    "expires_at": 1780220675
+  }
+}
+```
+
+### AWS Role
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
+  --header 'User-Agent: yaak' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "credential_kind": "awsIdentity",
+  "proof": {
+  "body": "Action=GetCallerIdentity&Version=2011-06-15",
+  "headers": {
+    "authorization": "AWS4-HMAC-SHA256 Credential=yyy/20260604/us-east-1/sts/aws4_request, SignedHeaders=content-type;host;x-amz-date;x-amz-security-token, Signature=0373cee2c987f48995ab917daf7c4ba1677eecc45a1d21067e3e50003e2ca2d2",
+    "content-type": "application/x-www-form-urlencoded",
+    "host": "sts.amazonaws.com",
+    "x-amz-date": "20260604T104118Z",
+    "x-amz-security-token": "xxx"
+  },
+  "method": "POST",
+  "url": "https://sts.amazonaws.com/"
+  }
+}'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "token": "tok_xxx",
+    "expires_at": 1780220675
+  }
+}
+```
+
 ### Grant application access to user/principal
 
 ```sh
