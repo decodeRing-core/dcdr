@@ -1,4 +1,5 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::collections::HashMap;
+use std::sync::OnceLock;
 
 use reqwest::Client;
 
