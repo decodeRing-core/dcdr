@@ -272,7 +272,7 @@ curl -X POST 'http://127.0.0.1:21001/app/create' \
 
 **Requires root token** obtained when intializing the system.
 
-### Api Key
+#### Api Key
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/create' \
@@ -300,15 +300,15 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 }
 ```
 
-### TPM
+#### TPM
 
 todo!()
 
-### AWS Role
+#### AWS Role
 
 todo!()
 
-#### Authenticate user/principal for application to obtain short term token to access OSL endpoints
+### Authenticate user/principal for application to obtain short term token to access OSL endpoints
 
 `key` is your user's api key returned from `/app/user/create` (an admin needs to create this for you)
 
