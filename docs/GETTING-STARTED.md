@@ -4,7 +4,7 @@
 
 ## **Raft (3-node cluster)**
 
-Assuming you followed the steps above to configure everything and have been able to start a node without problems, here's a complete example of a Raft cluster with 3 nodes and OpenBao vault and AWS Secrets Manager configured using the default plugins. We'll create an app and put and retrieve secrets in each backend using the following identity methods:
+Here's a complete example of a Raft cluster with 3 nodes and OpenBao vault and AWS Secrets Manager configured using the default plugins. We'll create an app and call OSL put and get secrets in each backend using the following identity methods:
 
 - Api Key
 - vTPM
@@ -302,7 +302,10 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 
 #### TPM
 
-TPM requires a another step to activate the credential. [Go to TPM Activation](#tpm-activate)
+TPM requires a another step to activate the credential. [Go to TPM Activation](#tpm-activate).
+
+**Note** You will need to submit your own TPM data. The below is just an example.
+
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/create' \
@@ -350,6 +353,9 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 
 #### TPM Activate 
 
+**Note** You will need to submit your own recovered secret. The below is just an example.
+
+
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/auth/activate' \
   --header 'User-Agent: yaak' \
@@ -376,6 +382,9 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth/activate' \
 
 
 #### AWS Role
+
+**Note** You will need to create a role first with Amazon AWS. The below is just an example.
+
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/create' \
@@ -443,6 +452,8 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
 
 TPM authentication requires a nonce challenge to be verified. [Go to Auth Challenge](#auth-challenge)
 
+**Note** You will need to submit your own TPM data. The below is just an example.
+
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
   --header 'User-Agent: yaak' \
@@ -483,6 +494,8 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
 ```
 
 #### AWS Role
+
+**Note** You will need to submit your own AWS signature info. The below is just an example.
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
