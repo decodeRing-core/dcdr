@@ -38,19 +38,25 @@ Implements the OSL (Open Secrets Language) REST API and handles Raft node manage
 4. Create .env file with configuration. Adjust as needed.
 
 ```shell
-# Only `raft` is supported at this time.
-STORAGE_MODE=raft
+CLUSTER_MODE=single # single | raft
+STORAGE_BACKEND=postgres # sqlite | postgres
+
+DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/testdb" # required if cluster mode is set to single
+
+AUTO_MIGRATE=true   # default true; set false for controlled prod deploys
+
 SERVER_LOG_OUTPUT=both
-# For development only; use a persistent path in production.
 SERVER_LOG_DIR="/tmp"
 SERVER_LOG_PREFIX="decodering"
 SERVER_LOG_MAX_FILES=0
-# For development only; use a persistent path in production.
-RAFT_LOG_DIR="/tmp"
-RAFT_LOG_PREFIX="decodering"
+
+RAFT_LOG_DIR="/tmp" # required if cluster mode is set to raft
+RAFT_LOG_PREFIX="decodering" # required if cluster mode is set to raft
+
 TRACING_LEVEL=error,decodering=debug,extism=error,extism_pdk=error,tracing_actix_web=info
-# The plugins folder must exist. In this example it lives inside the dcdr-rs folder.
+
 PLUGIN_DIR="plugins"
+
 TPM_TRUST_DIR="/tmp"
 ```
 

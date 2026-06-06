@@ -42,30 +42,30 @@ impl FromStr for StorageBackend {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum StorageMode {
+pub enum ClusterMode {
     Raft,
     Single,
 }
 
 #[derive(Debug)]
-pub struct InvalidStorageMode(String);
+pub struct InvalidClusterMode(String);
 
-impl Display for InvalidStorageMode {
+impl Display for InvalidClusterMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "invalid storage mode '{}', expected single|raft", self.0)
+        write!(f, "invalid cluster mode '{}', expected single|raft", self.0)
     }
 }
 
-impl Error for InvalidStorageMode {}
+impl Error for InvalidClusterMode {}
 
-impl FromStr for StorageMode {
-    type Err = InvalidStorageMode;
+impl FromStr for ClusterMode {
+    type Err = InvalidClusterMode;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "raft" => Ok(Self::Raft),
             "single" => Ok(Self::Single),
-            other => Err(InvalidStorageMode(other.to_owned())),
+            other => Err(InvalidClusterMode(other.to_owned())),
         }
     }
 }
@@ -114,14 +114,14 @@ where
 }
 
 fn init_config() -> Result<Config, ConfigError> {
-    let storage_mode: StorageMode = env_parsed("STORAGE_MODE")?;
+    let cluster_mode: ClusterMode = env_parsed("STORAGE_MODE")?;
 
-    let storage = match storage_mode {
-        StorageMode::Raft => StorageConfig::Raft {
+    let storage = match cluster_mode {
+        ClusterMode::Raft => StorageConfig::Raft {
             log_dir: env_var("RAFT_LOG_DIR")?,
             log_prefix: env_var("RAFT_LOG_PREFIX")?,
         },
-        StorageMode::Single => StorageConfig::Single {
+        ClusterMode::Single => StorageConfig::Single {
             database_url: env_var("DATABASE_URL")?,
         },
     };
