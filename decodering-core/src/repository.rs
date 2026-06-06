@@ -246,8 +246,8 @@ pub trait AuditRepository: Send {
 #[derive(Debug, Clone)]
 pub struct Shamir {
     pub id: i64,
-    pub total_shares: i16,
-    pub threshold: i16,
+    pub total_shares: i32,
+    pub threshold: i32,
     pub validation_hash: Vec<u8>,
     pub created_at: i64,
 }

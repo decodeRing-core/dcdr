@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
     username      TEXT NOT NULL UNIQUE,
     email         TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    is_admin      INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
+    is_admin      BOOLEAN NOT NULL DEFAULT false,
     created_at    BIGINT NOT NULL
 );
 
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS secret_backend_mapping (
     secret_name TEXT NOT NULL,
     backend     TEXT NOT NULL,
     mount_path  TEXT NOT NULL,
-    tainted     INTEGER NOT NULL DEFAULT 0 CHECK (tainted IN (0, 1)),
+    tainted     BOOLEAN NOT NULL DEFAULT false,
     created_at  BIGINT NOT NULL,
     updated_at  BIGINT NOT NULL,
     PRIMARY KEY (app_id, secret_name)
@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
     after_state         TEXT,  -- JSON
     metadata            TEXT,  -- JSON
 
-    revertible          INTEGER NOT NULL DEFAULT 1,  -- boolean as 0/1
+    revertible          BOOLEAN NOT NULL DEFAULT true,
     undone_by           BIGINT REFERENCES audit_log(id),
     undoes              BIGINT REFERENCES audit_log(id),
 

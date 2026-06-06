@@ -12,7 +12,7 @@ pub struct PostgresAuditRepository<'a> {
 
 impl AuditRepository for PostgresAuditRepository<'_> {
     async fn insert(&mut self, params: &AuditEntry) -> Result<i64, DbError> {
-        let id = sqlx::query_scalar::<_, i64>(
+        let id = sqlx::query_scalar(
             "INSERT INTO audit_log
                 (
                 raft_index,
