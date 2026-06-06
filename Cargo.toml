@@ -23,7 +23,7 @@ decodering-raft = { path = "decodering-raft" }
 decodering-db = { path = "decodering-db" }
 decodering-auth = { path = "decodering-auth" }
 
-serde_with = { version = "3.20.0", features = ["base64", "macros"] }
+serde_with = { version = "3.21.0", features = ["base64", "macros"] }
 # Targeting a specific rusqlite version to match the same libsqlite3-sys version used by sqlx
 # Using backup API to install a new snapshot.
 rusqlite = { version = "~0.39.0", features = ["bundled", "backup"] }
@@ -31,7 +31,7 @@ rusqlite = { version = "~0.39.0", features = ["bundled", "backup"] }
 tokio = { version = "1.52.3", features = ["full"] }
 serde = "1.0.228"
 serde_json = { version = "1.0.150", features = ["preserve_order"] }
-extism = "1.21.0"
+extism = "1.30.0"
 serde_norway = "0.9.42"
 dotenvy = "0.15.7"
 actix-web = "4.13.0"

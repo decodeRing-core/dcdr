@@ -13,7 +13,7 @@ use decodering_core::tx::Database;
 use decodering_db::postgres::PostgresDatabase;
 use decodering_db::sqlite::SqliteDatabase;
 use decodering_server::app_data::AppData;
-use decodering_server::config::{Config, StorageConfig, load_config};
+use decodering_server::config::{Config, StorageBackend, StorageConfig, load_config};
 use decodering_server::logger::init_tracing;
 use decodering_server::middleware::PropagateRequestId;
 use decodering_server::routes::config::config_app;
@@ -59,18 +59,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
             log_prefix,
         } => {
             let raft_log_dir = format!("{}/{}.{}.db", log_dir, log_prefix, options.addr);
-            let app = AppData::<SqliteDatabase>::init_raft(options.id, raft_log_dir, &options.addr)
+            let app = AppData::<SqliteDatabase>::new_raft(
+                options.id,
+                raft_log_dir,
+                &options.addr,
+                config.auto_migrate,
+            )
+            .await?;
+            run_server(config, app, orchestrator, registry, options.addr)
+                .await
+                .map_err(Into::into)
+        }
+        StorageConfig::Single { database_url } => match config.storage_backend {
+            StorageBackend::Postgres => {
+                let app = AppData::<PostgresDatabase>::new(
+                    database_url,
+                    options.addr.clone(),
+                    config.auto_migrate,
+                )
                 .await?;
-            run_server(config, app, orchestrator, registry, options.addr)
-                .await
-                .map_err(Into::into)
-        }
-        StorageConfig::Postgres { database_url } => {
-            let app = AppData::<PostgresDatabase>::new(database_url, options.addr.clone()).await?;
-            run_server(config, app, orchestrator, registry, options.addr)
-                .await
-                .map_err(Into::into)
-        }
+                run_server(config, app, orchestrator, registry, options.addr)
+                    .await
+                    .map_err(Into::into)
+            }
+            StorageBackend::Sqlite => {
+                let app = AppData::<SqliteDatabase>::new(
+                    database_url,
+                    options.addr.clone(),
+                    config.auto_migrate,
+                )
+                .await?;
+                run_server(config, app, orchestrator, registry, options.addr)
+                    .await
+                    .map_err(Into::into)
+            }
+        },
     }
 }
 

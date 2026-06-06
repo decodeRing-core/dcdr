@@ -6,6 +6,7 @@ use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{PgPool, Postgres, Transaction};
 
 use crate::error::map_sqlx;
+use crate::migration::migrate_postgres;
 use crate::postgres::api_key::PostgresApiKeysRepository;
 use crate::postgres::app::PostgresAppRepository;
 use crate::postgres::audit::PostgresAuditRepository;
@@ -151,13 +152,17 @@ pub struct PostgresDatabase {
 }
 
 impl PostgresDatabase {
-    pub async fn connect(url: &str) -> Result<Self, DbError> {
+    pub async fn connect(url: &str, auto_migrate: bool) -> Result<Self, DbError> {
         let opts = PgConnectOptions::from_str(url).map_err(map_sqlx)?;
         let pool = PgPoolOptions::new()
             .max_connections(8)
             .connect_with(opts)
             .await
             .map_err(map_sqlx)?;
+
+        migrate_postgres(&pool, auto_migrate)
+            .await
+            .map_err(|e| DbError::Other(e.to_string()))?;
         Ok(Self { pool })
     }
 }

@@ -6,6 +6,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 use std::str::FromStr;
 
 use crate::error::map_sqlx;
+use crate::migration::migrate_sqlite;
 use crate::sqlite::api_key::SqliteApiKeysRepository;
 use crate::sqlite::app::SqliteAppRepository;
 use crate::sqlite::audit::SqliteAuditRepository;
@@ -16,7 +17,7 @@ use crate::sqlite::principal::SqlitePrincipalRepository;
 use crate::sqlite::principal_app_grant::SqlitePrincipalAppGrantRepository;
 use crate::sqlite::principal_credential::SqlitePrincipalCredentialRepository;
 use crate::sqlite::principal_token::SqlitePrincipalTokenRepository;
-use crate::sqlite::schema::SCHEMA;
+//use crate::sqlite::schema::SCHEMA;
 use crate::sqlite::secret_mapping::SqliteSecretMappingRepository;
 use crate::sqlite::shamir::SqliteShamirRepository;
 use crate::sqlite::user::SqliteUserRepository;
@@ -31,7 +32,6 @@ mod principal;
 mod principal_app_grant;
 mod principal_credential;
 mod principal_token;
-mod schema;
 mod secret_mapping;
 mod shamir;
 mod user;
@@ -166,7 +166,7 @@ pub struct SqliteDatabase {
 }
 
 impl SqliteDatabase {
-    pub async fn connect(url: &str) -> Result<Self, DbError> {
+    pub async fn connect(url: &str, auto_migrate: bool) -> Result<Self, DbError> {
         let opts = SqliteConnectOptions::from_str(url)
             .map_err(map_sqlx)?
             .create_if_missing(true)
@@ -179,7 +179,9 @@ impl SqliteDatabase {
             .await
             .map_err(map_sqlx)?;
 
-        sqlx::query(SCHEMA).execute(&pool).await.map_err(map_sqlx)?;
+        migrate_sqlite(&pool, auto_migrate)
+            .await
+            .map_err(|e| DbError::Other(e.to_string()))?;
 
         Ok(Self { pool })
     }

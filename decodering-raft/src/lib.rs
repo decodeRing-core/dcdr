@@ -43,6 +43,7 @@ pub struct RaftComponents {
 pub async fn setup_raft_node<P>(
     node_id: NodeId,
     dir: P,
+    auto_migrate: bool,
 ) -> Result<RaftComponents, Box<dyn std::error::Error + Send + Sync + 'static>>
 where
     P: AsRef<Path> + Send + Sync,
@@ -59,7 +60,7 @@ where
     //let Ok(validated_config) = validated_config?;
     let config = Arc::new(validated_config);
 
-    let (log_store, state_machine_store, sqlite_db) = new_storage(&dir).await?;
+    let (log_store, state_machine_store, sqlite_db) = new_storage(&dir, auto_migrate).await?;
 
     let network = NetworkFactory::new();
     let raft = openraft::Raft::new(

@@ -8,9 +8,43 @@ use crate::logger::LogOutput;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "lowercase")]
+pub enum StorageBackend {
+    Sqlite,
+    Postgres,
+}
+
+#[derive(Debug)]
+pub struct InvalidStorageBackend(String);
+
+impl Display for InvalidStorageBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "invalid storage backend '{}', expected sqlite|postgres",
+            self.0
+        )
+    }
+}
+
+impl Error for InvalidStorageBackend {}
+
+impl FromStr for StorageBackend {
+    type Err = InvalidStorageBackend;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "sqlite" => Ok(Self::Sqlite),
+            "postgres" => Ok(Self::Postgres),
+            other => Err(InvalidStorageBackend(other.to_owned())),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum StorageMode {
     Raft,
-    Postgres,
+    Single,
 }
 
 #[derive(Debug)]
@@ -18,11 +52,7 @@ pub struct InvalidStorageMode(String);
 
 impl Display for InvalidStorageMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "invalid storage mode '{}', expected raft|postgres",
-            self.0
-        )
+        write!(f, "invalid storage mode '{}', expected single|raft", self.0)
     }
 }
 
@@ -34,7 +64,7 @@ impl FromStr for StorageMode {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "raft" => Ok(Self::Raft),
-            "postgres" => Ok(Self::Postgres),
+            "single" => Ok(Self::Single),
             other => Err(InvalidStorageMode(other.to_owned())),
         }
     }
@@ -43,13 +73,15 @@ impl FromStr for StorageMode {
 #[derive(Debug, Clone)]
 pub enum StorageConfig {
     Raft { log_dir: String, log_prefix: String },
-    Postgres { database_url: String },
+    Single { database_url: String },
 }
 
 #[derive(Debug, Clone)]
 pub struct Config {
     pub plugin_dir: String,
     pub storage: StorageConfig,
+    pub storage_backend: StorageBackend,
+    pub auto_migrate: bool,
     pub server_log_output: LogOutput,
     pub server_log_dir: String,
     pub server_log_prefix: String,
@@ -89,7 +121,7 @@ fn init_config() -> Result<Config, ConfigError> {
             log_dir: env_var("RAFT_LOG_DIR")?,
             log_prefix: env_var("RAFT_LOG_PREFIX")?,
         },
-        StorageMode::Postgres => StorageConfig::Postgres {
+        StorageMode::Single => StorageConfig::Single {
             database_url: env_var("DATABASE_URL")?,
         },
     };
@@ -97,6 +129,8 @@ fn init_config() -> Result<Config, ConfigError> {
     Ok(Config {
         plugin_dir: env_var("PLUGIN_DIR")?,
         storage,
+        storage_backend: env_parsed("STORAGE_BACKEND")?,
+        auto_migrate: env_parsed("AUTO_MIGRATE")?,
         server_log_output: env_parsed("SERVER_LOG_OUTPUT")?,
         server_log_dir: env_var("SERVER_LOG_DIR")?,
         server_log_prefix: env_var("SERVER_LOG_PREFIX")?,

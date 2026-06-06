@@ -4,7 +4,7 @@ use std::sync::Once;
 use decodering_core::plugin::orchestrator::Orchestrator;
 use decodering_db::sqlite::SqliteDatabase;
 use decodering_server::app_data::AppData;
-use decodering_server::config::{Config, StorageConfig};
+use decodering_server::config::{Config, StorageBackend, StorageConfig};
 use decodering_server::logger::{LogOutput, init_tracing};
 
 pub mod raft;
@@ -16,6 +16,8 @@ pub fn test_config() -> Config {
             log_dir: format!("/tmp/decodering.test.{}", uuid::Uuid::new_v4()),
             log_prefix: "decodering.test".to_owned(),
         },
+        storage_backend: StorageBackend::Sqlite,
+        auto_migrate: true,
         plugin_dir: "./../plugins".into(),
         server_log_output: LogOutput::Both,
         server_log_dir: "/tmp".to_owned(),
@@ -48,10 +50,12 @@ pub async fn sqlite_raft_storage(
             log_prefix,
         } => {
             let raft_log_dir = format!("{log_dir}/{log_prefix}.{addr}.db");
-            let app = AppData::<SqliteDatabase>::init_raft(id, raft_log_dir, addr).await?;
+            let app =
+                AppData::<SqliteDatabase>::new_raft(id, raft_log_dir, addr, config.auto_migrate)
+                    .await?;
             Ok(Some((orchestrator, app)))
         }
-        StorageConfig::Postgres { .. } => {
+        StorageConfig::Single { .. } => {
             eprintln!("Skipping test: requires Raft storage");
             Ok(None)
         }

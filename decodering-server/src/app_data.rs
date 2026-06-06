@@ -20,12 +20,13 @@ pub struct AppData<D: Database> {
 }
 
 impl AppData<SqliteDatabase> {
-    pub async fn init_raft<P: AsRef<Path> + Send + Sync>(
+    pub async fn new_raft<P: AsRef<Path> + Send + Sync>(
         node_id: NodeId,
         dir: P,
         addr: &str,
+        auto_migrate: bool,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync + 'static>> {
-        let components = setup_raft_node(node_id, dir).await?;
+        let components = setup_raft_node(node_id, dir, auto_migrate).await?;
         Ok(Self {
             master_key: OnceLock::new(),
             addr: addr.to_owned(),
@@ -37,11 +38,24 @@ impl AppData<SqliteDatabase> {
             }),
         })
     }
+
+    pub async fn new(url: &str, addr: String, auto_migrate: bool) -> std::io::Result<Self> {
+        let db = SqliteDatabase::connect(url, auto_migrate)
+            .await
+            .map_err(std::io::Error::other)?;
+
+        Ok(Self {
+            master_key: OnceLock::new(),
+            addr,
+            db,
+            raft: None,
+        })
+    }
 }
 
 impl AppData<PostgresDatabase> {
-    pub async fn new(url: &str, addr: String) -> std::io::Result<Self> {
-        let db = PostgresDatabase::connect(url)
+    pub async fn new(url: &str, addr: String, auto_migrate: bool) -> std::io::Result<Self> {
+        let db = PostgresDatabase::connect(url, auto_migrate)
             .await
             .map_err(std::io::Error::other)?;
         Ok(Self {

@@ -388,6 +388,7 @@ impl<D: Database + 'static> RaftSnapshotBuilder<TypeConfig> for StateMachineStor
 
 pub async fn new_storage<P: AsRef<Path>>(
     db_path: P,
+    auto_migrate: bool,
 ) -> Result<
     (
         RocksLogStore<TypeConfig>,
@@ -413,7 +414,7 @@ pub async fn new_storage<P: AsRef<Path>>(
     // SQLite state machine via app-db
     let sqlite_path = base.join("state.db");
     let url = format!("sqlite://{}", sqlite_path.display());
-    let sqlite_db = SqliteDatabase::connect(&url).await?;
+    let sqlite_db = SqliteDatabase::connect(&url, auto_migrate).await?;
     let sm_store = StateMachineStore::new(sqlite_db.clone(), sqlite_path);
 
     Ok((log_store, sm_store, sqlite_db))
