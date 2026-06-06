@@ -1,7 +1,5 @@
 # Getting Started
 
-[TOC]
-
 ## **Raft (3-node cluster)**
 
 Here's a complete example of a Raft cluster with 3 nodes and OpenBao vault and AWS Secrets Manager configured using the default plugins. We'll create an app and call OSL put and get secrets in each backend using the following identity methods:
@@ -306,7 +304,6 @@ TPM requires a another step to activate the credential. [Go to TPM Activation](#
 
 **Note** You will need to submit your own TPM data. The below is just an example.
 
-
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/create' \
   --header 'User-Agent: yaak' \
@@ -351,10 +348,9 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 }
 ```
 
-#### TPM Activate 
+#### TPM Activate
 
 **Note** You will need to submit your own recovered secret. The below is just an example.
-
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/auth/activate' \
@@ -365,7 +361,7 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth/activate' \
   "credential_kind": "trustedPlatformModule",
   "principal_id": "019e919a-22d5-7483-9151-5fffff346a15",
   "credential_id": "019e919a-22e3-7b53-8e7f-02155ff20a42",
-  "proof": { 
+  "proof": {
       "recovered_secret": "upkRgrr+HjToV6eOJ2SFnQkachQ++Wtrb0DuqTYlGtw="
   }
 }
@@ -380,11 +376,9 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth/activate' \
 }
 ```
 
-
 #### AWS Role
 
 **Note** You will need to create a role first with Amazon AWS. The below is just an example.
-
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/create' \
@@ -416,7 +410,6 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 ```
 
 ### Authenticate user/principal for application to obtain short term token to access OSL endpoints
-
 
 #### Api Key
 

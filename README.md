@@ -1,7 +1,5 @@
 # **DecodeRing Rust Implementation**
 
-[TOC]
-
 ## **Overview**
 
 The project is organized into the following workspaces:
