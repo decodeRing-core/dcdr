@@ -158,7 +158,7 @@ rustflags = ["-C", "target-feature=-crt-static"]
 
 **All endpoints below require a root token or a short-term token**
 
-View OSL spec at https://gitlab.intra.decodering.org/core/osl
+View [OSL spec](https://github.com/decodeRing-core/osl) for more information
 
 Current implementation status
 
