@@ -99,7 +99,7 @@ impl PrincipalAppGrantRepository for PostgresPrincipalAppGrantRepository<'_> {
     ) -> Result<Vec<PrincipalAppGrant>, DbError> {
         let rows: Vec<PrincipalAppGrantRow> = match after_app_id {
             Some(cursor) => sqlx::query_as::<_, PrincipalAppGrantRow>(
-                "SELECT principal_id, app_id, granted_at, revoked_at, revoked_by
+                "SELECT principal_id, app_id, granted_at, granted_by, revoked_at, revoked_by
                  FROM principal_app_grants
                  WHERE principal_id = $1 AND app_id > $2
                  LIMIT $3",
@@ -108,7 +108,7 @@ impl PrincipalAppGrantRepository for PostgresPrincipalAppGrantRepository<'_> {
             .bind(cursor)
             .bind(limit),
             None => sqlx::query_as::<_, PrincipalAppGrantRow>(
-                "SELECT principal_id, app_id, granted_at, revoked_at, revoked_by
+                "SELECT principal_id, app_id, granted_at, granted_by, revoked_at, revoked_by
                  FROM principal_app_grants
                  WHERE principal_id = $1
                  LIMIT $2",

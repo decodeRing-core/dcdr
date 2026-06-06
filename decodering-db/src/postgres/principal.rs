@@ -68,7 +68,6 @@ impl PrincipalRepository for PostgresPrincipalRepository<'_> {
             WHERE pc.lookup_key = $1
                 AND pc.status = $2
                 AND p.status = $2
-                AND pg.revoked_at IS NULL
                 AND p.deleted_at IS NULL
                 AND (pc.expires_at IS NULL OR pc.expires_at > EXTRACT(EPOCH FROM NOW())::BIGINT)
                 AND pc.revoked_at IS NULL",
