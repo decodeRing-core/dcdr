@@ -17,6 +17,7 @@
 - [Quickstart](#quickstart)
 - [Installation](#installation)
   - [Compiling Plugins](#compiling-plugins)
+  - [Plugin Configuration](#plugin-configuration)
   - [Running Nodes](#running-nodes)
   - [Build Errors](#build-errors)
 - [Implementation Status](#implementation-status)
@@ -208,6 +209,61 @@ dcdr-rs
       |- openbao-rs.yaml
       |- aws-rs.yaml
 ```
+
+### Plugin Configuration
+
+Each plugin reads a set of config keys. These can be supplied two ways:
+
+- **Manifest YAML** — convenient, but stored in plaintext on disk. Use it for
+  non-sensitive values only (addresses, regions, mount paths).
+- **API** — credentials are passed at runtime and never written to the
+  manifest. Supply them via `/system/init` (runs once, at cluster
+  initialization) or `/system/plugin/config` (for updates after init).
+
+> [!WARNING]
+> Do not put secrets (`vault_token`, `aws_secret_access_key`, etc.) in the
+> manifest YAML. Pass them through the API instead.
+
+**OpenBao (`openbao-rs`)**
+
+| Key           | Required | Default  | Recommended source |
+| ------------- | :------: | -------- | ------------------ |
+| `vault_addr`  |    ✅    | —        | manifest           |
+| `kv_mount`    |    ❌    | `secret` | manifest           |
+| `vault_token` |    ✅    | —        | API (credential)   |
+
+**AWS Secrets Manager (`aws-rs`)**
+
+| Key                     | Required | Default | Recommended source |
+| ----------------------- | :------: | ------- | ------------------ |
+| `region`                |    ✅    | —       | manifest           |
+| `aws_access_key_id`     |    ✅    | —       | API (credential)   |
+| `aws_secret_access_key` |    ✅    | —       | API (credential)   |
+| `aws_session_token`     |    ❌    | —       | API (credential)   |
+
+Credentials are keyed by plugin name under `plugins_credentials`. Example using
+`/system/init`:
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/system/init' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "total_shares": 5,
+    "threshold": 2,
+    "plugins_credentials": {
+      "openbao-rs": {
+        "vault_token": "xxxx"
+      },
+      "aws-rs": {
+        "aws_access_key_id": "xxxx",
+        "aws_secret_access_key": "xxxx"
+      }
+    }
+  }'
+```
+
+Because `/system/init` can only be run once, use `/system/plugin/config` to add
+or rotate credentials afterward.
 
 ### Running Nodes
 
