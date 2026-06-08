@@ -1,12 +1,27 @@
 <a name="top"></a>
 [![decodeRing](https://org-web1.decodering.org/images/dcdr_banner.png)](https://decodering.org)
 
-![Rust](https://img.shields.io/badge/Rust-orange) ![Rust MSRV](https://img.shields.io/badge/MSRV-1.95-orange)
+![Rust](https://img.shields.io/badge/Rust-1.96-orange) ![Rust MSRV](https://img.shields.io/badge/MSRV-1.95-orange)
 
 > [!IMPORTANT]
 > This is an alpha release and is not intended for production use. There are a number of features that need to be completed before the decodeRing server can be used in a production capacity.
 
 ⭐ Star us on GitHub — your support means a lot to us! 🙏😊
+
+## Contents
+
+- [About](#about)
+- [Supported Integrations](#supported-integrations)
+- [Support & Community](#support--community)
+- [Architecture](#architecture)
+- [Quickstart](#quickstart)
+- [Installation](#installation)
+  - [Compiling Plugins](#compiling-plugins)
+  - [Running Nodes](#running-nodes)
+  - [Build Errors](#build-errors)
+- [Implementation Status](#implementation-status)
+- [License](#license)
+- [Contacts](#contacts)
 
 ## About
 
@@ -37,12 +52,37 @@ The project is a Cargo workspace organized into the following crates:
 | [decodering-server](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-server)   | Implements the OSL (Open Secrets Language) REST API and handles Raft node management, system initialization, and ongoing operations. | core, db, raft, auth |
 | [decodering-cli](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-cli)         | Command-line tool for operators to interact with decodering-server without calling the REST API directly.                            | core                 |
 
+## Supported Integrations
+
+**Secret vaults**
+
+| Vault               | Status |
+| ------------------- | :----: |
+| OpenBao             |   ✅   |
+| AWS Secrets Manager |   ✅   |
+
+**Authentication methods**
+
+| Method  | Status |
+| ------- | :----: |
+| API Key |   ✅   |
+| TPM     |   ✅   |
+| AWS IAM |   ✅   |
+
+**Storage backends**
+
+| Backend    | Status |
+| ---------- | :----: |
+| SQLite     |   ✅   |
+| PostgreSQL |   ✅   |
+
 ## Quickstart
 
 The fastest path to a running node — single mode, SQLite, no plugins:
 
 ```shell
-# 1. Install Rust: https://rust-lang.org/tools/install/
+# 1. Install Rust:
+https://rust-lang.org/tools/install/
 
 # 2. Clone the repo
 git clone https://github.com/decodeRing-core/dcdr-rs.git
@@ -80,9 +120,11 @@ For a more detailed installation guide including running multi-node Raft cluster
 3. Clone the repository.
 4. Create a `.env` file with your configuration and adjust as needed:
 
+decodeRing runs in one of two modes. In single mode, set STORAGE_BACKEND to sqlite or postgres and point DATABASE_URL at it. In raft mode, STORAGE_BACKEND must be sqlite (the only backend currently supported with Raft); storage lives in RAFT_LOG_DIR and DATABASE_URL is ignored
+
 ```shell
 CLUSTER_MODE=single             # single | raft
-STORAGE_BACKEND=postgres        # sqlite | postgres
+STORAGE_BACKEND=postgres        # sqlite | postgres raft: sqlite only (for now)
 
 DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/testdb"  # required when CLUSTER_MODE=single
 
@@ -93,6 +135,7 @@ SERVER_LOG_DIR="/tmp"
 SERVER_LOG_PREFIX="decodering"
 SERVER_LOG_MAX_FILES=0
 
+# SQLite storage is created in RAFT_LOG_DIR.
 RAFT_LOG_DIR="/tmp"             # required when CLUSTER_MODE=raft
 RAFT_LOG_PREFIX="decodering"    # required when CLUSTER_MODE=raft
 
