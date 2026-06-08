@@ -11,10 +11,11 @@
 ## Contents
 
 - [About](#about)
-- [Supported Integrations](#supported-integrations)
 - [Support & Community](#support--community)
 - [Architecture](#architecture)
+- [Supported Integrations](#supported-integrations)
 - [Quickstart](#quickstart)
+- [Getting Started](#getting-started)
 - [Installation](#installation)
   - [Compiling Plugins](#compiling-plugins)
   - [Plugin Configuration](#plugin-configuration)
@@ -25,7 +26,6 @@
 - [Plugin Development](#plugin-development)
 - [Contributing](#contributing)
 - [Security](#security)
-- [Contributing](#contributing)
 - [License](#license)
 - [Contacts](#contacts)
 
@@ -33,7 +33,7 @@
 
 decodeRing is an open-source security orchestration layer written in Rust that de-risks and accelerates secrets vault consolidation across clouds and vendors. decodeRing does this by implementing the [dcdr open standard](https://github.com/decodeRing-core/dcdr-standard) via RESTful API.
 
-This allows developers to focus on coding instead of learning how to interact with multiple secrets back-ends. By abstracting away the complexity of the back-end secrets vaults decodeRing reduces friction for developers and provides SECOPS teams with the tools they need to consolidate their secrets landscape.
+This allows developers to focus on coding instead of learning how to interact with multiple secrets back-ends. By abstracting away the complexity of the back-end secrets vaults decodeRing reduces friction for developers and provides SecOps teams with the tools they need to consolidate their secrets landscape.
 
 [Back to top](#top)
 
@@ -87,8 +87,7 @@ The project is a Cargo workspace organized into the following crates:
 The fastest path to a running node — single mode, SQLite, no plugins:
 
 ```shell
-# 1. Install Rust:
-https://rust-lang.org/tools/install/
+# 1. Install Rust: https://rust-lang.org/tools/install/
 
 # 2. Clone the repo
 git clone https://github.com/decodeRing-core/dcdr-rs.git
@@ -113,9 +112,18 @@ EOF
 cargo run --bin decodering-server -- --id 1 --addr 127.0.0.1:21001
 ```
 
-For a more detailed installation guide including running multi-node Raft clusters, plugin compilation, and PostgreSQL, see [Installation](#installation).
+For a more detailed installation guide including running multi-node Raft
+clusters, plugin compilation, and PostgreSQL, see [Installation](#installation).
+For a full end-to-end walkthrough (cluster setup, applications, authentication,
+and OSL secrets), see the [Getting Started guide](docs/GETTING-STARTED.md).
 
 [Back to top](#top)
+
+## Getting Started
+
+For a complete end-to-end walkthrough (3-node Raft cluster, applications,
+the three identity methods, and OSL put/get), see
+[docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
 
 ## Installation
 
@@ -126,11 +134,11 @@ For a more detailed installation guide including running multi-node Raft cluster
 3. Clone the repository.
 4. Create a `.env` file with your configuration and adjust as needed:
 
-decodeRing runs in one of two modes. In single mode, set STORAGE_BACKEND to sqlite or postgres and point DATABASE_URL at it. In raft mode, STORAGE_BACKEND must be sqlite (the only backend currently supported with Raft); storage lives in RAFT_LOG_DIR and DATABASE_URL is ignored
+decodeRing runs in one of two modes. In single mode, set STORAGE_BACKEND to sqlite or postgres and point DATABASE_URL at it. In raft mode, STORAGE_BACKEND must be sqlite (the only backend currently supported with Raft); storage lives in RAFT_LOG_DIR and DATABASE_URL is ignored.
 
 ```shell
 CLUSTER_MODE=single             # single | raft
-STORAGE_BACKEND=postgres        # sqlite | postgres raft: sqlite only (for now)
+STORAGE_BACKEND=postgres        # single: sqlite | postgres   raft: sqlite only (for now)
 
 DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/testdb"  # required when CLUSTER_MODE=single
 
@@ -270,6 +278,8 @@ curl -X POST 'http://127.0.0.1:21001/system/init' \
 Because `/system/init` can only be run once, use `/system/plugin/config` to add
 or rotate credentials afterward.
 
+See [API Reference](#api-reference) for more detailed information about the available endpoints.
+
 ### Running Nodes
 
 From the `dcdr-rs` directory, start a node:
@@ -307,13 +317,9 @@ rustflags = ["-C", "target-feature=-crt-static"]
 
 ## API Reference
 
-decodeRing implements the [OSL (Open Secrets Language)](https://github.com/decodeRing-core/osl)
-REST API. See the [OSL spec](https://github.com/decodeRing-core/osl) for the
-full endpoint definitions.
+decodeRing exposes a REST API covering both the [OSL (Open Secrets Language)](https://github.com/decodeRing-core/osl) secret operations and system or management endpoints (initialization, plugin configuration, node management).
 
-An OpenAPI specification is in progress and will be published here as it
-stabilizes. Until then, [Implementation Status](#implementation-status) lists
-the currently supported operations.
+A complete OpenAPI specification covering all endpoints is in progress and will be published here as it stabilizes. Until then, see the OSL spec for secret operations, and [Implementation Status](#implementation-status) for the operations currently supported.
 
 ## Implementation Status
 
@@ -364,7 +370,8 @@ Contributions are welcome! To get started:
 2. Build and test: `cargo build && cargo test`.
 3. Format and lint before submitting: `cargo fmt && cargo clippy --all-targets`.
 4. Open a pull request describing your change.
-   Please keep `decodering-core` free of dependencies on other workspaces. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for full guidelines.
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for full guidelines.
 
 ## Security
 

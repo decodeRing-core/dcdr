@@ -1,36 +1,91 @@
 # Getting Started
 
-## **Raft (3-node cluster)**
+A complete walkthrough of a 3-node Raft cluster with the OpenBao and AWS
+Secrets Manager default plugins configured. We create an application, register
+principals using three identity methods (API key, TPM, and AWS IAM role),
+authenticate, and run OSL put/get against the OpenBao backend. The same OSL
+calls work against AWS Secrets Manager by changing the `backend_ref`.
 
-Here's a complete example of a Raft cluster with 3 nodes and OpenBao vault and AWS Secrets Manager configured using the default plugins. We'll create an app and call OSL put and get secrets in each backend using the following identity methods:
+## Contents
 
-- Api Key
-- vTPM
-- AWS Role.
+- [Overview](#overview)
+- [Conventions](#conventions)
+- [Raft cluster setup](#raft-cluster-setup)
+  - [Start all three nodes](#start-all-three-nodes)
+  - [Initialize the cluster](#initialize-the-cluster)
+  - [Add nodes as learners](#add-nodes-as-learners)
+  - [Verify the learners](#verify-the-learners)
+  - [Upgrade learners to voters](#upgrade-learners-to-voters)
+- [System setup](#system-setup)
+  - [Initialize the system](#initialize-the-system)
+  - [Unlock the nodes](#unlock-the-nodes)
+- [Application setup](#application-setup)
+  - [Create an application](#create-an-application)
+  - [Create a principal](#create-a-principal)
+    - [API key](#api-key)
+    - [TPM](#tpm)
+    - [TPM activation](#tpm-activation)
+    - [AWS IAM role](#aws-iam-role)
+  - [Grant the principal access to the application](#grant-the-principal-access-to-the-application)
+- [Authentication](#authentication)
+  - [Request an auth challenge](#request-an-auth-challenge)
+  - [Authenticate and obtain a short-term token](#authenticate-and-obtain-a-short-term-token)
+    - [API key authentication](#api-key-authentication)
+    - [TPM authentication](#tpm-authentication)
+    - [AWS IAM role authentication](#aws-iam-role-authentication)
+- [Working with secrets (OSL)](#working-with-secrets-osl)
+  - [Put a secret](#put-a-secret)
+  - [Get a secret](#get-a-secret)
 
-### Start all 3 nodes.
+## Overview
+
+The end-to-end flow is:
+
+1. Bring up the Raft cluster (start nodes, add learners, promote to voters).
+2. Initialize and unlock the system.
+3. Create an application and register one or more principals.
+4. Grant the principal access to the application.
+5. Authenticate as the principal to obtain a short-term token.
+6. Use that token to call the OSL secret endpoints.
+
+## Conventions
+
+The examples use placeholder values that you should replace with the values
+returned by earlier steps. You can export them as shell variables so the curl
+commands can be pasted as-is:
+
+| Placeholder         | Where it comes from                                   |
+| ------------------- | ----------------------------------------------------- |
+| `$ROOT_TOKEN`       | `root_token` returned by `/system/init`               |
+| `$APP_ID`           | `app_id` returned by `/app/create`                    |
+| `$PRINCIPAL_ID`     | `principal_id` returned by `/app/user/create`         |
+| `$CREDENTIAL_ID`    | `credential_id` returned by `/app/user/create` (TPM)  |
+| `$USER_API_KEY`     | `token` returned by `/app/user/create` (API key)      |
+| `$CHALLENGE_ID`     | `challenge_id` returned by `/app/user/auth/challenge` |
+| `$SHORT_TERM_TOKEN` | `token` returned by `/app/user/auth`                  |
+
+All cryptographic material in the TPM and AWS examples (public keys, quotes,
+signatures, ARNs) is illustrative. Substitute your own.
+
+## Raft cluster setup
+
+### Start all three nodes
+
+Run each in its own terminal:
 
 ```sh
 cargo run --bin decodering-server -- --id 1 --addr 127.0.0.1:21001
-```
-
-```sh
 cargo run --bin decodering-server -- --id 2 --addr 127.0.0.1:21002
-```
-
-```sh
 cargo run --bin decodering-server -- --id 3 --addr 127.0.0.1:21003
 ```
 
-### Initialize cluster
+### Initialize the cluster
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/raft/init' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
   --data '{
-  "raft_init": [],
+  "raft_init": []
 }'
 ```
 
@@ -38,24 +93,18 @@ curl -X POST 'http://127.0.0.1:21001/raft/init' \
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/raft/add-learner' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
   --data '[2, "127.0.0.1:21002"]'
 
 curl -X POST 'http://127.0.0.1:21001/raft/add-learner' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
   --data '[3, "127.0.0.1:21003"]'
 ```
 
-### Verify nodes have been added as learners
+### Verify the learners
 
 ```sh
-curl -X POST 'http://127.0.0.1:21001/raft/metrics' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*'
+curl -X POST 'http://127.0.0.1:21001/raft/metrics'
 ```
 
 ```json
@@ -64,56 +113,30 @@ curl -X POST 'http://127.0.0.1:21001/raft/metrics' \
   "status": "raft-metrics",
   "message": "Raft node metrics",
   "data": {
-    "running_state": {
-      "Ok": null
-    },
+    "running_state": { "Ok": null },
     "id": 1,
     "current_term": 1,
     "vote": {
-      "leader_id": {
-        "term": 1,
-        "voted_for": 1
-      },
+      "leader_id": { "term": 1, "voted_for": 1 },
       "committed": true
     },
     "last_log_index": 6,
-    "committed": {
-      "leader_id": 1,
-      "index": 6
-    },
-    "last_applied": {
-      "leader_id": 1,
-      "index": 6
-    },
-    "snapshot": {
-      "leader_id": 1,
-      "index": 4
-    },
-    "purged": {
-      "leader_id": 1,
-      "index": 2
-    },
+    "committed": { "leader_id": 1, "index": 6 },
+    "last_applied": { "leader_id": 1, "index": 6 },
+    "snapshot": { "leader_id": 1, "index": 4 },
+    "purged": { "leader_id": 1, "index": 2 },
     "state": "Leader",
     "current_leader": 1,
     "millis_since_quorum_ack": 0,
     "last_quorum_acked": 1780215757178426002,
     "membership_config": {
-      "log_id": {
-        "leader_id": 1,
-        "index": 6
-      },
+      "log_id": { "leader_id": 1, "index": 6 },
       "membership": {
         "configs": [[1]],
         "nodes": {
-          "1": {
-            "addr": "127.0.0.1:21001"
-          },
-          "2": {
-            "addr": "127.0.0.1:21002"
-          },
-          "3": {
-            "addr": "127.0.0.1:21003"
-          }
+          "1": { "addr": "127.0.0.1:21001" },
+          "2": { "addr": "127.0.0.1:21002" },
+          "3": { "addr": "127.0.0.1:21003" }
         }
       }
     },
@@ -123,18 +146,9 @@ curl -X POST 'http://127.0.0.1:21001/raft/metrics' \
       "3": 1780215757172533793
     },
     "replication": {
-      "1": {
-        "leader_id": 1,
-        "index": 6
-      },
-      "2": {
-        "leader_id": 1,
-        "index": 6
-      },
-      "3": {
-        "leader_id": 1,
-        "index": 6
-      }
+      "1": { "leader_id": 1, "index": 6 },
+      "2": { "leader_id": 1, "index": 6 },
+      "3": { "leader_id": 1, "index": 6 }
     }
   }
 }
@@ -142,12 +156,10 @@ curl -X POST 'http://127.0.0.1:21001/raft/metrics' \
 
 ### Upgrade learners to voters
 
-See `Endpoints` section to see extra functionality of `change-membership`
+For the full set of `change-membership` options, see the API reference.
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/raft/change-membership' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
   --data '{
   "AddVoters": {
@@ -164,48 +176,40 @@ curl -X POST 'http://127.0.0.1:21001/raft/change-membership' \
   "status": "raft-membership",
   "message": "Raft membership changes",
   "data": {
-    "log_id": {
-      "leader_id": 1,
-      "index": 8
-    },
+    "log_id": { "leader_id": 1, "index": 8 },
     "data": "Noop",
     "membership": {
       "configs": [[1, 2, 3]],
       "nodes": {
-        "1": {
-          "addr": "127.0.0.1:21001"
-        },
-        "2": {
-          "addr": "127.0.0.1:21002"
-        },
-        "3": {
-          "addr": "127.0.0.1:21003"
-        }
+        "1": { "addr": "127.0.0.1:21001" },
+        "2": { "addr": "127.0.0.1:21002" },
+        "3": { "addr": "127.0.0.1:21003" }
       }
     }
   }
 }
 ```
 
-### Initialize system
+## System setup
 
-Create root user and pass plugin credentials. This can only be run once. See `/system/plugin/config` if you want to update the plugin credentials.
+### Initialize the system
+
+Creates the root user and stores the plugin credentials. This can only be run
+once. To update credentials later, use `/system/plugin/config`.
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/system/init' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
   --data '{
   "total_shares": 5,
   "threshold": 2,
   "plugins_credentials": {
     "openbao-rs": {
-        "vault_token": "xxxx"
+      "vault_token": "xxxx"
     },
     "aws-rs": {
-        "aws_access_key_id": "xxxx",
-        "aws_secret_access_key": "xxxx"
+      "aws_access_key_id": "xxxx",
+      "aws_secret_access_key": "xxxx"
     }
   }
 }'
@@ -223,35 +227,36 @@ curl -X POST 'http://127.0.0.1:21001/system/init' \
 }
 ```
 
-### Unlock nodes
+`total_shares` and `threshold` configure how the unseal key is split: the key
+is divided into `total_shares` shards, and `threshold` of them are required to
+unlock the cluster. Record the returned `shards` and `root_token` securely;
+they are not retrievable later.
+
+### Unlock the nodes
+
+Provide at least `threshold` shards.
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/system/unlock' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
   --data '{
-  "shards": [
-      "xxx",
-      "yyy"
-  ],
+  "shards": ["xxx", "yyy"]
 }'
 ```
 
-### Create Application
+## Application setup
 
-**Requires root token** obtained when intializing the system.
+### Create an application
+
+**Requires the root token** from system initialization.
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/create' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer $ROOT_TOKEN' \
   --data '{
-  "app_name": "my-testing-app",
-}
-' \
-  --header 'Authorization: Bearer pk_xxx'
+  "app_name": "my-testing-app"
+}'
 ```
 
 ```json
@@ -266,24 +271,21 @@ curl -X POST 'http://127.0.0.1:21001/app/create' \
 }
 ```
 
-### Create Application User/Principal
+### Create a principal
 
-**Requires root token** obtained when intializing the system.
+**Requires the root token.** Choose one of the identity methods below.
 
-#### Api Key
+#### API key
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/create' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer $ROOT_TOKEN' \
   --data '{
   "name": "my-first-app-user",
   "kind": "human",
-  "credential_kind": "apiKey",
-}
-' \
-  --header 'Authorization: Bearer pk_xxx'
+  "credential_kind": "apiKey"
+}'
 ```
 
 ```json
@@ -298,17 +300,18 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 }
 ```
 
+The returned `token` is the principal's API key. Save it; it is used to
+authenticate later.
+
 #### TPM
 
-TPM requires a another step to activate the credential. [Go to TPM Activation](#tpm-activate).
-
-**Note** You will need to submit your own TPM data. The below is just an example.
+TPM requires an extra activation step after creation. See
+[TPM activation](#tpm-activation).
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/create' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer $ROOT_TOKEN' \
   --data '{
   "name": "my-first-app-user-13",
   "kind": "human",
@@ -329,9 +332,7 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
     },
     "require_ek_cert": false
   }
-}
-' \
-  --header 'Authorization: Bearer pk_xxx'
+}'
 ```
 
 ```json
@@ -348,24 +349,22 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 }
 ```
 
-#### TPM Activate
+#### TPM activation
 
-**Note** You will need to submit your own recovered secret. The below is just an example.
+Activate the credential created above using the recovered secret. Substitute
+your own `recovered_secret`.
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/auth/activate' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
   --data '{
   "credential_kind": "trustedPlatformModule",
-  "principal_id": "019e919a-22d5-7483-9151-5fffff346a15",
-  "credential_id": "019e919a-22e3-7b53-8e7f-02155ff20a42",
+  "principal_id": "$PRINCIPAL_ID",
+  "credential_id": "$CREDENTIAL_ID",
   "proof": {
-      "recovered_secret": "upkRgrr+HjToV6eOJ2SFnQkachQ++Wtrb0DuqTYlGtw="
+    "recovered_secret": "upkRgrr+HjToV6eOJ2SFnQkachQ++Wtrb0DuqTYlGtw="
   }
-}
-'
+}'
 ```
 
 ```json
@@ -376,25 +375,23 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth/activate' \
 }
 ```
 
-#### AWS Role
+#### AWS IAM role
 
-**Note** You will need to create a role first with Amazon AWS. The below is just an example.
+Create the IAM role in AWS first, then register it. Substitute your own
+`role_arn`.
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/create' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer $ROOT_TOKEN' \
   --data '{
   "name": "my-first-app-user-11",
   "kind": "human",
   "credential_kind": "awsIdentity",
   "data": {
-    "role_arn": "arn:aws:iam::195430954655:role/decodering-test-role"
+    "role_arn": "arn:aws:iam::123456789012:role/decodering-test-role"
   }
-}
-' \
-  --header 'Authorization: Bearer pk_xxx'
+}'
 ```
 
 ```json
@@ -409,136 +406,18 @@ curl -X POST 'http://127.0.0.1:21001/app/user/create' \
 }
 ```
 
-### Authenticate user/principal for application to obtain short term token to access OSL endpoints
+### Grant the principal access to the application
 
-#### Api Key
-
-`key` is your user's api key returned from `/app/user/create` (an admin needs to create this for you)
-
-```sh
-curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "credential_kind": "apiKey",
-  "proof": {
-    "key": "pk_xxx",
-  }
-}
-'
-```
-
-```json
-{
-  "osl_version": "1.0.0",
-  "status": "operation-completed",
-  "message": "Operation completed",
-  "data": {
-    "token": "tok_xxx",
-    "expires_at": 1780220675
-  }
-}
-```
-
-#### TPM
-
-TPM authentication requires a nonce challenge to be verified. [Go to Auth Challenge](#auth-challenge)
-
-**Note** You will need to submit your own TPM data. The below is just an example.
-
-```sh
-curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "credential_kind": "trustedPlatformModule",
-  "proof": {
-  "challenge_id": "019e919f-2a58-7aa3-9846-3e0542d1e1fc",
-  "ek_pubkey_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsWnTrYtkNp8TOWn0Q2Ey\nZgfaSEngOdH15oZbWZbW9vzz/BJReYmitdnj4bNiO4S5lfMOYBk1uImNtqyYZAFQ\nv2q7Fj6TKYSD4WfWGvoT79o+ONcows2BexOrF4iWXpmYU0uBTyXDjFfcd6vMq0lY\nWhmPq3lfzbVmb0+in4RsTv+wEBU479jejnXYXWak0DeuFD5mpx15phRLq7r66olR\n2qAXZFoiiIfKhIk8xriNrmHG4aTFcRyBycmnA9aY2NHTZ4DPUJRo98YEqVoZqiu1\na5PVcjiwK8ia0fap6WAP4GxiheLCbARw9O8/aDqIlp7Gq5AfRnsRIISxMHYF8Fr9\nrQIDAQAB\n-----END PUBLIC KEY-----",
-  "ak_pubkey_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsf+IlXOP0+uptZaXkWxg\n7MiONSErYLJNuJ6IeHgsZlpA8oXN/w9plsGVsDRx/6bgEm4C2mYX1Z0gT0VH8K2h\n3yOqWrMHxJLl4guRBY5xIPYgT1cg8+K0ZOJMQ6Jx5lYOwUupV+ApPHomPjt3yRxJ\nWquRIXzYDN/JcHVaLq/XoT4rBA5kjCZNW1D2zr9gIYO+xXM+fIzwSgpfJ/dR9g+8\nLHlY816iSw1sXwu7uVE8m2TMybhAcF0+J8St32qgdjhSgDrf2LGoCTdC6/0W8ZXC\nHpG4T2nxMGLoVhw7QxVVRkx1YQw0uJ0AAvr4eX5K4zKYw8fFzF5Hq5LDs92+eTjx\newIDAQAB\n-----END PUBLIC KEY-----",
-  "quote": "/1RDR4AYACIAC675HSzTDpOXRQsJKaiw+J6wkg8jsarkuv89khik4ku6ACD+J9YHdbouDcS5lpyflvZM+4TiZgV5N0CHNToUy3DuxwAAAAAJNI3UAAAABAAAAAEBICQBJQASAAAAAAABAAsD/wAAACBTQeayZGl5pw5XZTAHofMQFpQh7JvdnxpWSPda3gBa8Q==",
-  "signature": "ABQACwEApxXzGwQD7T3llS4DX5drRDs89Pa2DzVnnO0AXj1mbIlL/4VeTL4lF2rjf0IhSewjzfEnU1iowEszMFz+/v2hRY/3fiJLiV6bsDEow8F9PscpmezV67tkGToR/m7QVD/PHebq1mb+o7ef1eMUlAo+HStP8JNYbdRlVfpmR0VSyKkFSwrQ/m6cLtH6Zoo9qJIVS+jF/O0V31uksb22x1CxYADg7kTAJoGLNFOQ8NDbkaWDO5ZZLQ+FAH/HT+rIhDtm7PxpWnkA+NzSRcyipaJUCzXiqeAYUgqpS4v7+kJ3kAWibjnlzJ0qjWlYZg5Kp8kG23kdXuH2xDXglEtFU4PttQ==",
-  "pcrs": {
-    "0": "0000000000000000000000000000000000000000000000000000000000000000",
-    "1": "0000000000000000000000000000000000000000000000000000000000000000",
-    "2": "0000000000000000000000000000000000000000000000000000000000000000",
-    "3": "0000000000000000000000000000000000000000000000000000000000000000",
-    "4": "0000000000000000000000000000000000000000000000000000000000000000",
-    "5": "0000000000000000000000000000000000000000000000000000000000000000",
-    "6": "0000000000000000000000000000000000000000000000000000000000000000",
-    "7": "0000000000000000000000000000000000000000000000000000000000000000"
-  }
-  }
-}'
-```
-
-```json
-{
-  "osl_version": "1.0.0",
-  "status": "operation-completed",
-  "message": "Operation completed",
-  "data": {
-    "token": "tok_xxx",
-    "expires_at": 1780220675
-  }
-}
-```
-
-#### AWS Role
-
-**Note** You will need to submit your own AWS signature info. The below is just an example.
-
-```sh
-curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "credential_kind": "awsIdentity",
-  "proof": {
-  "body": "Action=GetCallerIdentity&Version=2011-06-15",
-  "headers": {
-    "authorization": "AWS4-HMAC-SHA256 Credential=yyy/20260604/us-east-1/sts/aws4_request, SignedHeaders=content-type;host;x-amz-date;x-amz-security-token, Signature=0373cee2c987f48995ab917daf7c4ba1677eecc45a1d21067e3e50003e2ca2d2",
-    "content-type": "application/x-www-form-urlencoded",
-    "host": "sts.amazonaws.com",
-    "x-amz-date": "20260604T104118Z",
-    "x-amz-security-token": "xxx"
-  },
-  "method": "POST",
-  "url": "https://sts.amazonaws.com/"
-  }
-}'
-```
-
-```json
-{
-  "osl_version": "1.0.0",
-  "status": "operation-completed",
-  "message": "Operation completed",
-  "data": {
-    "token": "tok_xxx",
-    "expires_at": 1780220675
-  }
-}
-```
-
-### Grant application access to user/principal
+**Requires the root token.**
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/grant' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer $ROOT_TOKEN' \
   --data '{
-  "principal_id": "019e7d30-493b-7263-acd4-a811db0a95df",
-  "apps": [
-    "019e7d2e-9048-70d3-b910-e209bb21b21b",
-  ]
-}
-' \
-  --header 'Authorization: Bearer pk_xxx'
+  "principal_id": "$PRINCIPAL_ID",
+  "apps": ["$APP_ID"]
+}'
 ```
 
 ```json
@@ -549,17 +428,22 @@ curl -X POST 'http://127.0.0.1:21001/app/user/grant' \
 }
 ```
 
-### Auth Challenge
+## Authentication
+
+Authenticating as a principal returns a short-term token used for the OSL
+endpoints.
+
+### Request an auth challenge
+
+TPM authentication requires a nonce challenge first. (API key authentication
+does not need this step.)
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/app/user/auth/challenge' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
   --data '{
-  "credential_kind": "trustedPlatformModule",
-}
-'
+  "credential_kind": "trustedPlatformModule"
+}'
 ```
 
 ```json
@@ -575,19 +459,128 @@ curl -X POST 'http://127.0.0.1:21001/app/user/auth/challenge' \
 }
 ```
 
-### OSL
+### Authenticate and obtain a short-term token
 
-#### Put secret into the vault. Example using OpenBao plugin
+#### API key authentication
 
-Use your short term token obtained after authentication.
+`key` is the principal's API key returned by `/app/user/create`.
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "credential_kind": "apiKey",
+  "proof": {
+    "key": "$USER_API_KEY"
+  }
+}'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "token": "tok_xxx",
+    "expires_at": 1780220675
+  }
+}
+```
+
+#### TPM authentication
+
+Use the `challenge_id` from [Request an auth challenge](#request-an-auth-challenge).
+Substitute your own TPM data.
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "credential_kind": "trustedPlatformModule",
+  "proof": {
+    "challenge_id": "$CHALLENGE_ID",
+    "ek_pubkey_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsWnTrYtkNp8TOWn0Q2Ey\nZgfaSEngOdH15oZbWZbW9vzz/BJReYmitdnj4bNiO4S5lfMOYBk1uImNtqyYZAFQ\nv2q7Fj6TKYSD4WfWGvoT79o+ONcows2BexOrF4iWXpmYU0uBTyXDjFfcd6vMq0lY\nWhmPq3lfzbVmb0+in4RsTv+wEBU479jejnXYXWak0DeuFD5mpx15phRLq7r66olR\n2qAXZFoiiIfKhIk8xriNrmHG4aTFcRyBycmnA9aY2NHTZ4DPUJRo98YEqVoZqiu1\na5PVcjiwK8ia0fap6WAP4GxiheLCbARw9O8/aDqIlp7Gq5AfRnsRIISxMHYF8Fr9\nrQIDAQAB\n-----END PUBLIC KEY-----",
+    "ak_pubkey_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsf+IlXOP0+uptZaXkWxg\n7MiONSErYLJNuJ6IeHgsZlpA8oXN/w9plsGVsDRx/6bgEm4C2mYX1Z0gT0VH8K2h\n3yOqWrMHxJLl4guRBY5xIPYgT1cg8+K0ZOJMQ6Jx5lYOwUupV+ApPHomPjt3yRxJ\nWquRIXzYDN/JcHVaLq/XoT4rBA5kjCZNW1D2zr9gIYO+xXM+fIzwSgpfJ/dR9g+8\nLHlY816iSw1sXwu7uVE8m2TMybhAcF0+J8St32qgdjhSgDrf2LGoCTdC6/0W8ZXC\nHpG4T2nxMGLoVhw7QxVVRkx1YQw0uJ0AAvr4eX5K4zKYw8fFzF5Hq5LDs92+eTjx\newIDAQAB\n-----END PUBLIC KEY-----",
+    "quote": "/1RDR4AYACIAC675HSzTDpOXRQsJKaiw+J6wkg8jsarkuv89khik4ku6ACD+J9YHdbouDcS5lpyflvZM+4TiZgV5N0CHNToUy3DuxwAAAAAJNI3UAAAABAAAAAEBICQBJQASAAAAAAABAAsD/wAAACBTQeayZGl5pw5XZTAHofMQFpQh7JvdnxpWSPda3gBa8Q==",
+    "signature": "ABQACwEApxXzGwQD7T3llS4DX5drRDs89Pa2DzVnnO0AXj1mbIlL/4VeTL4lF2rjf0IhSewjzfEnU1iowEszMFz+/v2hRY/3fiJLiV6bsDEow8F9PscpmezV67tkGToR/m7QVD/PHebq1mb+o7ef1eMUlAo+HStP8JNYbdRlVfpmR0VSyKkFSwrQ/m6cLtH6Zoo9qJIVS+jF/O0V31uksb22x1CxYADg7kTAJoGLNFOQ8NDbkaWDO5ZZLQ+FAH/HT+rIhDtm7PxpWnkA+NzSRcyipaJUCzXiqeAYUgqpS4v7+kJ3kAWibjnlzJ0qjWlYZg5Kp8kG23kdXuH2xDXglEtFU4PttQ==",
+    "pcrs": {
+      "0": "0000000000000000000000000000000000000000000000000000000000000000",
+      "1": "0000000000000000000000000000000000000000000000000000000000000000",
+      "2": "0000000000000000000000000000000000000000000000000000000000000000",
+      "3": "0000000000000000000000000000000000000000000000000000000000000000",
+      "4": "0000000000000000000000000000000000000000000000000000000000000000",
+      "5": "0000000000000000000000000000000000000000000000000000000000000000",
+      "6": "0000000000000000000000000000000000000000000000000000000000000000",
+      "7": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+}'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "token": "tok_xxx",
+    "expires_at": 1780220675
+  }
+}
+```
+
+#### AWS IAM role authentication
+
+Substitute your own signed `GetCallerIdentity` request.
+
+```sh
+curl -X POST 'http://127.0.0.1:21001/app/user/auth' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "credential_kind": "awsIdentity",
+  "proof": {
+    "body": "Action=GetCallerIdentity&Version=2011-06-15",
+    "headers": {
+      "authorization": "AWS4-HMAC-SHA256 Credential=yyy/20260604/us-east-1/sts/aws4_request, SignedHeaders=content-type;host;x-amz-date;x-amz-security-token, Signature=0373cee2c987f48995ab917daf7c4ba1677eecc45a1d21067e3e50003e2ca2d2",
+      "content-type": "application/x-www-form-urlencoded",
+      "host": "sts.amazonaws.com",
+      "x-amz-date": "20260604T104118Z",
+      "x-amz-security-token": "xxx"
+    },
+    "method": "POST",
+    "url": "https://sts.amazonaws.com/"
+  }
+}'
+```
+
+```json
+{
+  "osl_version": "1.0.0",
+  "status": "operation-completed",
+  "message": "Operation completed",
+  "data": {
+    "token": "tok_xxx",
+    "expires_at": 1780220675
+  }
+}
+```
+
+## Working with secrets (OSL)
+
+Use the short-term token from the previous step.
+
+### Put a secret
+
+This example targets the OpenBao backend. To use AWS Secrets Manager instead,
+set `store.backend_ref` to `aws-rs`.
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/osl/v1/secrets/put' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer $SHORT_TERM_TOKEN' \
   --data '{
-  "app_id": "019e7d30-493b-7263-acd4-a811db0a95df",
+  "app_id": "$APP_ID",
   "secret_name": "my-database-credentials",
   "store": {
     "backend_ref": "openbao-rs",
@@ -600,8 +593,7 @@ curl -X POST 'http://127.0.0.1:21001/osl/v1/secrets/put' \
   "options": {
     "create_only": false
   }
-}' \
-  --header 'Authorization: Bearer tok_xxxx'
+}'
 ```
 
 ```json
@@ -616,20 +608,20 @@ curl -X POST 'http://127.0.0.1:21001/osl/v1/secrets/put' \
 }
 ```
 
-#### Get secret from vault. Example using OpenBao plugin
+### Get a secret
+
+`version` accepts a specific provider version id, or `"0"` for the current
+version.
 
 ```sh
 curl -X POST 'http://127.0.0.1:21001/osl/v1/secrets/get' \
-  --header 'User-Agent: yaak' \
-  --header 'Accept: */*' \
   --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer $SHORT_TERM_TOKEN' \
   --data '{
-  "app_id": "019e7d30-493b-7263-acd4-a811db0a95df",
+  "app_id": "$APP_ID",
   "secret_name": "my-database-credentials",
   "version": "0"
-}
-' \
-  --header 'Authorization: Bearer tok_xxx'
+}'
 ```
 
 ```json
