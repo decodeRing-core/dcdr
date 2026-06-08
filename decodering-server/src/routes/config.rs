@@ -1,9 +1,9 @@
 use actix_web::web;
 use decodering_core::tx::Database;
 
-use crate::middleware::{LockState, RaftBackendOnly, RaftInitializedHelper};
+use crate::middleware::{LockState, RaftInitializedHelper};
 use crate::routes::app::management::app_management_routes;
-//use crate::routes::doc::doc_routes;
+use crate::routes::doc::doc_routes;
 use crate::routes::osl::api::{read_osl_routes, write_osl_routes};
 use crate::routes::raft::api::raft_api_routes;
 use crate::routes::raft::management::raft_management_routes;
@@ -19,11 +19,7 @@ pub fn config_app<D: Database + 'static>(cfg: &mut web::ServiceConfig) {
     )
     .service(app_management_routes::<D>())
     .service(web::scope("/system").configure(app_system_routes::<D>))
-    //.configure(doc_routes)
-    .service(
-        web::scope("")
-            .wrap(RaftBackendOnly::<D>::new())
-            .service(raft_management_routes::<D>())
-            .service(raft_api_routes::<D>()),
-    );
+    .configure(doc_routes)
+    .service(raft_management_routes::<D>())
+    .configure(raft_api_routes::<D>);
 }

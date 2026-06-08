@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use extism::Manifest;
 use serde::Serialize;
+use utoipa::ToSchema;
 use zeroize::Zeroizing;
 
 use crate::plugin::osl_contract::Capability;
@@ -15,7 +16,7 @@ use super::wasm::WasmSecretBackend;
 
 const SERVER_CAPABILITIES: [Capability; 1] = [Capability::Taint];
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct BackendCapabilities {
     pub backend_ref: String,
     pub backend_type: String,

@@ -320,7 +320,12 @@ rustflags = ["-C", "target-feature=-crt-static"]
 
 decodeRing exposes a REST API covering both the [OSL (Open Secrets Language)](https://github.com/decodeRing-core/osl) secret operations and system or management endpoints (initialization, plugin configuration, node management).
 
-A complete OpenAPI specification covering all endpoints is in progress and will be published here as it stabilizes. Until then, see the OSL spec for secret operations, and [Implementation Status](#implementation-status) for the operations currently supported.
+Once a node is running, it serves a work-in-progress OpenAPI specification and an interactive Swagger UI, at the address the node is listening on:
+
+- OpenAPI spec (JSON): `http://<host>:<port>/api-docs/openapi.json`
+- Swagger UI: `http://<host>:<port>/swagger-ui/`
+
+For example, a node started with `--addr 127.0.0.1:21001` serves the spec at `http://127.0.0.1:21001/api-docs/openapi.json`. The specification is still being completed, so some endpoints may be missing or incomplete. For the operations currently supported, see [Implementation Status](#implementation-status).
 
 ## Implementation Status
 

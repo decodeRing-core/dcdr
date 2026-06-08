@@ -881,8 +881,8 @@ pub async fn api_describe_secret<D: Database + 'static>(
 )]
 pub async fn api_get_apps_list<D: Database + 'static>(
     app: Data<AppData<D>>,
-    req: web::Json<ListAppsData>,
     auth: AuthOSLMiddleware<D>,
+    params: web::Query<ListAppsData>,
 ) -> impl Responder {
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
@@ -898,7 +898,7 @@ pub async fn api_get_apps_list<D: Database + 'static>(
 
     let principal_app_grants = match db
         .principal_app_grant()
-        .get_by_principal_id_after(&principal.principal_id, req.0.after_app_id.as_deref(), 64)
+        .get_by_principal_id_after(&principal.principal_id, params.after_app_id.as_deref(), 64)
         .await
     {
         Ok(p) => p,

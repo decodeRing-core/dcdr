@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 #[derive(Debug)]
 pub struct UnknownPrincipalStatus(pub String);
@@ -31,7 +32,7 @@ impl std::fmt::Display for UnknownPrincipalCredentialKind {
 
 impl std::error::Error for UnknownPrincipalKind {}
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum PrincipalKind {
     Human,
@@ -96,7 +97,7 @@ impl PrincipalStatus {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum PrincipalCredentialKind {
     ApiKey,

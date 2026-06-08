@@ -3,15 +3,14 @@ use std::collections::HashMap;
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalKind};
 use serde::Deserialize;
 use serde_json::Value;
+use utoipa::ToSchema;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct CreateAppUserData {
     pub name: String,
     pub kind: PrincipalKind,
     pub credential_kind: PrincipalCredentialKind,
     pub data: Option<Value>,
-    // pub tpm: Option<TrustedPlatformModuleData>,
-    // pub aws: Option<AwsData>,
     pub expires_at: Option<i64>,
     pub apps: Option<Vec<String>>,
 }
@@ -30,12 +29,12 @@ pub struct AwsData {
     pub role_arn: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct CreateAppData {
     pub app_name: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct AuthUserData {
     pub credential_kind: String,
     pub proof: Value,
@@ -56,7 +55,7 @@ pub struct AuthTpmUserData {
     pub pcrs: Option<HashMap<u8, String>>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct AuthActivationData {
     pub credential_kind: String,
     pub principal_id: String,
@@ -64,7 +63,7 @@ pub struct AuthActivationData {
     pub proof: Value,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct AuthChallengeData {
     pub credential_kind: String,
     pub hint: Option<Value>,
@@ -85,19 +84,19 @@ pub struct AuthAwsUserData {
     pub headers: HashMap<String, String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct AppGrantData {
     pub apps: Vec<String>,
     pub principal_id: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct RevokeAppData {
     pub app_id: String,
     pub principal_id: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct ListAppsData {
     pub principal_id: String,
     pub after_app_id: Option<String>,

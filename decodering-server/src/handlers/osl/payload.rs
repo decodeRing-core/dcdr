@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use utoipa::ToSchema;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct PutSecretRequestData {
     pub app_id: String,
     pub secret_name: String,
@@ -12,13 +12,13 @@ pub struct PutSecretRequestData {
     pub idempotency_token: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct Store {
     pub backend_ref: String,
     pub store_path: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct Options {
     pub create_only: bool,
 }
@@ -30,55 +30,55 @@ pub struct GetSecretRequestData {
     pub version: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct DeleteSecretRequestData {
     pub app_id: String,
     pub secret_name: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct DestroySecretRequestData {
     pub app_id: String,
     pub secret_name: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct RestoreSecretRequestData {
     pub app_id: String,
     pub secret_name: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct ListSecretRequestData {
     pub app_id: String,
     pub after_secret: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct TaintSecretRequestData {
     pub app_id: String,
     pub secret_name: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct UntaintSecretRequestData {
     pub app_id: String,
     pub secret_name: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct IsTaintedSecretRequestData {
     pub app_id: String,
     pub secret_name: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct DescribeSecretRequestData {
     pub app_id: String,
     pub secret_name: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct ListAppsData {
     pub after_app_id: Option<String>,
 }

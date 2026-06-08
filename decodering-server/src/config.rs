@@ -114,7 +114,7 @@ where
 }
 
 fn init_config() -> Result<Config, ConfigError> {
-    let cluster_mode: ClusterMode = env_parsed("STORAGE_MODE")?;
+    let cluster_mode: ClusterMode = env_parsed("CLUSTER_MODE")?;
 
     let storage = match cluster_mode {
         ClusterMode::Raft => StorageConfig::Raft {

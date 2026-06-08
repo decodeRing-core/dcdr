@@ -7,11 +7,13 @@ use crate::handlers::raft::management::change_membership_raft;
 use crate::handlers::raft::management::init_raft;
 use crate::handlers::raft::management::metrics_raft;
 use crate::handlers::raft::management::shutdown_raft;
+use crate::middleware::RaftBackendOnly;
 use crate::middleware::RaftInitializedHelper;
 use crate::middleware::RaftLeaderHelper;
 
 pub fn raft_management_routes<D: Database + 'static>() -> impl HttpServiceFactory {
     web::scope("/raft")
+        .wrap(RaftBackendOnly::<D>::new())
         .route("/init", web::post().to(init_raft::<D>))
         .route("/metrics", web::post().to(metrics_raft::<D>))
         .route(

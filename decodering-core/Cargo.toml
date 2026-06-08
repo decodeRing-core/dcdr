@@ -20,6 +20,7 @@ blahaj.workspace = true
 rand.workspace = true
 async-trait.workspace = true
 base64.workspace = true
+utoipa.workspace = true
 
 [lints]
 workspace = true

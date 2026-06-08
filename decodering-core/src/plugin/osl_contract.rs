@@ -1,8 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash, ToSchema)]
 pub enum Capability {
     Read,
     Write,
@@ -13,7 +14,7 @@ pub enum Capability {
     Restore,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 #[schemars(title = "SecretStatus")]
 pub enum SecretStatus {
@@ -84,7 +85,7 @@ pub struct RestoreOutput {
     pub restored: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, ToSchema)]
 #[schemars(title = "VersionInfo")]
 pub struct VersionInfo {
     /// Opaque, provider-defined version identifier. Vault: "3".
@@ -101,7 +102,7 @@ pub struct DescribeInput {
     pub path: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, ToSchema)]
 pub struct DescribeOutput {
     pub secret_name: String,
     pub provider: String,

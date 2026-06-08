@@ -1,8 +1,9 @@
 use serde::Serialize;
+use utoipa::ToSchema;
 
 use crate::handlers::response::{ApiResponse, SuccessStatus};
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiInitSystemResponse {
     pub(crate) shards: Vec<String>,
     pub(crate) root_token: Option<String>,

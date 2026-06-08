@@ -1,8 +1,9 @@
 use crate::handlers::response::{ApiResponse, ApiStatus, SuccessStatus};
 use serde::Serialize;
 use serde_json::Value;
+use utoipa::ToSchema;
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiCreateAppResponse {
     pub(crate) app_id: String,
     pub(crate) app_name: String,
@@ -17,7 +18,7 @@ impl ApiCreateAppResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiCreateAppUserResponse {
     #[serde(flatten)]
     pub(crate) payload: Option<Value>,
@@ -42,7 +43,7 @@ impl ApiCreateAppUserResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiAuthAppUserResponse {
     pub(crate) token: String,
     pub(crate) expires_at: i64,
@@ -57,7 +58,7 @@ impl ApiAuthAppUserResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiAuthChallengeResponse {
     pub(crate) challenge_id: String,
     #[serde(flatten)]
@@ -78,7 +79,7 @@ impl ApiAuthChallengeResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiCreateAppGrantResponse {}
 
 impl ApiCreateAppGrantResponse {
@@ -87,7 +88,7 @@ impl ApiCreateAppGrantResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiDeleteAppGrantResponse {}
 
 impl ApiDeleteAppGrantResponse {

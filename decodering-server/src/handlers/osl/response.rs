@@ -11,7 +11,7 @@ use utoipa::ToSchema;
 
 use crate::handlers::response::{ApiResponse, ApiStatus, SuccessStatus};
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiPutSecretResponse {
     pub secret_name: String,
     pub provider_version_id: String,
@@ -61,7 +61,7 @@ impl ApiGetSecretResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiDestroySecretResponse {
     pub(crate) destroyed: bool,
 }
@@ -75,7 +75,7 @@ impl ApiDestroySecretResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiDeleteSecretResponse {
     pub(crate) soft_deleted: bool,
 }
@@ -89,10 +89,10 @@ impl ApiDeleteSecretResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiListSecretResponse(Vec<ListSecretResponse>);
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 struct ListSecretResponse {
     secret_name: String,
     backend: String,
@@ -120,7 +120,7 @@ impl ApiListSecretResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiTaintSecretResponse {
     pub(crate) tainted: bool,
 }
@@ -134,7 +134,7 @@ impl ApiTaintSecretResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiIsTaintedSecretResponse {
     pub(crate) is_tainted: bool,
 }
@@ -148,7 +148,7 @@ impl ApiIsTaintedSecretResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiRestoreSecretResponse {
     pub(crate) restored: bool,
 }
@@ -162,7 +162,7 @@ impl ApiRestoreSecretResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiCapabilitiesResponse {
     pub(crate) server_capabilities: Vec<Capability>,
     pub(crate) backends: Vec<BackendCapabilities>,
@@ -183,7 +183,7 @@ impl ApiCapabilitiesResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiDescribeSecretResponse {
     #[serde(flatten)]
     pub(crate) output: DescribeOutput,
@@ -198,10 +198,10 @@ impl ApiDescribeSecretResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiListAppsResponse(Vec<ListAppResponse>);
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 struct ListAppResponse {
     app_id: String,
 }
@@ -223,7 +223,7 @@ impl ApiListAppsResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ApiListBackendsResponse(Vec<String>);
 
 impl ApiListBackendsResponse {
