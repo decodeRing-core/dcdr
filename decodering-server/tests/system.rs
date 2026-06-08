@@ -235,7 +235,7 @@ async fn update_plugin_config_addr(
         .json(&serde_json::json!({
             "plugins_credentials": {
                 "openbao-rs": {
-                    "vault_token": "s.oUBdSUO8RIeCXzgeOHv2mIoL"
+                    "vault_token": "s.xxxxx"
                 }
             }
         }))
