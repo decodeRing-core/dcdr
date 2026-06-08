@@ -1,7 +1,7 @@
 <a name="top"></a>
 [![decodeRing](https://org-web1.decodering.org/images/dcdr_banner.png)](https://decodering.org)
 
-![Rust](https://img.shields.io/badge/Rust-1.95-orange)
+![Rust](https://img.shields.io/badge/Rust-orange) ![Rust MSRV](https://img.shields.io/badge/MSRV-1.95-orange)
 
 > [!IMPORTANT]
 > This is an alpha release and is not intended for production use. There are a number of features that need to be completed before the decodeRing server can be used in a production capacity.
