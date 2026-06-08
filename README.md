@@ -1,189 +1,95 @@
-# **DecodeRing Rust Implementation**
+<a name="top"></a>
+[![decodeRing](https://org-web1.decodering.org/images/dcdr_banner.png)](https://decodering.org)
 
-## **Overview**
+![Rust](https://img.shields.io/badge/Rust-1.95-orange)
 
-The project is organized into the following workspaces:
+> [!IMPORTANT]
+> This is an alpha release and is not intended for production use. There are a number of features that need to be completed before the decodeRing server can be used in a production capacity.
 
-#### **decodering-cli**
+⭐ Star us on GitHub — your support means a lot to us! 🙏😊
 
-A command-line tool that lets operators interact with decodering-server without calling the REST API directly.
+## About
 
-#### **decodering-core**
+decodeRing is an open-source security orchestration layer written in Rust that de-risks and accelerates secrets vault consolidation across clouds and vendors. decodeRing does this by implementing the [dcdr open standard](https://github.com/decodeRing-core/dcdr-standard) via RESTful API.
 
-Contains the abstractions shared across the codebase: plugins, actions, requests, responses, and other core logic. _This workspace must not depend on any other workspace in the project._
+This allows developers to focus on coding instead of learning how to interact with multiple secrets back-ends. By abstracting away the complexity of the back-end secrets vaults decodeRing reduces friction for developers and provides SECOPS teams with the tools they need to consolidate their secrets landscape.
 
-#### **decodering-db**
+[Back to top](#top)
 
-Concrete implementations of the storage backends. Currently supports SQLite and PostgreSQL. Depends on decodering-core.
+## Support & Community
 
-#### **decodering-plugins**
+- [GitHub Issues](https://github.com/decodeRing-core/dcdr-rs/issues) - report issues and make suggestions.
+- [Community Forum](https://github.com/decodeRing-core/dcdr-rs/discussions) - ask questions, and start discussions!
 
-Plugins maintained by the DecodeRing team that integrate with different vault backends.
+To stay up-to-date with new features and improvements be sure to watch our repo!
 
-#### **decodering-raft**
+## Architecture
 
-Concrete implementation of the Raft consensus protocol for DecodeRing, built on the openraft crate. Depends on decodering-core and decodering-db.
+The project is a Cargo workspace organized into the following crates:
 
-#### decodering-server
+| Workspace                                                                                     | Description                                                                                                                          | Depends on           |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| [decodering-core](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-core)       | Shared abstractions across the codebase: plugins, actions, requests, responses, and other core logic.                                | —                    |
+| [decodering-db](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-db)           | Concrete storage backend implementations. Currently supports SQLite and PostgreSQL.                                                  | core                 |
+| [decodering-raft](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-raft)       | Raft consensus implementation for decodeRing, built on the [openraft](https://crates.io/crates/openraft) crate.                      | core, db             |
+| [decodering-plugins](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-plugins) | Plugins maintained by the decodeRing team that integrate with different vault backends.                                              | core                 |
+| [decodering-auth](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-auth)       | Authentication methods implementing the `AuthMethod` trait defined in core. Currently supports TPM, AWS IAM role, and API key.       | core                 |
+| [decodering-server](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-server)   | Implements the OSL (Open Secrets Language) REST API and handles Raft node management, system initialization, and ongoing operations. | core, db, raft, auth |
+| [decodering-cli](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-cli)         | Command-line tool for operators to interact with decodering-server without calling the REST API directly.                            | core                 |
 
-Implements the OSL (Open Secrets Language) REST API and handles Raft node management, system initialization, and ongoing operations. Depends on decodering-core, decodering-db, and decodering-raft.
+## Quickstart
 
-## **Installation**
-
-1. Install the latest version of Rust (https://rust-lang.org/tools/install/)
-2. RocksDB and SQLite bindings require a system C toolchain and LLVM/Clang development libraries to build. On Alpine: `apk add build-base clang-dev clang-libs llvm-dev`. On `Debian/Ubuntu: apt install build-essential clang libclang-dev`.
-3. Clone repository
-4. Create .env file with configuration. Adjust as needed.
+The fastest path to a running node — single mode, SQLite, no plugins:
 
 ```shell
-CLUSTER_MODE=single # single | raft
-STORAGE_BACKEND=postgres # sqlite | postgres
+# 1. Install Rust: https://rust-lang.org/tools/install/
 
-DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/testdb" # required if cluster mode is set to single
+# 2. Clone the repo
+git clone https://github.com/decodeRing-core/dcdr-rs.git
+cd dcdr-rs
 
-AUTO_MIGRATE=true   # default true; set false for controlled prod deploys
-
+# 3. Minimal .env
+cat > .env <<'EOF'
+CLUSTER_MODE=single
+STORAGE_BACKEND=sqlite
+DATABASE_URL="sqlite://decodering.db"
+AUTO_MIGRATE=true
 SERVER_LOG_OUTPUT=both
 SERVER_LOG_DIR="/tmp"
 SERVER_LOG_PREFIX="decodering"
 SERVER_LOG_MAX_FILES=0
-
-RAFT_LOG_DIR="/tmp" # required if cluster mode is set to raft
-RAFT_LOG_PREFIX="decodering" # required if cluster mode is set to raft
-
-TRACING_LEVEL=error,decodering=debug,extism=error,extism_pdk=error,tracing_actix_web=info
-
+TRACING_LEVEL=error,decodering=debug
 PLUGIN_DIR="plugins"
-
 TPM_TRUST_DIR="/tmp"
-```
+EOF
 
-#### **Compiling plugins**
-
-Run:
-
-```shell
-rustup target list --installed
-```
-
-Install the wasm targets if you haven't already. The `wasm32-unknown-unknown` target means the plugin is not tied to any specific operating system or CPU architecture, it will run anywhere a WASM runtime is available. The `wasm32-wasip1` target includes WASI support, enabling access to system interfaces like the filesystem and environment variables.
-
-```shell
-rustup target add wasm32-unknown-unknown wasm32-wasip1
-```
-
-From the decoding-plugins folder, navigate into each vault plugin folder you want and run:
-
-```shell
-./build.sh
-```
-
-This compiles the plugins to WebAssembly and copies them into a plugins folder inside dcdr-rs (the repository directory). If you set PLUGIN_DIRECTORY to a different path, compile the plugins manually, see `build.sh` for details.
-If the build succeeds, you should see a `compiled/` folder containing the `.wasm` files for each plugin you built.
-Each plugin requires a manifest file. Create a `manifests/` folder next to `compiled/` and add a `.yaml` file for each plugin.
-
-```yaml
-wasm:
-  - path: "plugins/compiled/openbao-rs.wasm"
-allowed_hosts:
-  - "127.0.0.1"
-config:
-  type: "OpenBao"
-  vault_addr: "http://127.0.0.1:8200"
-  kv_mount: "Your openbao kv mount"
-```
-
-```yaml
-wasm:
-  - path: "plugins/compiled/aws-rs.wasm"
-allowed_hosts:
-  - "secretsmanager.ap-southeast-2.amazonaws.com"
-config:
-  type: "AWS Secrets Manager"
-  region: "ap-southeast-2"
-```
-
-The final layout should look like:
-
-```shell
-dcdr-rs
-  |- ...
-  |- plugins
-    |- compiled
-      |- openbao-rs.wasm
-      |- aws-rs.wasm
-    |- manifests
-      |- openbao-rs.yaml
-      |- aws-rs.yaml
-```
-
-### **Run Nodes**
-
-From the dcdr-rs directory, start a node with:
-
-```sh
+# 4. Run a node
 cargo run --bin decodering-server -- --id 1 --addr 127.0.0.1:21001
 ```
 
-You can start additional nodes by incrementing the ID and port:
+For multi-node Raft clusters, plugin compilation, and PostgreSQL, see [Installation](#installation).
 
-```sh
-cargo run --bin decodering-server -- --id 2 --addr 127.0.0.1:21002
+[Back to top](#top)
+
+## Installation
+
+## License
+
+Licensed under the Apache License, Version 2.0.
+
+[Back to top](#top)
+
+## Contacts
+
+For more details about our products, services, or any general information regarding the decodeRing Server, feel free to reach out to us. We are here to provide support and answer any questions you may have. Below are the best ways to contact our team:
+
+- **Email**: Send us your inquiries or support requests at [support@decodering.org](mailto:support@decodering.org).
+- **Website**: Visit the official decodeRing website for more information: [getdecodering.com](https://getdecodering.com/).
+
+We look forward to assisting you and ensuring your experience with our product is successful and enjoyable!
+
+[Back to top](#top)
+
 ```
 
-### Build Errors
-
-**`Unable to find libclang: ... Dynamic loading not supported`**
-
-On Alpine, Rust defaults to statically-linked musl binaries, and static musl binaries can't `dlopen` shared libraries. Since `bindgen` loads `libclang.so` dynamically at build time, the build fails.
-
-Fix by disabling static CRT linking so binaries are dynamically linked:
-
-```sh
-export RUSTFLAGS="-C target-feature=-crt-static"
 ```
-
-To make this persistent, add it to `~/.cargo/config.toml`:
-
-```toml
-[build]
-rustflags = ["-C", "target-feature=-crt-static"]
-```
-
-### **Getting Started**
-
-[View examples](docs/GETTING-STARTED.md)
-
-### **OSL**
-
-**All endpoints below require a root token or a short-term token**
-
-View [OSL spec](https://github.com/decodeRing-core/osl) for more information
-
-Current implementation status
-
-- [x] Get secret
-- [x] Put secret
-- [x] Destroy secret
-- [x] Delete secret
-- [x] Restore secret
-- [x] List secrets
-- [x] Taint secret
-- [x] Is secret tainted
-- [x] Untaint secret
-- [x] Get capabilities
-- [x] Secrets describe
-- [ ] Secrets versions list
-- [ ] Secret versions get
-- [ ] Issue credential
-- [ ] Renew credential
-- [ ] Revoke credential
-- [ ] Put rotation policy
-- [ ] Rotate secret
-- [ ] Put sync
-- [ ] Run sync
-- [ ] Get sync status
-- [ ] List syncs
-- [ ] Delete sync
-- [x] List applications
-- [x] List backends
