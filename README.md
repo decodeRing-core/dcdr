@@ -67,11 +67,173 @@ EOF
 cargo run --bin decodering-server -- --id 1 --addr 127.0.0.1:21001
 ```
 
-For multi-node Raft clusters, plugin compilation, and PostgreSQL, see [Installation](#installation).
+For a more detailed installation guide including running multi-node Raft clusters, plugin compilation, and PostgreSQL, see [Installation](#installation).
 
 [Back to top](#top)
 
 ## Installation
+
+1. Install the latest version of [Rust](https://rust-lang.org/tools/install/).
+2. RocksDB and SQLite bindings require a system C toolchain and LLVM/Clang development libraries to build:
+   - **Alpine:** `apk add build-base clang-dev clang-libs llvm-dev`
+   - **Debian/Ubuntu:** `apt install build-essential clang libclang-dev`
+3. Clone the repository.
+4. Create a `.env` file with your configuration and adjust as needed:
+
+```shell
+CLUSTER_MODE=single             # single | raft
+STORAGE_BACKEND=postgres        # sqlite | postgres
+
+DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/testdb"  # required when CLUSTER_MODE=single
+
+AUTO_MIGRATE=true               # default true; set false for controlled prod deploys
+
+SERVER_LOG_OUTPUT=both
+SERVER_LOG_DIR="/tmp"
+SERVER_LOG_PREFIX="decodering"
+SERVER_LOG_MAX_FILES=0
+
+RAFT_LOG_DIR="/tmp"             # required when CLUSTER_MODE=raft
+RAFT_LOG_PREFIX="decodering"    # required when CLUSTER_MODE=raft
+
+TRACING_LEVEL=error,decodering=debug,extism=error,extism_pdk=error,tracing_actix_web=info
+
+PLUGIN_DIR="plugins"
+
+TPM_TRUST_DIR="/tmp"
+```
+
+### Compiling Plugins
+
+Check your installed targets:
+
+```shell
+rustup target list --installed
+```
+
+Install the WASM targets if you haven't already. `wasm32-unknown-unknown` produces a plugin not tied to any OS or CPU architecture — it runs anywhere a WASM runtime is available. `wasm32-wasip1` adds WASI support, enabling access to system interfaces like the filesystem and environment variables.
+
+```shell
+rustup target add wasm32-unknown-unknown wasm32-wasip1
+```
+
+From the `decodering-plugins` folder, navigate into each vault plugin folder you want and run:
+
+```shell
+./build.sh
+```
+
+This compiles the plugins to WebAssembly and copies them into a `plugins` folder inside `dcdr-rs` (the repository directory). If you set `PLUGIN_DIR` to a different path, compile the plugins manually — see `build.sh` for details.
+
+On success you'll see a `compiled/` folder containing a `.wasm` file for each plugin you built. Each plugin requires a manifest file. Create a `manifests/` folder next to `compiled/` and add a `.yaml` file per plugin.
+
+OpenBao example:
+
+```yaml
+wasm:
+  - path: "plugins/compiled/openbao-rs.wasm"
+allowed_hosts:
+  - "127.0.0.1"
+config:
+  type: "OpenBao"
+  vault_addr: "http://127.0.0.1:8200"
+  kv_mount: "Your openbao kv mount"
+```
+
+AWS Secrets Manager example:
+
+```yaml
+wasm:
+  - path: "plugins/compiled/aws-rs.wasm"
+allowed_hosts:
+  - "secretsmanager.ap-southeast-2.amazonaws.com"
+config:
+  type: "AWS Secrets Manager"
+  region: "ap-southeast-2"
+```
+
+Final layout:
+
+```text
+dcdr-rs
+  |- ...
+  |- plugins
+    |- compiled
+      |- openbao-rs.wasm
+      |- aws-rs.wasm
+    |- manifests
+      |- openbao-rs.yaml
+      |- aws-rs.yaml
+```
+
+### Running Nodes
+
+From the `dcdr-rs` directory, start a node:
+
+```shell
+cargo run --bin decodering-server -- --id 1 --addr 127.0.0.1:21001
+```
+
+Start additional nodes by incrementing the ID and port:
+
+```shell
+cargo run --bin decodering-server -- --id 2 --addr 127.0.0.1:21002
+```
+
+### Build Errors
+
+**`Unable to find libclang: ... Dynamic loading not supported`**
+
+On Alpine, Rust defaults to statically-linked musl binaries, and static musl binaries can't `dlopen` shared libraries. Since `bindgen` loads `libclang.so` dynamically at build time, the build fails.
+
+Fix by disabling static CRT linking so binaries are dynamically linked:
+
+```shell
+export RUSTFLAGS="-C target-feature=-crt-static"
+```
+
+To make this persistent, add it to `~/.cargo/config.toml`:
+
+```toml
+[build]
+rustflags = ["-C", "target-feature=-crt-static"]
+```
+
+[Back to top](#top)
+
+## Implementation Status
+
+All endpoints below require a root token or a short-term token. See the [OSL spec](https://github.com/decodeRing-core/osl) for more information.
+
+| Capability            | Status |
+| --------------------- | :----: |
+| Get secret            |   ✅   |
+| Put secret            |   ✅   |
+| Destroy secret        |   ✅   |
+| Delete secret         |   ✅   |
+| Restore secret        |   ✅   |
+| List secrets          |   ✅   |
+| Taint secret          |   ✅   |
+| Is secret tainted     |   ✅   |
+| Untaint secret        |   ✅   |
+| Get capabilities      |   ✅   |
+| Secrets describe      |   ✅   |
+| List applications     |   ✅   |
+| List backends         |   ✅   |
+| Secrets versions list |   ⬜   |
+| Secret versions get   |   ⬜   |
+| Issue credential      |   ⬜   |
+| Renew credential      |   ⬜   |
+| Revoke credential     |   ⬜   |
+| Put rotation policy   |   ⬜   |
+| Rotate secret         |   ⬜   |
+| Put sync              |   ⬜   |
+| Run sync              |   ⬜   |
+| Get sync status       |   ⬜   |
+| List syncs            |   ⬜   |
+| Delete sync           |   ⬜   |
+
+[Back to top](#top)
 
 ## License
 
