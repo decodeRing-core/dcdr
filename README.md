@@ -20,6 +20,7 @@
   - [Plugin Configuration](#plugin-configuration)
   - [Running Nodes](#running-nodes)
   - [Build Errors](#build-errors)
+- [API Reference](#api-reference)
 - [Implementation Status](#implementation-status)
 - [License](#license)
 - [Contacts](#contacts)
@@ -299,6 +300,16 @@ rustflags = ["-C", "target-feature=-crt-static"]
 ```
 
 [Back to top](#top)
+
+## API Reference
+
+decodeRing implements the [OSL (Open Secrets Language)](https://github.com/decodeRing-core/osl)
+REST API. See the [OSL spec](https://github.com/decodeRing-core/osl) for the
+full endpoint definitions.
+
+An OpenAPI specification is in progress and will be published here as it
+stabilizes. Until then, [Implementation Status](#implementation-status) lists
+the currently supported operations.
 
 ## Implementation Status
 
