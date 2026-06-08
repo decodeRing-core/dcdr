@@ -22,6 +22,10 @@
   - [Build Errors](#build-errors)
 - [API Reference](#api-reference)
 - [Implementation Status](#implementation-status)
+- [Plugin Development](#plugin-development)
+- [Contributing](#contributing)
+- [Security](#security)
+- [Contributing](#contributing)
 - [License](#license)
 - [Contacts](#contacts)
 
@@ -342,6 +346,31 @@ All endpoints below require a root token or a short-term token. See the [OSL spe
 | Get sync status       |   ⬜   |
 | List syncs            |   ⬜   |
 | Delete sync           |   ⬜   |
+
+[Back to top](#top)
+
+## Plugin Development
+
+Plugins are WebAssembly modules and can be written in any language that
+compiles to WASM. The host contract is defined in `decodering-core` and
+generated into your plugin's language via JSON Schema. See
+[docs/PLUGIN-DEVELOPMENT.md](docs/PLUGIN-DEVELOPMENT.md).
+
+## Contributing
+
+Contributions are welcome! To get started:
+
+1. Fork the repository and create a feature branch.
+2. Build and test: `cargo build && cargo test`.
+3. Format and lint before submitting: `cargo fmt && cargo clippy --all-targets`.
+4. Open a pull request describing your change.
+   Please keep `decodering-core` free of dependencies on other workspaces. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for full guidelines.
+
+## Security
+
+decodeRing handles secrets, so we take security seriously. **Please do not report security vulnerabilities through public GitHub issues.** Instead, email [security@decodering.org](mailto:security@decodering.org) (see [`SECURITY.md`](SECURITY.md) for our disclosure policy and supported versions).
+
+As an alpha release, decodeRing has not yet undergone a formal security audit and should not be relied upon to protect production secrets.
 
 [Back to top](#top)
 

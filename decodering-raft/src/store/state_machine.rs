@@ -469,7 +469,7 @@ where
     Ok(output)
 }
 
-pub async fn run_audit_denied<U>(
+pub async fn _run_audit_denied<U>(
     tx: &mut U,
     raft_index: i64,
     descriptor: AuditDescriptor,
