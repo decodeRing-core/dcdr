@@ -68,9 +68,9 @@ advance for your patience while the project is still young.
 
 ## Reporting Bugs and Requesting Features
 
-- [GitHub Issues](https://github.com/decodeRing-core/dcdr-rs/issues) for bugs
+- [GitHub Issues](https://github.com/decodeRing-core/dcdr/issues) for bugs
   and feature requests.
-- [Community Forum](https://github.com/decodeRing-core/dcdr-rs/discussions) for
+- [Community Forum](https://github.com/decodeRing-core/dcdr/discussions) for
   questions and open-ended discussion.
 
 When reporting a bug, please include the version or commit, your platform, the

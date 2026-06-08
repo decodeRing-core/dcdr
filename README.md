@@ -40,8 +40,8 @@ This allows developers to focus on coding instead of learning how to interact wi
 
 ## Support & Community
 
-- [GitHub Issues](https://github.com/decodeRing-core/dcdr-rs/issues) - report issues and make suggestions.
-- [Community Forum](https://github.com/decodeRing-core/dcdr-rs/discussions) - ask questions, and start discussions!
+- [GitHub Issues](https://github.com/decodeRing-core/dcdr/issues) - report issues and make suggestions.
+- [Community Forum](https://github.com/decodeRing-core/dcdr/discussions) - ask questions, and start discussions!
 
 To stay up-to-date with new features and improvements be sure to watch our repo!
 
@@ -49,15 +49,15 @@ To stay up-to-date with new features and improvements be sure to watch our repo!
 
 The project is a Cargo workspace organized into the following crates:
 
-| Workspace                                                                                     | Description                                                                                                                          | Depends on           |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
-| [decodering-core](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-core)       | Shared abstractions across the codebase: plugins, actions, requests, responses, and other core logic.                                | —                    |
-| [decodering-db](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-db)           | Concrete storage backend implementations. Currently supports SQLite and PostgreSQL.                                                  | core                 |
-| [decodering-raft](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-raft)       | Raft consensus implementation for decodeRing, built on the [openraft](https://crates.io/crates/openraft) crate.                      | core, db             |
-| [decodering-plugins](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-plugins) | Plugins maintained by the decodeRing team that integrate with different vault backends.                                              | core                 |
-| [decodering-auth](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-auth)       | Authentication methods implementing the `AuthMethod` trait defined in core. Currently supports TPM, AWS IAM role, and API key.       | core                 |
-| [decodering-server](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-server)   | Implements the OSL (Open Secrets Language) REST API and handles Raft node management, system initialization, and ongoing operations. | core, db, raft, auth |
-| [decodering-cli](https://github.com/decodeRing-core/dcdr-rs/tree/main/decodering-cli)         | Command-line tool for operators to interact with decodering-server without calling the REST API directly.                            | core                 |
+| Workspace                                                                                  | Description                                                                                                                          | Depends on           |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| [decodering-core](https://github.com/decodeRing-core/dcdr/tree/main/decodering-core)       | Shared abstractions across the codebase: plugins, actions, requests, responses, and other core logic.                                | —                    |
+| [decodering-db](https://github.com/decodeRing-core/dcdr/tree/main/decodering-db)           | Concrete storage backend implementations. Currently supports SQLite and PostgreSQL.                                                  | core                 |
+| [decodering-raft](https://github.com/decodeRing-core/dcdr/tree/main/decodering-raft)       | Raft consensus implementation for decodeRing, built on the [openraft](https://crates.io/crates/openraft) crate.                      | core, db             |
+| [decodering-plugins](https://github.com/decodeRing-core/dcdr/tree/main/decodering-plugins) | Plugins maintained by the decodeRing team that integrate with different vault backends.                                              | core                 |
+| [decodering-auth](https://github.com/decodeRing-core/dcdr/tree/main/decodering-auth)       | Authentication methods implementing the `AuthMethod` trait defined in core. Currently supports TPM, AWS IAM role, and API key.       | core                 |
+| [decodering-server](https://github.com/decodeRing-core/dcdr/tree/main/decodering-server)   | Implements the OSL (Open Secrets Language) REST API and handles Raft node management, system initialization, and ongoing operations. | core, db, raft, auth |
+| [decodering-cli](https://github.com/decodeRing-core/dcdr/tree/main/decodering-cli)         | Command-line tool for operators to interact with decodering-server without calling the REST API directly.                            | core                 |
 
 ## Supported Integrations
 
@@ -91,8 +91,8 @@ The fastest path to a running node — single mode, SQLite, no plugins:
 # 1. Install Rust: https://rust-lang.org/tools/install/
 
 # 2. Clone the repo
-git clone https://github.com/decodeRing-core/dcdr-rs.git
-cd dcdr-rs
+git clone https://github.com/decodeRing-core/dcdr.git
+cd dcdr
 
 # 3. Minimal .env
 cat > .env <<'EOF'
@@ -181,7 +181,7 @@ From the `decodering-plugins` folder, navigate into each vault plugin folder you
 ./build.sh
 ```
 
-This compiles the plugins to WebAssembly and copies them into a `plugins` folder inside `dcdr-rs` (the repository directory). If you set `PLUGIN_DIR` to a different path, compile the plugins manually — see `build.sh` for details.
+This compiles the plugins to WebAssembly and copies them into a `plugins` folder inside `dcdr` (the repository directory). If you set `PLUGIN_DIR` to a different path, compile the plugins manually — see `build.sh` for details.
 
 On success you'll see a `compiled/` folder containing a `.wasm` file for each plugin you built. Each plugin requires a manifest file. Create a `manifests/` folder next to `compiled/` and add a `.yaml` file per plugin.
 
@@ -213,7 +213,7 @@ config:
 Final layout:
 
 ```text
-dcdr-rs
+dcdr
   |- ...
   |- plugins
     |- compiled
@@ -283,7 +283,7 @@ See [API Reference](#api-reference) for more detailed information about the avai
 
 ### Running Nodes
 
-From the `dcdr-rs` directory, start a node:
+From the `dcdr` directory, start a node:
 
 ```shell
 cargo run --bin decodering-server -- --id 1 --addr 127.0.0.1:21001
