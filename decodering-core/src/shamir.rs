@@ -89,7 +89,7 @@ pub fn unlock(
         .recover(shares.as_slice())
         .map_err(|e| LockError::RecoveryFailed(e.to_owned()))?;
 
-    if Sha256::digest(&secret).as_slice() != expected_hash {
+    if &Sha256::digest(&secret)[..] != expected_hash {
         return Err(LockError::HashMismatch);
     }
 

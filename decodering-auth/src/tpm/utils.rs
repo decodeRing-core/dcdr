@@ -170,16 +170,16 @@ pub fn make_credential_rsa(
     // Random seed, digest-sized.
     let mut seed = [0u8; SEED_LEN];
     rng.fill_bytes(&mut seed);
-    // 2. secret blob = RSA-OAEP(EK_pub, seed); SHA-256; L = b"IDENTITY\0".
+    // secret blob = RSA-OAEP(EK_pub, seed); SHA-256; L = b"IDENTITY\0".
     let padding = Oaep::new_with_label::<Sha256, _>("IDENTITY\0");
     let enc_secret = ek
         .encrypt(&mut rng, padding, &seed)
         .map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
 
-    // 3. symKey = KDFa(SHA256, seed, "STORAGE", ak_name, <empty>, 128)
+    // symKey = KDFa(SHA256, seed, "STORAGE", ak_name, <empty>, 128)
     let sym_key = kdfa_sha256(&seed, "STORAGE", ak_name, &[], 128)?;
 
-    // 4. encIdentity = AES-128-CFB(symKey, IV=0) over TPM2B(secret)
+    // encIdentity = AES-128-CFB(symKey, IV=0) over TPM2B(secret)
     let mut inner = Vec::with_capacity(2 + secret.len());
     let secret_len = u16::try_from(secret.len()).map_err(|_| TpmVerifyError::InvalidSize)?;
     inner.extend_from_slice(&secret_len.to_be_bytes());
@@ -383,7 +383,7 @@ pub fn verify_pcrs(
 
     // Recomputed digest matches what the TPM signed.
     let recomputed_digest = Sha256::digest(&concatenated);
-    if recomputed_digest.as_slice() != expected_digest {
+    if &recomputed_digest[..] != expected_digest {
         tracing::error!(
             "recomputed PCR digest does not match quote's pcrDigest \
              (PCR values sent do not match what the TPM signed over)"

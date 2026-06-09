@@ -132,5 +132,6 @@ pub enum CryptoError {
     Encrypt,
     Decrypt,
     TooShort,
+    KeyLength,
     Serialize,
 }

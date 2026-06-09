@@ -366,7 +366,7 @@ All endpoints below require a root token or a short-term token. See the [OSL spe
 Plugins are WebAssembly modules and can be written in any language that
 compiles to WASM. The host contract is defined in `decodering-core` and
 generated into your plugin's language via JSON Schema. See
-[docs/PLUGIN-DEVELOPMENT.md](docs/PLUGIN-DEVELOPMENT.md).
+[PLUGIN-DEVELOPMENT.md](PLUGIN-DEVELOPMENT.md).
 
 ## Contributing
 
