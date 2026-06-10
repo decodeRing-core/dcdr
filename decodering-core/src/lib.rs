@@ -5,6 +5,7 @@ pub mod auth;
 pub mod crypto;
 pub mod domain;
 pub mod error;
+pub mod operation;
 pub mod plugin;
 pub mod repository;
 pub mod request;

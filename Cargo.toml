@@ -83,6 +83,7 @@ aws-credential-types = { version = "1.2.14", features = [] }
 async-trait = "0.1.89"
 utoipa = { version = "5.5.0", features = ["preserve_order"] }
 utoipa-swagger-ui = { version = "9", features = ["actix-web"] }
+metrics = "0.24"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
@@ -105,6 +106,7 @@ missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 multiple_crate_versions = "allow"
 implicit_hasher = "allow"
+future_not_send = "allow"
 
 print_stdout = "warn"       # use logging instead
 print_stderr = "warn"

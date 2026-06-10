@@ -10,6 +10,7 @@ use decodering_auth::tpm::auth::TpmMethod;
 use decodering_core::auth::registry::AuthRegistry;
 use decodering_db::sqlite::SqliteDatabase;
 use decodering_raft::Raft;
+use decodering_server::routes::RouteExtensions;
 use decodering_server::routes::config::config_app;
 
 use crate::common::{init_tracing_once, sqlite_raft_storage, test_config};
@@ -55,13 +56,14 @@ pub async fn spawn_node(id: u64) -> Result<Node, Box<dyn std::error::Error + Sen
     let orchestrator_data = Data::new(orchestrator);
     let auth_registry_data = Data::new(registry);
 
+    let route_exts = RouteExtensions::default();
     let server = HttpServer::new(move || {
         App::new()
             .app_data(config_data.clone())
             .app_data(app_data_wrapper.clone())
             .app_data(orchestrator_data.clone())
             .app_data(auth_registry_data.clone())
-            .configure(config_app::<SqliteDatabase>)
+            .configure(config_app::<SqliteDatabase>(route_exts.clone()))
     })
     .workers(1)
     .listen(listener)?

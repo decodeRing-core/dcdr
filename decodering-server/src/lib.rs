@@ -1,11 +1,12 @@
 use crate::app_data::AppData;
 use crate::config::{Config, StorageBackend, StorageConfig, load_config};
 use crate::logger::init_tracing;
-use crate::middleware::PropagateRequestId;
+use crate::middleware::{propagate_request_id, track_http};
+use crate::routes::RouteExtensions;
 use crate::routes::config::config_app;
 use actix_cors::Cors;
 use actix_web::HttpServer;
-use actix_web::middleware::Compress;
+use actix_web::middleware::{Compress, from_fn};
 use actix_web::web::Data;
 use clap::Parser;
 use decodering_auth::api_key::ApiKeyMethod;
@@ -42,9 +43,8 @@ pub struct Opt {
     pub addr: String,
 }
 
-#[allow(clippy::future_not_send)]
 pub async fn run_with(
-    extend: impl Fn(&mut actix_web::web::ServiceConfig) + Clone + Send + 'static,
+    route_exts: RouteExtensions,
     auth_extend: impl FnOnce(&mut AuthRegistry),
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     let options = Opt::parse();
@@ -80,9 +80,16 @@ pub async fn run_with(
                 config.auto_migrate,
             )
             .await?;
-            run_server(config, app, extend, orchestrator, registry, options.addr)
-                .await
-                .map_err(Into::into)
+            run_server(
+                config,
+                app,
+                route_exts,
+                orchestrator,
+                registry,
+                options.addr,
+            )
+            .await
+            .map_err(Into::into)
         }
         StorageConfig::Single { database_url } => match config.storage_backend {
             StorageBackend::Postgres => {
@@ -92,9 +99,16 @@ pub async fn run_with(
                     config.auto_migrate,
                 )
                 .await?;
-                run_server(config, app, extend, orchestrator, registry, options.addr)
-                    .await
-                    .map_err(Into::into)
+                run_server(
+                    config,
+                    app,
+                    route_exts,
+                    orchestrator,
+                    registry,
+                    options.addr,
+                )
+                .await
+                .map_err(Into::into)
             }
             StorageBackend::Sqlite => {
                 let app = AppData::<SqliteDatabase>::new(
@@ -103,19 +117,25 @@ pub async fn run_with(
                     config.auto_migrate,
                 )
                 .await?;
-                run_server(config, app, extend, orchestrator, registry, options.addr)
-                    .await
-                    .map_err(Into::into)
+                run_server(
+                    config,
+                    app,
+                    route_exts,
+                    orchestrator,
+                    registry,
+                    options.addr,
+                )
+                .await
+                .map_err(Into::into)
             }
         },
     }
 }
 
-#[allow(clippy::future_not_send)]
 async fn run_server<D>(
     config: Config,
     app: AppData<D>,
-    extend: impl Fn(&mut actix_web::web::ServiceConfig) + Clone + Send + 'static,
+    route_exts: RouteExtensions,
     orchestrator: Orchestrator,
     auth_registry: AuthRegistry,
     addr: String,
@@ -138,10 +158,10 @@ where
             .app_data(orchestrator_data.clone())
             .app_data(auth_registry_data.clone())
             .wrap(cors)
-            .configure(config_app::<D>)
-            .configure(extend.clone())
+            .configure(config_app::<D>(route_exts.clone()))
             .wrap(Compress::default())
-            .wrap(PropagateRequestId)
+            .wrap(from_fn(propagate_request_id))
+            .wrap(from_fn(track_http))
             .wrap(TracingLogger::default())
     })
     .bind(addr)?

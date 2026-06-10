@@ -29,6 +29,7 @@ zeroize.workspace = true
 uuid.workspace = true
 utoipa.workspace = true
 utoipa-swagger-ui.workspace = true
+metrics.workspace = true
 
 [dev-dependencies]
 reqwest.workspace = true

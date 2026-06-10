@@ -1,17 +1,20 @@
 use std::collections::BTreeMap;
 
+use actix_web::Responder;
 use actix_web::dev::ConnectionInfo;
+use actix_web::web;
 use actix_web::web::Data;
-use actix_web::{Responder, web};
 use decodering_core::actions::create_secret_mapping::CreateSecretMapping;
 use decodering_core::actions::delete_secret_mapping::DeleteSecretMapping;
 use decodering_core::actions::update_secret_mapping_taint::UpdateSecretMappingTaint;
 use decodering_core::crypto::sha256_hex;
+use decodering_core::operation::OSLOperation;
+use decodering_core::operation::op;
 use decodering_core::plugin::orchestrator::Orchestrator;
 use decodering_core::plugin::osl_contract::SecretStatus;
-use decodering_core::repository::{
-    AppRepository, PrincipalAppGrantRepository, SecretMappingRespository,
-};
+use decodering_core::repository::AppRepository;
+use decodering_core::repository::PrincipalAppGrantRepository;
+use decodering_core::repository::SecretMappingRespository;
 use decodering_core::request::AppRequest;
 use decodering_core::response::AppResponse;
 use decodering_core::time::now_ts;
@@ -57,6 +60,7 @@ pub async fn api_put_secret<D: Database + 'static>(
     req: web::Json<PutSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::PUT);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -156,6 +160,7 @@ pub async fn api_put_secret<D: Database + 'static>(
     match app.submit(request).await {
         Ok(resp) => match resp {
             AppResponse::CreateSecretMapping(resp) => {
+                op.ok();
                 ApiPutSecretResponse::new(resp.secret_name, secret_version)
             }
             AppResponse::Error(e) => {
@@ -191,6 +196,7 @@ pub async fn api_get_secret<D: Database + 'static>(
     req: web::Json<GetSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::GET);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -256,6 +262,7 @@ pub async fn api_get_secret<D: Database + 'static>(
             tracing::debug!(data=?out, "Plugin backend response");
             match out.status {
                 SecretStatus::Present => {
+                    op.ok();
                     return ApiGetSecretResponse::new(
                         out.data.unwrap_or_default(),
                         secret_mapping_data.backend,
@@ -301,6 +308,7 @@ pub async fn api_destroy_secret<D: Database + 'static>(
     req: web::Json<DestroySecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::DESTROY);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -368,7 +376,10 @@ pub async fn api_destroy_secret<D: Database + 'static>(
     let request = DeleteSecretMapping::request(auth.actor(&conn), &req.app_id, &req.secret_name);
     match app.submit(request).await {
         Ok(resp) => match resp {
-            AppResponse::DeleteSecretMapping(out) => ApiDestroySecretResponse::new(out),
+            AppResponse::DeleteSecretMapping(out) => {
+                op.ok();
+                ApiDestroySecretResponse::new(out)
+            }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to destroy secret");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
@@ -401,6 +412,7 @@ pub async fn api_list_secret<D: Database + 'static>(
     req: web::Json<ListSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::LIST);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -425,6 +437,7 @@ pub async fn api_list_secret<D: Database + 'static>(
         }
     };
 
+    op.ok();
     ApiListSecretResponse::new(secret_mapping_data)
 }
 
@@ -442,6 +455,7 @@ pub async fn api_taint_secret<D: Database + 'static>(
     req: web::Json<TaintSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::TAINT);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -482,7 +496,10 @@ pub async fn api_taint_secret<D: Database + 'static>(
     );
     match app.submit(request).await {
         Ok(resp) => match resp {
-            AppResponse::UpdateSecretMappingTaint(out) => ApiTaintSecretResponse::new(out),
+            AppResponse::UpdateSecretMappingTaint(out) => {
+                op.ok();
+                ApiTaintSecretResponse::new(out)
+            }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to taint secret");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
@@ -507,6 +524,7 @@ pub async fn api_untaint_secret<D: Database + 'static>(
     req: web::Json<UntaintSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::UNTAINT);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -547,7 +565,10 @@ pub async fn api_untaint_secret<D: Database + 'static>(
     );
     match app.submit(request).await {
         Ok(resp) => match resp {
-            AppResponse::UpdateSecretMappingTaint(out) => ApiTaintSecretResponse::new(out),
+            AppResponse::UpdateSecretMappingTaint(out) => {
+                op.ok();
+                ApiTaintSecretResponse::new(out)
+            }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to untaint secret");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
@@ -572,6 +593,7 @@ pub async fn api_is_tainted_secret<D: Database + 'static>(
     req: web::Json<IsTaintedSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::IS_TAINT);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -604,6 +626,7 @@ pub async fn api_is_tainted_secret<D: Database + 'static>(
         }
     };
 
+    op.ok();
     ApiIsTaintedSecretResponse::new(secret_mapping_data.tainted == 1)
 }
 
@@ -622,6 +645,7 @@ pub async fn api_delete_secret<D: Database + 'static>(
     req: web::Json<DeleteSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::DELETE);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -678,6 +702,7 @@ pub async fn api_delete_secret<D: Database + 'static>(
         .delete(&secret_mapping_data.mount_path, &credentials)
     {
         Ok(r) => {
+            op.ok();
             // Secret soft deleted
             return ApiDeleteSecretResponse::new(r);
         }
@@ -703,6 +728,7 @@ pub async fn api_restore_secret<D: Database + 'static>(
     req: web::Json<RestoreSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::RESTORE);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -757,6 +783,7 @@ pub async fn api_restore_secret<D: Database + 'static>(
         .restore(&secret_mapping_data.mount_path, &credentials)
     {
         Ok(r) => {
+            op.ok();
             // Secret soft delete restore
             return ApiRestoreSecretResponse::new(r);
         }
@@ -779,6 +806,7 @@ pub async fn api_get_capabilities<D: Database + 'static>(
     core: Data<Orchestrator>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::CAPABILITIES);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -793,6 +821,7 @@ pub async fn api_get_capabilities<D: Database + 'static>(
     }
     let server_capabilities = core.get_server_capabilities(&credentials);
     let backend_capabilities = core.get_backend_capabilities(&credentials);
+    op.ok();
     return ApiCapabilitiesResponse::new(server_capabilities, backend_capabilities);
 }
 
@@ -811,6 +840,7 @@ pub async fn api_describe_secret<D: Database + 'static>(
     req: web::Json<DescribeSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::DESCRIBE);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -863,6 +893,7 @@ pub async fn api_describe_secret<D: Database + 'static>(
         .describe(&secret_mapping_data.mount_path, &credentials)
     {
         Ok(r) => {
+            op.ok();
             return ApiDescribeSecretResponse::new(r);
         }
         Err(e) => {
@@ -884,6 +915,7 @@ pub async fn api_get_apps_list<D: Database + 'static>(
     auth: AuthOSLMiddleware<D>,
     params: web::Query<ListAppsData>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::LIST_APPS);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -907,7 +939,7 @@ pub async fn api_get_apps_list<D: Database + 'static>(
             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
         }
     };
-
+    op.ok();
     ApiListAppsResponse::new(principal_app_grants)
 }
 
@@ -923,8 +955,10 @@ pub async fn api_get_backends_list<D: Database + 'static>(
     core: Data<Orchestrator>,
     auth: AuthOSLMiddleware<D>,
 ) -> impl Responder {
+    let mut op = OSLOperation::start(op::LIST_BACKENDS);
     let backends = core.get_backends();
 
     let backend_names: Vec<String> = backends.iter().map(|f| f.0.to_owned()).collect();
+    op.ok();
     ApiListBackendsResponse::new(backend_names)
 }
