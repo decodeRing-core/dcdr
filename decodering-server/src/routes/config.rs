@@ -11,9 +11,7 @@ use crate::routes::raft::api::raft_api_routes;
 use crate::routes::raft::management::raft_management_routes;
 use crate::routes::system::app_system_routes;
 
-pub fn config_app<D: Database + Clone + 'static>(
-    exts: RouteExtensions,
-) -> impl FnOnce(&mut ServiceConfig) {
+pub fn config_app<D: Database + 'static>(exts: RouteExtensions) -> impl FnOnce(&mut ServiceConfig) {
     move |cfg| {
         cfg.service(
             web::scope("/osl/v1")

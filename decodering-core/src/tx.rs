@@ -75,7 +75,7 @@ pub trait RaftTx: Tx {
     fn meta(&mut self) -> Self::MetaRepo<'_>;
 }
 
-pub trait Database: Send + Sync {
+pub trait Database: Send + Sync + Clone {
     type Tx<'a>: Tx
     where
         Self: 'a;

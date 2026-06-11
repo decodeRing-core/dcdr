@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::{path::Path, sync::OnceLock};
 
 use decodering_core::request::AppRequest;
@@ -12,8 +13,9 @@ use zeroize::Zeroizing;
 
 use crate::error::AppError;
 
+#[derive(Clone)]
 pub struct AppData<D: Database> {
-    pub master_key: OnceLock<Zeroizing<Vec<u8>>>,
+    pub master_key: Arc<OnceLock<Zeroizing<Vec<u8>>>>,
     pub addr: String,
     pub db: D,
     pub raft: Option<RaftBits>,
@@ -28,7 +30,7 @@ impl AppData<SqliteDatabase> {
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let components = setup_raft_node(node_id, dir, auto_migrate).await?;
         Ok(Self {
-            master_key: OnceLock::new(),
+            master_key: Arc::new(OnceLock::new()),
             addr: addr.to_owned(),
             db: components.db,
             raft: Some(RaftBits {
@@ -45,7 +47,7 @@ impl AppData<SqliteDatabase> {
             .map_err(std::io::Error::other)?;
 
         Ok(Self {
-            master_key: OnceLock::new(),
+            master_key: Arc::new(OnceLock::new()),
             addr,
             db,
             raft: None,
@@ -59,7 +61,7 @@ impl AppData<PostgresDatabase> {
             .await
             .map_err(std::io::Error::other)?;
         Ok(Self {
-            master_key: OnceLock::new(),
+            master_key: Arc::new(OnceLock::new()),
             addr,
             db,
             raft: None,

@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use actix_web::Responder;
 use actix_web::dev::ConnectionInfo;
@@ -8,8 +9,11 @@ use decodering_core::actions::create_secret_mapping::CreateSecretMapping;
 use decodering_core::actions::delete_secret_mapping::DeleteSecretMapping;
 use decodering_core::actions::update_secret_mapping_taint::UpdateSecretMappingTaint;
 use decodering_core::crypto::sha256_hex;
-use decodering_core::operation::OSLOperation;
+use decodering_core::metrics::Metrics;
+use decodering_core::operation::OslOp;
 use decodering_core::operation::op;
+// use decodering_core::operation::OSLOperation;
+// use decodering_core::operation::op;
 use decodering_core::plugin::orchestrator::Orchestrator;
 use decodering_core::plugin::osl_contract::SecretStatus;
 use decodering_core::repository::AppRepository;
@@ -59,8 +63,9 @@ pub async fn api_put_secret<D: Database + 'static>(
     core: Data<Orchestrator>,
     req: web::Json<PutSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::PUT);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::PUT);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -195,8 +200,9 @@ pub async fn api_get_secret<D: Database + 'static>(
     core: Data<Orchestrator>,
     req: web::Json<GetSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::GET);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::GET);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -307,8 +313,9 @@ pub async fn api_destroy_secret<D: Database + 'static>(
     core: Data<Orchestrator>,
     req: web::Json<DestroySecretRequestData>,
     auth: AuthOSLMiddleware<D>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::DESTROY);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::DESTROY);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -411,8 +418,9 @@ pub async fn api_list_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: web::Json<ListSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::LIST);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::LIST);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -454,8 +462,9 @@ pub async fn api_taint_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: web::Json<TaintSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::TAINT);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::TAINT);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -523,8 +532,9 @@ pub async fn api_untaint_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: web::Json<UntaintSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::UNTAINT);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::UNTAINT);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -592,8 +602,9 @@ pub async fn api_is_tainted_secret<D: Database + 'static>(
     app: Data<AppData<D>>,
     req: web::Json<IsTaintedSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::IS_TAINT);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::IS_TAINT);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -644,8 +655,9 @@ pub async fn api_delete_secret<D: Database + 'static>(
     core: Data<Orchestrator>,
     req: web::Json<DeleteSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::DELETE);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::DELETE);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -727,8 +739,9 @@ pub async fn api_restore_secret<D: Database + 'static>(
     core: Data<Orchestrator>,
     req: web::Json<RestoreSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::RESTORE);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::RESTORE);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -805,8 +818,9 @@ pub async fn api_get_capabilities<D: Database + 'static>(
     app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     auth: AuthOSLMiddleware<D>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::CAPABILITIES);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::CAPABILITIES);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -839,8 +853,9 @@ pub async fn api_describe_secret<D: Database + 'static>(
     core: Data<Orchestrator>,
     req: web::Json<DescribeSecretRequestData>,
     auth: AuthOSLMiddleware<D>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::DESCRIBE);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::DESCRIBE);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -914,8 +929,9 @@ pub async fn api_get_apps_list<D: Database + 'static>(
     app: Data<AppData<D>>,
     auth: AuthOSLMiddleware<D>,
     params: web::Query<ListAppsData>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::LIST_APPS);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::LIST_APPS);
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -954,8 +970,9 @@ pub async fn api_get_backends_list<D: Database + 'static>(
     _app: Data<AppData<D>>,
     core: Data<Orchestrator>,
     auth: AuthOSLMiddleware<D>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
-    let mut op = OSLOperation::start(op::LIST_BACKENDS);
+    let mut op = OslOp::start(metrics.get_ref().clone(), op::LIST_BACKENDS);
     let backends = core.get_backends();
 
     let backend_names: Vec<String> = backends.iter().map(|f| f.0.to_owned()).collect();

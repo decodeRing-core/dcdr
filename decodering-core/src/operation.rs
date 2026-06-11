@@ -1,8 +1,8 @@
-use metrics::{counter, histogram};
+use std::sync::Arc;
 use std::time::Instant;
 
-pub const OSL_OPS: &str = "dcdr_osl_operations_total";
-pub const OSL_OP_DURATION: &str = "dcdr_osl_operation_duration_seconds";
+use crate::metrics::{Metric, Metrics, Outcome};
+
 pub const HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
 pub const HTTP_REQUEST_DURATION_SECONDS: &str = "http_request_duration_seconds";
 
@@ -21,34 +21,34 @@ pub mod op {
     pub const UNTAINT: &str = "untaint_secret";
     pub const LIST: &str = "list_secret";
 }
-pub mod outcome {
-    pub const OK: &str = "ok";
-    pub const ERROR: &str = "error";
-}
 
-pub struct OSLOperation {
+pub struct OslOp {
+    metrics: Arc<dyn Metrics>,
     operation: &'static str,
     start: Instant,
-    outcome: &'static str,
+    outcome: Outcome,
 }
 
-impl OSLOperation {
-    pub fn start(operation: &'static str) -> Self {
+impl OslOp {
+    pub fn start(metrics: Arc<dyn Metrics>, operation: &'static str) -> Self {
         Self {
+            metrics,
             operation,
             start: Instant::now(),
-            outcome: outcome::ERROR,
+            outcome: Outcome::Error,
         }
     }
     pub fn ok(&mut self) {
-        self.outcome = outcome::OK;
+        self.outcome = Outcome::Ok;
     }
 }
 
-impl Drop for OSLOperation {
+impl Drop for OslOp {
     fn drop(&mut self) {
-        counter!(OSL_OPS, "operation" => self.operation, "status" => self.outcome).increment(1);
-        histogram!(OSL_OP_DURATION, "operation" => self.operation)
-            .record(self.start.elapsed().as_secs_f64());
+        self.metrics.record(Metric::OslOperation {
+            op: self.operation,
+            outcome: self.outcome,
+            elapsed: self.start.elapsed(),
+        });
     }
 }
