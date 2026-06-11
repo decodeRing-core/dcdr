@@ -4,6 +4,7 @@ use std::time::Duration;
 pub enum Outcome {
     Ok,
     Error,
+    Denied,
 }
 
 pub enum Metric<'a> {
@@ -13,6 +14,11 @@ pub enum Metric<'a> {
         elapsed: Duration,
     },
     AuthAttempt {
+        method: &'static str,
+        outcome: Outcome,
+        elapsed: Duration,
+    },
+    AppAuthAttempt {
         method: &'static str,
         outcome: Outcome,
         elapsed: Duration,

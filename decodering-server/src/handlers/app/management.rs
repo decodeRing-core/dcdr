@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::sync::Arc;
 
 use actix_web::Responder;
 use actix_web::dev::ConnectionInfo;
@@ -23,6 +24,8 @@ use decodering_core::auth::types::EnrollRequest;
 use decodering_core::auth::types::ResolveRequest;
 use decodering_core::crypto::sha256_hex;
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
+use decodering_core::metrics::Metrics;
+use decodering_core::operation::{AppAuthAttempt, AppAuthAttemptMethod};
 use decodering_core::repository::AppRepository;
 use decodering_core::repository::PrincipalRepository;
 use decodering_core::repository::{PrincipalAppGrantRepository, PrincipalCredentialRepository};
@@ -210,7 +213,10 @@ pub async fn auth_app_user<D: Database + 'static>(
     app: Data<AppData<D>>,
     body: Json<AuthUserData>,
     registry: Data<AuthRegistry>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
+    let mut attempt = AppAuthAttempt::start(metrics.get_ref().clone(), AppAuthAttemptMethod::None);
+
     let ip = conn.peer_addr().map(str::to_owned);
 
     let auth_method = registry.get(&body.0.credential_kind);
@@ -219,6 +225,7 @@ pub async fn auth_app_user<D: Database + 'static>(
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::UnsupportedAuth));
     };
 
+    attempt.method(AppAuthAttemptMethod::from(auth_method.kind()));
     let db = app.db.begin().await;
     let Ok(mut db) = db else {
         tracing::error!("Failed to get a connection to database");
@@ -235,6 +242,7 @@ pub async fn auth_app_user<D: Database + 'static>(
             })
             .await;
         let Ok(lookup_key) = lookup_key else {
+            attempt.denied();
             tracing::error!("Failed to get lookup_key");
             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
         };
@@ -248,16 +256,19 @@ pub async fn auth_app_user<D: Database + 'static>(
         {
             Ok(Some(x)) => x,
             Ok(None) => {
+                attempt.denied();
                 tracing::error!("Active credential not found");
                 return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
             }
             Err(e) => {
                 tracing::error!(err=?e, "Failed to query database");
-                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
+                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
             }
         };
 
         if credential.status != PrincipalStatus::Active || credential.revoked_at.is_some() {
+            attempt.denied();
+
             tracing::error!(
                 status=credential.status.as_str(),
                 revoked_at=?credential.revoked_at,
@@ -275,6 +286,7 @@ pub async fn auth_app_user<D: Database + 'static>(
             if let Some(x) = body.0.proof.get("challenge_id").and_then(|v| v.as_str()) {
                 x.to_owned()
             } else {
+                attempt.denied();
                 tracing::error!("Expected challenge_id param");
                 return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
             };
@@ -290,6 +302,7 @@ pub async fn auth_app_user<D: Database + 'static>(
             Ok(resp) => match resp {
                 AppResponse::ConsumeAuthChallenge(resp) => Some(resp.payload),
                 AppResponse::Error(e) => {
+                    attempt.denied();
                     tracing::error!(%e, "Failed to consume tpm challenge");
                     return ApiResponse::error(ErrorStatus::OperationFailed(
                         ErrorReason::GenericFail("consume tpm challenge".into()),
@@ -327,6 +340,7 @@ pub async fn auth_app_user<D: Database + 'static>(
     {
         Ok(resp) => resp,
         Err(a) => {
+            attempt.denied();
             tracing::error!("Auth error: {a:?}");
             return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
         }
@@ -339,6 +353,7 @@ pub async fn auth_app_user<D: Database + 'static>(
     {
         Ok(Some(app)) => app,
         Ok(None) => {
+            attempt.denied();
             let metadata = auth_resp.audit_metadata;
             tracing::error!(lookup_key=%metadata,"Principal not found with lookup key");
             return ApiResponse::error(ErrorStatus::OperationFailed(
@@ -373,9 +388,11 @@ pub async fn auth_app_user<D: Database + 'static>(
     match app.submit(request).await {
         Ok(resp) => match resp {
             AppResponse::CreatePrincipalToken(r) => {
+                attempt.ok();
                 ApiAuthAppUserResponse::new(token, r.expires_at)
             }
             AppResponse::Error(e) => {
+                attempt.denied();
                 tracing::error!(%e, "Failed to authenticate app user");
                 ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
                     "authenticate app user".into(),

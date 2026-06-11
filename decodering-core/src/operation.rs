@@ -6,31 +6,95 @@ use crate::metrics::{Metric, Metrics, Outcome};
 pub const HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
 pub const HTTP_REQUEST_DURATION_SECONDS: &str = "http_request_duration_seconds";
 
-pub mod op {
-    pub const CAPABILITIES: &str = "capabilities";
-    pub const DESCRIBE: &str = "describe";
-    pub const LIST_APPS: &str = "list_apps";
-    pub const LIST_BACKENDS: &str = "list_backends";
-    pub const GET: &str = "get_secret";
-    pub const PUT: &str = "put_secret";
-    pub const DESTROY: &str = "destroy_secret";
-    pub const DELETE: &str = "delete_secret";
-    pub const TAINT: &str = "taint_secret";
-    pub const RESTORE: &str = "restore_secret";
-    pub const IS_TAINT: &str = "is_tainted_secret";
-    pub const UNTAINT: &str = "untaint_secret";
-    pub const LIST: &str = "list_secret";
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OslOperation {
+    Capabilities,
+    Describe,
+    ListApps,
+    ListBackends,
+    Get,
+    Put,
+    Destroy,
+    Delete,
+    Taint,
+    Restore,
+    IsTaint,
+    Untaint,
+    List,
+}
+
+impl OslOperation {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Capabilities => "capabilities",
+            Self::Describe => "describe",
+            Self::ListApps => "list_apps",
+            Self::ListBackends => "list_backends",
+            Self::Get => "get_secret",
+            Self::Put => "put_secret",
+            Self::Destroy => "destroy_secret",
+            Self::Delete => "delete_secret",
+            Self::Taint => "taint_secret",
+            Self::Restore => "restore_secret",
+            Self::IsTaint => "is_tainted_secret",
+            Self::Untaint => "untaint_secret",
+            Self::List => "list_secret",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthAttemptMethod {
+    BearerToken,
+}
+
+impl AuthAttemptMethod {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::BearerToken => "bearer_token",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppAuthAttemptMethod {
+    None,
+    Tpm,
+    ApiKey,
+    AwsIam,
+}
+
+impl AppAuthAttemptMethod {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Tpm => "trusted_platform_module",
+            Self::ApiKey => "api_key",
+            Self::AwsIam => "aws_iam",
+        }
+    }
+}
+
+impl From<String> for AppAuthAttemptMethod {
+    fn from(e: String) -> Self {
+        match e.as_str() {
+            "trustedPlatformModule" => Self::Tpm,
+            "apiKey" => Self::ApiKey,
+            "awsIdentity" => Self::AwsIam,
+            _ => Self::None, // Fallback for unknown strings
+        }
+    }
 }
 
 pub struct OslOp {
     metrics: Arc<dyn Metrics>,
-    operation: &'static str,
+    operation: OslOperation,
     start: Instant,
     outcome: Outcome,
 }
 
 impl OslOp {
-    pub fn start(metrics: Arc<dyn Metrics>, operation: &'static str) -> Self {
+    pub fn start(metrics: Arc<dyn Metrics>, operation: OslOperation) -> Self {
         Self {
             metrics,
             operation,
@@ -41,12 +105,91 @@ impl OslOp {
     pub fn ok(&mut self) {
         self.outcome = Outcome::Ok;
     }
+
+    pub fn denied(&mut self) {
+        self.outcome = Outcome::Denied;
+    }
 }
 
 impl Drop for OslOp {
     fn drop(&mut self) {
         self.metrics.record(Metric::OslOperation {
-            op: self.operation,
+            op: self.operation.as_str(),
+            outcome: self.outcome,
+            elapsed: self.start.elapsed(),
+        });
+    }
+}
+
+pub struct AuthAttempt {
+    metrics: Arc<dyn Metrics>,
+    method: AuthAttemptMethod,
+    start: Instant,
+    outcome: Outcome,
+}
+
+impl AuthAttempt {
+    pub fn start(metrics: Arc<dyn Metrics>, method: AuthAttemptMethod) -> Self {
+        Self {
+            metrics,
+            method,
+            start: Instant::now(),
+            outcome: Outcome::Error,
+        }
+    }
+    pub fn ok(&mut self) {
+        self.outcome = Outcome::Ok;
+    }
+
+    pub fn denied(&mut self) {
+        self.outcome = Outcome::Denied;
+    }
+}
+
+impl Drop for AuthAttempt {
+    fn drop(&mut self) {
+        self.metrics.record(Metric::AuthAttempt {
+            method: self.method.as_str(),
+            outcome: self.outcome,
+            elapsed: self.start.elapsed(),
+        });
+    }
+}
+
+pub struct AppAuthAttempt {
+    metrics: Arc<dyn Metrics>,
+    method: AppAuthAttemptMethod,
+    start: Instant,
+    outcome: Outcome,
+}
+
+impl AppAuthAttempt {
+    pub fn start(metrics: Arc<dyn Metrics>, method: AppAuthAttemptMethod) -> Self {
+        Self {
+            metrics,
+            method,
+            start: Instant::now(),
+            outcome: Outcome::Error,
+        }
+    }
+
+    pub fn method(&mut self, method: AppAuthAttemptMethod) {
+        self.method = method;
+    }
+
+    pub fn ok(&mut self) {
+        self.outcome = Outcome::Ok;
+    }
+
+    pub fn denied(&mut self) {
+        self.outcome = Outcome::Denied;
+    }
+}
+
+impl Drop for AppAuthAttempt {
+    fn drop(&mut self) {
+        self.metrics.record(Metric::AppAuthAttempt {
+            method: self.method.as_str(),
             outcome: self.outcome,
             elapsed: self.start.elapsed(),
         });

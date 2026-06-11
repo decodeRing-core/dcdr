@@ -38,7 +38,6 @@ pub struct CreateAppData {
 pub struct AuthUserData {
     pub credential_kind: String,
     pub proof: Value,
-    //pub key: String,
 }
 
 #[derive(Deserialize, Debug)]

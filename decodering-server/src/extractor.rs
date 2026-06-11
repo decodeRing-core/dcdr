@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use actix_web::Error;
 use actix_web::FromRequest;
@@ -10,6 +11,9 @@ use actix_web::http::header;
 use actix_web::web::Data;
 use decodering_core::audit::Actor;
 use decodering_core::crypto::sha256_hex;
+use decodering_core::metrics::Metrics;
+use decodering_core::operation::AuthAttempt;
+use decodering_core::operation::AuthAttemptMethod;
 use decodering_core::repository::Principal;
 use decodering_core::repository::PrincipalRepository;
 use decodering_core::repository::User;
@@ -134,6 +138,13 @@ where
                 .ok_or_else(|| actix_web::error::ErrorInternalServerError("AppData missing"))?
                 .clone();
 
+            let metrics = req_c
+                .app_data::<Data<Arc<dyn Metrics>>>()
+                .ok_or_else(|| actix_web::error::ErrorInternalServerError("Metrics missing"))?
+                .clone();
+
+            let mut attempt =
+                AuthAttempt::start(metrics.get_ref().clone(), AuthAttemptMethod::BearerToken);
             let access_token = get_authorization(&req_c)?;
             let db = app.db.begin().await;
             let Ok(mut db) = db else {
@@ -149,6 +160,7 @@ where
                 ErrorStatus::OperationFailed(ErrorReason::Database)
             })? && u.is_admin
             {
+                attempt.ok();
                 return Ok(Self::new(Some(u), None));
             }
 
@@ -163,9 +175,11 @@ where
                     ErrorStatus::OperationFailed(ErrorReason::Database)
                 })?
             {
+                attempt.ok();
                 return Ok(Self::new(None, Some(p)));
             }
 
+            attempt.denied();
             tracing::warn!(
                 access_token,
                 "Invalid authentication attempt. No user or principal found for token"
