@@ -1,7 +1,18 @@
 use clap::{Parser, Subcommand};
 use std::error::Error;
 
-use crate::{aws_sig::generate_aws_sig, schema::generate_schema};
+use crate::aws_sig::generate_aws_sig;
+use crate::schema::generate_schema;
+use crate::system::SystemCommand;
+
+mod api;
+mod aws_sig;
+mod schema;
+mod source;
+mod system;
+mod token_store;
+#[cfg(feature = "tpm")]
+mod tpm_params;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -21,16 +32,17 @@ enum Command {
         #[arg(long, default_value = "us-east-1")]
         region: String,
     },
-    // TpmParams {
-    //     /// Emit progress messages to stderr
-    //     #[arg(long, short = 'd')]
-    //     debug: bool,
-    // },
-}
 
-mod aws_sig;
-mod schema;
-mod tpm_params;
+    #[command(subcommand)]
+    System(SystemCommand),
+
+    #[cfg(feature = "tpm")]
+    TpmParams {
+        /// Emit progress messages to stderr
+        #[arg(long, short = 'd')]
+        debug: bool,
+    },
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -39,8 +51,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     match args.command {
         Command::GenerateSchema => generate_schema()?,
         Command::AwsSig { region } => generate_aws_sig(&region).await?,
-        //Command::TpmParams { debug } => todo!(),
+        #[cfg(feature = "tpm")]
+        Command::TpmParams { debug } => todo!(),
+        Command::System(cmd) => system::run(cmd).await?,
     }
+    token_store::release();
 
     Ok(())
 }
