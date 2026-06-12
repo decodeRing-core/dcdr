@@ -22,13 +22,5 @@ pub async fn init(req: InitRequest) -> Result<InitResponse, Box<dyn Error>> {
     // TODO: replace with a real HTTP call to the server, e.g.:
     // let res = client.post(format!("{base}/v1/system/init")).json(&req).send().await?;
     // Ok(res.error_for_status()?.json().await?)
-    let _ = req;
-    Ok(InitResponse {
-        shards: vec![
-            "shard-1-xxx".into(),
-            "shard-2-yyy".into(),
-            "shard-3-zzz".into(),
-        ],
-        root_key: "rk_dummy_root_key".into(),
-    })
+    Err("Not implemented".into())
 }
