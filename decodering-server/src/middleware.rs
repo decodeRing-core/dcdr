@@ -8,7 +8,7 @@ use actix_web::http::header::{HeaderName, HeaderValue};
 use actix_web::middleware::Next;
 use actix_web::web;
 use actix_web::{Error, HttpMessage};
-use decodering_core::operation::{HTTP_REQUEST_DURATION_SECONDS, HTTP_REQUESTS_TOTAL};
+use decodering_core::metrics::{HTTP_REQUEST_DURATION_SECONDS, HTTP_REQUESTS_TOTAL};
 use decodering_core::tx::Database;
 use metrics::{counter, histogram};
 use tracing::Instrument;

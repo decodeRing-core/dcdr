@@ -1,5 +1,13 @@
 use std::time::Duration;
 
+pub mod app_auth_attempt;
+pub mod auth_attempt;
+pub mod osl;
+pub mod unlock_attempt;
+
+pub const HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
+pub const HTTP_REQUEST_DURATION_SECONDS: &str = "http_request_duration_seconds";
+
 #[derive(Clone, Copy)]
 pub enum Outcome {
     Ok,
@@ -23,18 +31,15 @@ pub enum Metric<'a> {
         outcome: Outcome,
         elapsed: Duration,
     },
-    TokenValidation {
+    Unlock {
         outcome: Outcome,
     },
-    Unseal {
-        outcome: Outcome,
-    },
-    Sealed(bool),
+    Locked(bool),
     RaftLeader(bool),
     RaftInitialized(bool),
     RaftTerm(u64),
-    RaftLeaderChange,
-    RaftPeers(u32),
+    RaftLearners(usize),
+    RaftVoters(usize),
     StorageQuery {
         backend: &'static str,
         op: &'static str,

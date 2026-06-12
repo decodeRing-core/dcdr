@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::app_data::AppData;
 use crate::audit::{unlock_audit_allowed, unlock_audit_errored};
 use crate::error::ErrorReason;
@@ -17,6 +19,8 @@ use decodering_core::actions::system_init::SystemInit;
 use decodering_core::actions::update_plugin_config_credentials::UpdatePluginConfigCredentials;
 use decodering_core::audit::Actor;
 use decodering_core::crypto::{encrypt_map, sha256_hex};
+use decodering_core::metrics::Metrics;
+use decodering_core::metrics::unlock_attempt::UnlockAttempt;
 use decodering_core::repository::ShamirRepository;
 use decodering_core::response::AppResponse;
 use decodering_core::shamir::{initialize_shamir, unlock};
@@ -158,9 +162,12 @@ pub async fn system_unlock<D: Database + 'static>(
     conn: ConnectionInfo,
     app: Data<AppData<D>>,
     req: Json<UnlockData>,
+    metrics: Data<Arc<dyn Metrics>>,
 ) -> impl Responder {
+    let mut attempt = UnlockAttempt::start(metrics.get_ref().clone());
     let ip = conn.peer_addr().map(str::to_owned);
     if app.master_key.get().is_some() {
+        attempt.ok();
         tracing::info!("Node already unlocked");
         return ApiResponse::empty(SuccessStatus::SystemUnlocked.into());
     }
@@ -172,6 +179,7 @@ pub async fn system_unlock<D: Database + 'static>(
     let shamir_configuration = match db.shamir().get_first().await {
         Ok(Some(config)) => config,
         Ok(None) => {
+            attempt.denied();
             return ApiResponse::error(ErrorStatus::OperationFailed(
                 ErrorReason::SystemNotInitialized,
             ));
@@ -184,6 +192,7 @@ pub async fn system_unlock<D: Database + 'static>(
 
     let threshold = u8::try_from(shamir_configuration.threshold);
     let Ok(threshold) = threshold else {
+        attempt.denied();
         tracing::error!("Shamir configuration threshold out of range");
         return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::InvalidShamirKeys));
     };
@@ -199,11 +208,13 @@ pub async fn system_unlock<D: Database + 'static>(
             match out {
                 Ok(()) => {
                     unlock_audit_allowed::<D>(ip, db).await;
+                    attempt.ok();
                     ApiResponse::empty(SuccessStatus::SystemUnlocked.into())
                 }
                 Err(e) => {
                     unlock_audit_errored::<D>(ip, db, "Invalid shards".to_owned()).await;
                     tracing::error!(err=?e, "Unlock error");
+                    attempt.denied();
                     ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
                 }
             }
@@ -211,6 +222,7 @@ pub async fn system_unlock<D: Database + 'static>(
         Err(err) => {
             unlock_audit_errored::<D>(ip, db, err.to_string()).await;
             tracing::error!(e=%err, "Failed to unlock system");
+            attempt.denied();
             ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
                 "unlock system".into(),
             )))

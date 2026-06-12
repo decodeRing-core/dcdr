@@ -25,7 +25,7 @@ use decodering_core::auth::types::ResolveRequest;
 use decodering_core::crypto::sha256_hex;
 use decodering_core::domain::{PrincipalCredentialKind, PrincipalStatus};
 use decodering_core::metrics::Metrics;
-use decodering_core::operation::{AppAuthAttempt, AppAuthAttemptMethod};
+use decodering_core::metrics::app_auth_attempt::{AppAuthAttempt, AppAuthAttemptMethod};
 use decodering_core::repository::AppRepository;
 use decodering_core::repository::PrincipalRepository;
 use decodering_core::repository::{PrincipalAppGrantRepository, PrincipalCredentialRepository};
@@ -233,7 +233,6 @@ pub async fn auth_app_user<D: Database + 'static>(
     };
 
     let caps = auth_method.capabilities();
-
     let credential = if caps.requires_resolve {
         let lookup_key = auth_method
             .resolve(ResolveRequest {
