@@ -3,6 +3,7 @@ use std::time::Duration;
 pub mod app_auth_attempt;
 pub mod auth_attempt;
 pub mod osl;
+pub mod plugin_invocation;
 pub mod unlock_attempt;
 
 pub const HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
@@ -40,11 +41,10 @@ pub enum Metric<'a> {
     RaftTerm(u64),
     RaftLearners(usize),
     RaftVoters(usize),
-    StorageQuery {
-        backend: &'static str,
-        op: &'static str,
-        outcome: Outcome,
-        elapsed: Duration,
+    DbPool {
+        active: u32,
+        idle: u32,
+        max: u32,
     },
     PluginInvocation {
         plugin: &'a str,

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use decodering_core::error::DbError;
-use decodering_core::tx::{Database, Tx};
+use decodering_core::tx::{Database, PoolStats, Tx};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{PgPool, Postgres, Transaction};
 
@@ -176,5 +176,15 @@ impl Database for PostgresDatabase {
     async fn begin(&self) -> Result<Self::Tx<'_>, DbError> {
         let tx = self.pool.begin().await.map_err(map_sqlx)?;
         Ok(PostgresTx { tx })
+    }
+
+    fn pool_stats(&self) -> PoolStats {
+        let size = self.pool.size();
+        let idle = u32::try_from(self.pool.num_idle()).unwrap_or(u32::MAX);
+        PoolStats {
+            active: size.saturating_sub(idle),
+            idle,
+            max: self.pool.options().get_max_connections(),
+        }
     }
 }

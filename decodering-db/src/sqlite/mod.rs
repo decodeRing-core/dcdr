@@ -1,5 +1,5 @@
 use decodering_core::error::DbError;
-use decodering_core::tx::{Database, RaftTx, Tx};
+use decodering_core::tx::{Database, PoolStats, RaftTx, Tx};
 use sqlx::{Sqlite, Transaction};
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
@@ -17,7 +17,6 @@ use crate::sqlite::principal::SqlitePrincipalRepository;
 use crate::sqlite::principal_app_grant::SqlitePrincipalAppGrantRepository;
 use crate::sqlite::principal_credential::SqlitePrincipalCredentialRepository;
 use crate::sqlite::principal_token::SqlitePrincipalTokenRepository;
-//use crate::sqlite::schema::SCHEMA;
 use crate::sqlite::secret_mapping::SqliteSecretMappingRepository;
 use crate::sqlite::shamir::SqliteShamirRepository;
 use crate::sqlite::user::SqliteUserRepository;
@@ -196,5 +195,15 @@ impl Database for SqliteDatabase {
     async fn begin(&self) -> Result<Self::Tx<'_>, DbError> {
         let tx = self.pool.begin().await.map_err(map_sqlx)?;
         Ok(SqliteTx { tx })
+    }
+
+    fn pool_stats(&self) -> PoolStats {
+        let size = self.pool.size();
+        let idle = u32::try_from(self.pool.num_idle()).unwrap_or(u32::MAX);
+        PoolStats {
+            active: size.saturating_sub(idle),
+            idle,
+            max: self.pool.options().get_max_connections(),
+        }
     }
 }

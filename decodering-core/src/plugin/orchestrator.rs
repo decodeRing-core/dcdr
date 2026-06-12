@@ -8,6 +8,7 @@ use serde::Serialize;
 use utoipa::ToSchema;
 use zeroize::Zeroizing;
 
+use crate::metrics::Metrics;
 use crate::plugin::osl_contract::Capability;
 
 use super::error::PluginError;
@@ -39,6 +40,10 @@ impl Orchestrator {
         Self {
             backends: HashMap::new(),
         }
+    }
+
+    pub fn total_backends(&self) -> usize {
+        self.backends.keys().count()
     }
 
     pub fn get_backends(&self) -> HashMap<String, BackendEntry> {
@@ -95,7 +100,11 @@ impl Orchestrator {
             .ok_or_else(|| PluginError::BackendNotFound(name.into()))
     }
 
-    pub fn load_wasm_plugins_from_dir(&mut self, plugins_root: &str) -> Result<(), PluginError> {
+    pub fn load_wasm_plugins_from_dir(
+        &mut self,
+        plugins_root: &str,
+        metrics: &Arc<dyn Metrics>,
+    ) -> Result<(), PluginError> {
         let manifests_dir = Path::new(plugins_root).join("manifests");
 
         let entries = fs::read_dir(&manifests_dir)
@@ -137,8 +146,12 @@ impl Orchestrator {
             };
 
             let backend_entry = BackendEntry {
-                backend_type,
-                backend: Arc::new(WasmSecretBackend::new(manifest)),
+                backend_type: backend_type.clone(),
+                backend: Arc::new(WasmSecretBackend::new(
+                    manifest,
+                    backend_type,
+                    metrics.clone(),
+                )),
             };
             tracing::info!(backend = name, "loaded plugin manifest");
             self.register(name.to_owned(), backend_entry);

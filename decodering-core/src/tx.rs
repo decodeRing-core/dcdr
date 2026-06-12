@@ -75,9 +75,16 @@ pub trait RaftTx: Tx {
     fn meta(&mut self) -> Self::MetaRepo<'_>;
 }
 
+pub struct PoolStats {
+    pub active: u32,
+    pub idle: u32,
+    pub max: u32,
+}
+
 pub trait Database: Send + Sync + Clone {
     type Tx<'a>: Tx
     where
         Self: 'a;
     fn begin(&self) -> impl Future<Output = Result<Self::Tx<'_>, DbError>> + Send;
+    fn pool_stats(&self) -> PoolStats;
 }

@@ -1,10 +1,13 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use extism::convert::Json;
 use extism::{Manifest, Plugin};
 use serde_json::Value;
 use zeroize::Zeroizing;
 
+use crate::metrics::Metrics;
+use crate::metrics::plugin_invocation::PluginInvocation;
 use crate::plugin::osl_contract::{
     Capability, DeleteInput, DeleteOutput, DescribeInput, DescribeOutput, DestroyInput,
     DestroyOutput, ReadInput, ReadOutput, RestoreInput, RestoreOutput, WriteInput, WriteOutput,
@@ -14,12 +17,18 @@ use super::error::PluginError;
 use super::secret_backend::SecretBackend;
 
 pub struct WasmSecretBackend {
+    backend_type: String,
     manifest: Manifest,
+    metrics: Arc<dyn Metrics>,
 }
 
 impl WasmSecretBackend {
-    pub fn new(manifest: Manifest) -> Self {
-        Self { manifest }
+    pub fn new(manifest: Manifest, backend_type: String, metrics: Arc<dyn Metrics>) -> Self {
+        Self {
+            backend_type,
+            manifest,
+            metrics,
+        }
     }
 
     /// Intentional: per-call isolation is a security requirement
@@ -42,6 +51,7 @@ impl SecretBackend for WasmSecretBackend {
         version: Option<String>,
         credential: &BTreeMap<String, Zeroizing<String>>,
     ) -> Result<ReadOutput, PluginError> {
+        let mut metric = PluginInvocation::start(self.metrics.clone(), self.backend_type.clone());
         let mut plugin = self.instantiate(credential)?;
         let input = ReadInput {
             secret_name: secret_name.to_owned(),
@@ -49,7 +59,10 @@ impl SecretBackend for WasmSecretBackend {
         };
         plugin
             .call::<Json<ReadInput>, Json<ReadOutput>>("get_secret", Json(input))
-            .map(|out| out.0)
+            .map(|out| {
+                metric.ok();
+                out.0
+            })
             .map_err(|e| PluginError::Call {
                 function: "get_secret".into(),
                 message: e.to_string(),
@@ -63,6 +76,7 @@ impl SecretBackend for WasmSecretBackend {
         idempotency_token: &str,
         credential: &BTreeMap<String, Zeroizing<String>>,
     ) -> Result<String, PluginError> {
+        let mut metric = PluginInvocation::start(self.metrics.clone(), self.backend_type.clone());
         let mut plugin = self.instantiate(credential)?;
         let input = WriteInput {
             path: path.to_owned(),
@@ -71,7 +85,10 @@ impl SecretBackend for WasmSecretBackend {
         };
         plugin
             .call::<Json<WriteInput>, Json<WriteOutput>>("put_secret", Json(input))
-            .map(|out| out.0.version)
+            .map(|out| {
+                metric.ok();
+                out.0.version
+            })
             .map_err(|e| PluginError::Call {
                 function: "put_secret".into(),
                 message: e.to_string(),
@@ -83,13 +100,17 @@ impl SecretBackend for WasmSecretBackend {
         path: &str,
         credential: &BTreeMap<String, Zeroizing<String>>,
     ) -> Result<bool, PluginError> {
+        let mut metric = PluginInvocation::start(self.metrics.clone(), self.backend_type.clone());
         let mut plugin = self.instantiate(credential)?;
         let input = DestroyInput {
             path: path.to_owned(),
         };
         plugin
             .call::<Json<DestroyInput>, Json<DestroyOutput>>("destroy_secret", Json(input))
-            .map(|out| out.0.destroyed)
+            .map(|out| {
+                metric.ok();
+                out.0.destroyed
+            })
             .map_err(|e| PluginError::Call {
                 function: "destroy_secret".into(),
                 message: e.to_string(),
@@ -101,13 +122,17 @@ impl SecretBackend for WasmSecretBackend {
         path: &str,
         credential: &BTreeMap<String, Zeroizing<String>>,
     ) -> Result<bool, PluginError> {
+        let mut metric = PluginInvocation::start(self.metrics.clone(), self.backend_type.clone());
         let mut plugin = self.instantiate(credential)?;
         let input = DeleteInput {
             path: path.to_owned(),
         };
         plugin
             .call::<Json<DeleteInput>, Json<DeleteOutput>>("delete_secret", Json(input))
-            .map(|out| out.0.deleted)
+            .map(|out| {
+                metric.ok();
+                out.0.deleted
+            })
             .map_err(|e| PluginError::Call {
                 function: "delete_secret".into(),
                 message: e.to_string(),
@@ -119,13 +144,17 @@ impl SecretBackend for WasmSecretBackend {
         path: &str,
         credential: &BTreeMap<String, Zeroizing<String>>,
     ) -> Result<bool, PluginError> {
+        let mut metric = PluginInvocation::start(self.metrics.clone(), self.backend_type.clone());
         let mut plugin = self.instantiate(credential)?;
         let input = RestoreInput {
             path: path.to_owned(),
         };
         plugin
             .call::<Json<RestoreInput>, Json<RestoreOutput>>("restore_secret", Json(input))
-            .map(|out| out.0.restored)
+            .map(|out| {
+                metric.ok();
+                out.0.restored
+            })
             .map_err(|e| PluginError::Call {
                 function: "restore_secret".into(),
                 message: e.to_string(),
@@ -135,10 +164,14 @@ impl SecretBackend for WasmSecretBackend {
         &self,
         credential: &BTreeMap<String, Zeroizing<String>>,
     ) -> Result<Vec<Capability>, PluginError> {
+        let mut metric = PluginInvocation::start(self.metrics.clone(), self.backend_type.clone());
         let mut plugin = self.instantiate(credential)?;
         plugin
             .call::<(), Json<Vec<Capability>>>("capabilities", ())
-            .map(|out| out.0)
+            .map(|out| {
+                metric.ok();
+                out.0
+            })
             .map_err(|e| PluginError::Call {
                 function: "capabilities".into(),
                 message: e.to_string(),
@@ -150,13 +183,17 @@ impl SecretBackend for WasmSecretBackend {
         path: &str,
         credential: &BTreeMap<String, Zeroizing<String>>,
     ) -> Result<DescribeOutput, PluginError> {
+        let mut metric = PluginInvocation::start(self.metrics.clone(), self.backend_type.clone());
         let mut plugin = self.instantiate(credential)?;
         let input = DescribeInput {
             path: path.to_owned(),
         };
         plugin
             .call::<Json<DescribeInput>, Json<DescribeOutput>>("describe", Json(input))
-            .map(|out| out.0)
+            .map(|out| {
+                metric.ok();
+                out.0
+            })
             .map_err(|e| PluginError::Call {
                 function: "describe".into(),
                 message: e.to_string(),

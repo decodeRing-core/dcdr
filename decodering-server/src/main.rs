@@ -7,7 +7,7 @@ use decodering_auth::api_key::ApiKeyMethod;
 use decodering_auth::aws::auth::AwsMethod;
 use decodering_auth::tpm::auth::TpmMethod;
 use decodering_core::auth::registry::AuthRegistry;
-use decodering_core::metrics::NoopMetrics;
+use decodering_core::metrics::{Metrics, NoopMetrics};
 use decodering_core::plugin::orchestrator::Orchestrator;
 use decodering_db::postgres::PostgresDatabase;
 use decodering_db::sqlite::SqliteDatabase;
@@ -38,21 +38,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
     let config = load_config()?;
     let _guards = init_tracing(&config, &options.addr)?;
 
-    let mut orchestrator = Orchestrator::new();
-    orchestrator
-        .load_wasm_plugins_from_dir(&config.plugin_dir)
-        .map_err(|e| {
-            tracing::error!(error=%e, "Failed to initialize orchestrator");
-            e
-        })?;
-
     let mut registry = AuthRegistry::default();
     registry.register(Box::new(ApiKeyMethod::new()));
     registry.register(Box::new(TpmMethod::new()));
     registry.register(Box::new(AwsMethod::new()));
 
-    let metrics = Arc::new(NoopMetrics);
+    let metrics: Arc<dyn Metrics> = Arc::new(NoopMetrics);
     let route_extensions = RouteExtensions::default();
+
+    let mut orchestrator = Orchestrator::new();
+    orchestrator
+        .load_wasm_plugins_from_dir(&config.plugin_dir, &metrics)
+        .map_err(|e| {
+            tracing::error!(error=%e, "Failed to initialize orchestrator");
+            e
+        })?;
 
     match &config.storage {
         StorageConfig::Raft {

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
-use std::sync::Once;
+use std::sync::{Arc, Once};
 
+use decodering_core::metrics::{Metrics, NoopMetrics};
 use decodering_core::plugin::orchestrator::Orchestrator;
 use decodering_db::sqlite::SqliteDatabase;
 use decodering_server::app_data::AppData;
@@ -36,9 +37,11 @@ pub async fn sqlite_raft_storage(
     addr: &str,
 ) -> Result<Option<(Orchestrator, AppData<SqliteDatabase>)>, Box<dyn std::error::Error + Send + Sync>>
 {
+    let metrics: Arc<dyn Metrics> = Arc::new(NoopMetrics);
+
     let mut orchestrator = Orchestrator::new();
     orchestrator
-        .load_wasm_plugins_from_dir(&config.plugin_dir)
+        .load_wasm_plugins_from_dir(&config.plugin_dir, &metrics)
         .map_err(|e| {
             tracing::error!(error=%e, "Failed to initialize orchestrator");
             e
