@@ -51,7 +51,7 @@ rocksdb = "0.24.0"
 futures = "0.3.32"
 rand = { version = "0.10.1", features = ["thread_rng"] }
 reqwest = { version = "0.13.4", features = ["json"] }
-clap = { version = "4.6.1", features = ["derive"] }
+clap = { version = "4.6.1", features = ["derive", "env"] }
 sqlx = { version = "0.9.0", features = [
     "runtime-tokio",
     "sqlite",
@@ -62,7 +62,7 @@ blahaj = { version = "0.6", features = ["default"] }
 # Pin to sync with rsa
 sha2 = { version = "~0.10.9", features = ["oid"] }
 base64 = "0.22.1"
-zeroize = { version = "1.8.2", features = ["serde"] }
+zeroize = { version = "1.9.0", features = ["serde"] }
 uuid = { version = "1", features = ["v7", "serde"] }
 pem = "3.0.6"
 x509-parser = "0.18.1"

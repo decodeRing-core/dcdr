@@ -6,7 +6,7 @@ use std::sync::OnceLock;
 
 use keyring_core::Entry;
 
-const SERVICE: &str = "yourcli";
+const SERVICE: &str = "dcdr-root-token";
 const ACCOUNT: &str = "root-key";
 
 pub enum StoredIn {
@@ -27,7 +27,7 @@ pub fn store(secret: &str) -> Result<StoredIn, Box<dyn Error>> {
 }
 
 pub fn load() -> Result<Option<String>, Box<dyn Error>> {
-    if let Ok(token) = std::env::var("YOURCLI_TOKEN") {
+    if let Ok(token) = std::env::var("DCDR_ROOT_TOKEN") {
         return Ok(Some(token));
     }
     if keyring_available()
@@ -114,6 +114,6 @@ fn store_in_file(secret: &str) -> Result<PathBuf, Box<dyn Error>> {
 fn token_file_path() -> Result<PathBuf, Box<dyn Error>> {
     Ok(dirs::home_dir()
         .ok_or("cannot determine home directory")?
-        .join(".yourcli")
+        .join(".dcdr")
         .join("token"))
 }
