@@ -2,18 +2,23 @@ use clap::{Parser, Subcommand};
 use std::error::Error;
 use std::io::Write;
 
+use crate::app::AppCommand;
 use crate::aws_sig::generate_aws_sig;
+use crate::osl::OslCommand;
 use crate::raft::RaftCommand;
 use crate::schema::generate_schema;
 use crate::system::SystemCommand;
 
 mod api;
+mod app;
 mod aws_sig;
+mod osl;
 mod output;
 mod prompt;
 mod raft;
 mod schema;
 mod source;
+mod state;
 mod system;
 mod token_store;
 #[cfg(feature = "tpm")]
@@ -52,6 +57,12 @@ enum Command {
     #[command(subcommand)]
     Raft(RaftCommand),
 
+    #[command(subcommand)]
+    App(AppCommand),
+
+    #[command(subcommand)]
+    Osl(OslCommand),
+
     #[cfg(feature = "tpm")]
     TpmParams {
         /// Emit progress messages to stderr
@@ -69,8 +80,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Command::AwsSig { region } => generate_aws_sig(&region).await,
         #[cfg(feature = "tpm")]
         Command::TpmParams { debug } => todo!(),
+        Command::Osl(cmd) => osl::run(cmd, &args.addr).await,
         Command::System(cmd) => system::run(cmd, &args.addr).await,
         Command::Raft(cmd) => raft::run(cmd, &args.addr).await,
+        Command::App(cmd) => app::run(cmd, &args.addr).await,
     };
     token_store::release();
 
