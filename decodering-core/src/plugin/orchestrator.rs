@@ -148,13 +148,20 @@ impl Orchestrator {
             let backend_entry = BackendEntry {
                 backend_type: backend_type.clone(),
                 backend: Arc::new(WasmSecretBackend::new(
-                    manifest,
+                    manifest.clone(),
                     backend_type,
                     metrics.clone(),
                 )),
             };
-            tracing::info!(backend = name, "loaded plugin manifest");
-            self.register(name.to_owned(), backend_entry);
+            match extism::Plugin::new(&manifest, [], true) {
+                Ok(_) => {
+                    tracing::info!(backend = name, "loaded plugin manifest");
+                    self.register(name.to_owned(), backend_entry);
+                }
+                Err(e) => {
+                    tracing::error!(backend = name, err = %e, "Unable to load plugin");
+                }
+            }
         }
         Ok(())
     }

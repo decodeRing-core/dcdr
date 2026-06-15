@@ -166,6 +166,7 @@ impl SecretBackend for WasmSecretBackend {
     ) -> Result<Vec<Capability>, PluginError> {
         let mut metric = PluginInvocation::start(self.metrics.clone(), self.backend_type.clone());
         let mut plugin = self.instantiate(credential)?;
+
         plugin
             .call::<(), Json<Vec<Capability>>>("capabilities", ())
             .map(|out| {
