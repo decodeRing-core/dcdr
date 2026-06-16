@@ -189,7 +189,7 @@ OpenBao example:
 
 ```yaml
 wasm:
-  - path: "plugins/compiled/openbao-rs.wasm"
+  - path: "/home/appleseed/dcdr/plugins/compiled/openbao-rs.wasm"
 allowed_hosts:
   - "127.0.0.1"
 config:
@@ -202,7 +202,7 @@ AWS Secrets Manager example:
 
 ```yaml
 wasm:
-  - path: "plugins/compiled/aws-rs.wasm"
+  - path: "/home/appleseed/dcdr/plugins/compiled/aws-rs.wasm"
 allowed_hosts:
   - "secretsmanager.ap-southeast-2.amazonaws.com"
 config:

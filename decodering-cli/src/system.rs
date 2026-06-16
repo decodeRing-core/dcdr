@@ -67,20 +67,6 @@ async fn unlock(input: UnlockInput, addr: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn prompt_shards() -> Result<Vec<String>, Box<dyn Error>> {
-    let mut shards = Vec::new();
-    loop {
-        let prompt = format!("Enter shard {} (leave empty to finish): ", shards.len() + 1);
-        let shard = rpassword::prompt_password(prompt)?;
-        let shard = shard.trim().to_owned();
-        if shard.is_empty() {
-            break;
-        }
-        shards.push(shard);
-    }
-    Ok(shards)
-}
-
 async fn status(addr: &str) -> Result<(), Box<dyn Error>> {
     let resp = api::status(addr).await?;
     output::report(&resp);
@@ -116,34 +102,48 @@ async fn init(input: InitInput, addr: &str) -> Result<(), Box<dyn Error>> {
     )
     .await?;
 
-    println!("System initialized.\n");
-    println!("Unseal shards — distribute these to separate operators (shown once):\n");
-    for (i, shard) in res.shards.iter().enumerate() {
-        println!("  Shard {}: {}", i + 1, shard);
-    }
-    println!();
+    let _ = cliclack::log::success("System initialized.");
+
+    let body = res
+        .shards
+        .iter()
+        .enumerate()
+        .map(|(i, shard)| format!("{}. {shard}", i + 1))
+        .collect::<Vec<String>>()
+        .join("\n");
+    let _ = cliclack::note(
+        "Unseal shards — distribute to separate operators (shown once)",
+        body,
+    );
 
     match token_store::store(&res.root_token)? {
-        token_store::StoredIn::Keyring => println!("Root token stored in the OS keychain."),
+        token_store::StoredIn::Keyring => {
+            let _ = cliclack::log::success("Root token stored in the OS keychain.");
+        }
         token_store::StoredIn::File(path) => {
-            println!(
+            let _ = cliclack::log::warning(format!(
                 "OS keychain unavailable; root token stored in {} (0600).",
                 path.display()
-            );
+            ));
         }
     }
     Ok(())
 }
 
 fn prompt_init_params() -> Result<InitParams, Box<dyn Error>> {
-    let total_shares = prompt::line("Total shares: ")?
-        .parse()
-        .map_err(|_| "total shares must be a number")?;
-    let threshold = prompt::line("Threshold: ")?
-        .parse()
-        .map_err(|_| "threshold must be a number")?;
     Ok(InitParams {
-        total_shares,
-        threshold,
+        total_shares: prompt::parse("Total shares")?,
+        threshold: prompt::parse("Threshold")?,
     })
+}
+
+fn prompt_shards() -> Result<Vec<String>, Box<dyn Error>> {
+    let mut shards = Vec::new();
+    loop {
+        shards.push(prompt::password(&format!("Shard {}", shards.len() + 1))?);
+        if !prompt::confirm("Add another shard?")? {
+            break;
+        }
+    }
+    Ok(shards)
 }

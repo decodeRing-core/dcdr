@@ -4,9 +4,9 @@ use std::error::Error;
 
 use clap::{Args, Subcommand};
 
-use crate::output;
 use crate::source::ValueSource;
 use crate::{api, prompt};
+use crate::{output, progress};
 
 #[derive(Subcommand)]
 pub enum RaftCommand {
@@ -102,7 +102,32 @@ pub async fn run(cmd: RaftCommand, addr: &str) -> Result<(), Box<dyn Error>> {
 }
 
 async fn metrics(addr: &str) -> Result<(), Box<dyn Error>> {
-    let resp = api::raft_metrics(addr).await?;
+    let resp = progress::with_spinner("Fetching raft metrics", api::raft_metrics(addr)).await?;
+    output::report(&resp);
+    Ok(())
+}
+
+async fn change_membership(cmd: ChangeMembershipCommand, addr: &str) -> Result<(), Box<dyn Error>> {
+    use ChangeMembershipCommand as C;
+    use api::ChangeMembers;
+
+    let change = match cmd {
+        C::AddVoterIds(i) => ChangeMembers::AddVoterIds(ids(&i)?),
+        C::AddVoters(i) => ChangeMembers::AddVoters(nodes(&i)?),
+        C::RemoveVoters(i) => ChangeMembers::RemoveVoters(ids(&i)?),
+        C::ReplaceAllVoters(i) => ChangeMembers::ReplaceAllVoters(ids(&i)?),
+        C::AddNodes(i) => ChangeMembers::AddNodes(nodes(&i)?),
+        C::SetNodes(i) => ChangeMembers::SetNodes(nodes(&i)?),
+        C::RemoveNodes(i) => ChangeMembers::RemoveNodes(ids(&i)?),
+        C::ReplaceAllNodes(i) => ChangeMembers::ReplaceAllNodes(nodes(&i)?),
+        C::Batch(i) => ChangeMembers::Batch(serde_json::from_str(&i.params.read()?)?),
+    };
+
+    let resp = progress::with_spinner(
+        "Applying membership change",
+        api::raft_change_membership(addr, change),
+    )
+    .await?;
     output::report(&resp);
     Ok(())
 }
@@ -134,55 +159,15 @@ async fn add_learner(input: AddLearnerInput, addr: &str) -> Result<(), Box<dyn E
 }
 
 fn prompt_node() -> Result<(u64, String), Box<dyn Error>> {
-    let id: u64 = prompt::line("Node id: ")?
-        .parse()
-        .map_err(|_| "node id must be a number")?;
-    let address = prompt::line("Address: ")?;
-    if address.is_empty() {
-        return Err("address is required".into());
-    }
+    let id: u64 = prompt::parse("Learner Node id")?;
+    let address = prompt::required("Learner Node Address")?;
     Ok((id, address))
-}
-
-async fn change_membership(cmd: ChangeMembershipCommand, addr: &str) -> Result<(), Box<dyn Error>> {
-    use ChangeMembershipCommand as C;
-    use api::ChangeMembers;
-
-    let change = match cmd {
-        C::AddVoterIds(i) => ChangeMembers::AddVoterIds(ids(&i)?),
-        C::AddVoters(i) => ChangeMembers::AddVoters(nodes(&i)?),
-        C::RemoveVoters(i) => ChangeMembers::RemoveVoters(ids(&i)?),
-        C::ReplaceAllVoters(i) => ChangeMembers::ReplaceAllVoters(ids(&i)?),
-        C::AddNodes(i) => ChangeMembers::AddNodes(nodes(&i)?),
-        C::SetNodes(i) => ChangeMembers::SetNodes(nodes(&i)?),
-        C::RemoveNodes(i) => ChangeMembers::RemoveNodes(ids(&i)?),
-        C::ReplaceAllNodes(i) => ChangeMembers::ReplaceAllNodes(nodes(&i)?),
-        C::Batch(i) => ChangeMembers::Batch(serde_json::from_str(&i.params.read()?)?),
-    };
-
-    let resp = api::raft_change_membership(addr, change).await?;
-    output::report(&resp);
-    Ok(())
-}
-
-fn ids(input: &IdsInput) -> Result<BTreeSet<u64>, Box<dyn Error>> {
-    match &input.params {
-        Some(src) => Ok(serde_json::from_str(&src.read()?)?),
-        None => prompt_ids(),
-    }
-}
-
-fn nodes(input: &NodesInput) -> Result<BTreeMap<u64, api::Node>, Box<dyn Error>> {
-    match &input.params {
-        Some(src) => Ok(serde_json::from_str(&src.read()?)?),
-        None => prompt_nodes_map(),
-    }
 }
 
 fn prompt_ids() -> Result<BTreeSet<u64>, Box<dyn Error>> {
     let mut ids = BTreeSet::new();
     loop {
-        let line = prompt::line(&format!("Node id {} (empty to finish): ", ids.len() + 1))?;
+        let line = prompt::line(&format!("Node id {} (empty to finish)", ids.len() + 1))?;
         if line.is_empty() {
             break;
         }
@@ -197,19 +182,30 @@ fn prompt_ids() -> Result<BTreeSet<u64>, Box<dyn Error>> {
 fn prompt_nodes_map() -> Result<BTreeMap<u64, api::Node>, Box<dyn Error>> {
     let mut nodes = BTreeMap::new();
     loop {
-        let id_line = prompt::line(&format!("Node {} id (empty to finish): ", nodes.len() + 1))?;
+        let id_line = prompt::line(&format!("Node id {} (empty to finish)", nodes.len() + 1))?;
         if id_line.is_empty() {
             break;
         }
         let id: u64 = id_line.parse().map_err(|_| "id must be a number")?;
-        let address = prompt::line("  address: ")?;
-        if address.is_empty() {
-            return Err("address is required".into());
-        }
+        let address = prompt::required("Node address")?;
         nodes.insert(id, api::Node { addr: address });
     }
     if nodes.is_empty() {
         return Err("at least one node is required".into());
     }
     Ok(nodes)
+}
+
+fn ids(input: &IdsInput) -> Result<BTreeSet<u64>, Box<dyn Error>> {
+    match &input.params {
+        Some(src) => Ok(serde_json::from_str(&src.read()?)?),
+        None => prompt_ids(),
+    }
+}
+
+fn nodes(input: &NodesInput) -> Result<BTreeMap<u64, api::Node>, Box<dyn Error>> {
+    match &input.params {
+        Some(src) => Ok(serde_json::from_str(&src.read()?)?),
+        None => prompt_nodes_map(),
+    }
 }

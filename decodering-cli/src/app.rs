@@ -77,16 +77,9 @@ pub async fn run(cmd: AppCommand, addr: &str) -> Result<(), Box<dyn Error>> {
 }
 
 fn prompt_principal() -> Result<String, Box<dyn Error>> {
-    let last = state::last_principal();
-    let label = last.as_ref().map_or_else(
-        || "Principal id: ".to_owned(),
-        |id| format!("Principal id [{id}]: "),
-    );
-    let input = prompt::line(&label)?;
-    let id = if input.is_empty() {
-        last.ok_or("principal id is required")?
-    } else {
-        input
+    let id = match state::last_principal() {
+        Some(prev) => prompt::with_default("Principal id", &prev)?,
+        None => prompt::required("Principal id")?,
     };
     state::set_last_principal(&id)?;
     Ok(id)
@@ -117,9 +110,9 @@ async fn user_create(
     let req: api::CreateUserRequest = match &input.params {
         Some(src) => serde_json::from_str(&src.read()?)?,
         None => api::CreateUserRequest {
-            name: required("Name: ")?,
-            kind: or_default(prompt::line("Kind [human]: ")?, "human"),
-            credential_kind: or_default(prompt::line("Credential kind [apiKey]: ")?, "apiKey"),
+            name: prompt::required("Name")?,
+            kind: prompt::with_default("Kind", "human")?,
+            credential_kind: prompt::with_default("Credential kind", "apiKey")?,
         },
     };
     let resp = api::app_user_create(addr, token, req).await?;
@@ -192,11 +185,7 @@ fn or_default(value: String, default: &str) -> String {
 fn prompt_list(label: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let mut items = Vec::new();
     loop {
-        let line = prompt::line(&format!(
-            "{} {} (empty to finish): ",
-            label,
-            items.len() + 1
-        ))?;
+        let line = prompt::line(&format!("{label} {} (empty to finish)", items.len() + 1))?;
         if line.is_empty() {
             break;
         }
@@ -215,7 +204,7 @@ async fn user_auth(input: AuthInput, addr: &str) -> Result<(), Box<dyn Error>> {
         let credential_kind = or_default(prompt::line("Credential kind [apiKey]: ")?, "apiKey");
         let proof = match credential_kind.as_str() {
             "apiKey" => {
-                let key = rpassword::prompt_password("API key: ")?.trim().to_owned();
+                let key = prompt::password("API key")?;
                 if key.is_empty() {
                     return Err("api key is required".into());
                 }

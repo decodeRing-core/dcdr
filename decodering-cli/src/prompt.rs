@@ -1,28 +1,35 @@
 use std::error::Error;
-use std::io::{self, Write};
+use std::str::FromStr;
 
-#[allow(clippy::print_stdout)]
+/// Optional single-line input; empty string is allowed (used as a loop sentinel).
 pub fn line(label: &str) -> Result<String, Box<dyn Error>> {
-    print!("{label}");
-    io::stdout().flush()?;
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-    Ok(buf.trim().to_owned())
+    let value: String = cliclack::input(label).required(false).interact()?;
+    Ok(value.trim().to_owned())
 }
 
+/// Required single-line input.
 pub fn required(label: &str) -> Result<String, Box<dyn Error>> {
-    let value = line(label)?;
-    if value.is_empty() {
-        let field = label.trim().trim_end_matches(':').trim();
-        return Err(format!("{field} is required").into());
-    }
-    Ok(value)
+    let value: String = cliclack::input(label).interact()?;
+    Ok(value.trim().to_owned())
 }
 
-pub fn or_default(value: String, default: &str) -> String {
-    if value.is_empty() {
-        default.to_owned()
-    } else {
-        value
-    }
+/// Input with a default applied when the user submits nothing.
+pub fn with_default(label: &str, default: &str) -> Result<String, Box<dyn Error>> {
+    let value: String = cliclack::input(label).default_input(default).interact()?;
+    Ok(value.trim().to_owned())
+}
+
+/// Typed input; cliclack re-prompts until it parses.
+pub fn parse<T: FromStr>(label: &str) -> Result<T, Box<dyn Error>> {
+    Ok(cliclack::input(label).interact::<T>()?)
+}
+
+/// Hidden input for secrets.
+pub fn password(label: &str) -> Result<String, Box<dyn Error>> {
+    let value = cliclack::password(label).interact()?;
+    Ok(value.trim().to_owned())
+}
+
+pub fn confirm(label: &str) -> Result<bool, Box<dyn Error>> {
+    Ok(cliclack::confirm(label).interact()?)
 }

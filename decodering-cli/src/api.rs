@@ -217,25 +217,6 @@ pub async fn raft_add_learner(
     handle(res).await
 }
 
-pub async fn raft_metrics(addr: &str) -> Result<ApiResponse<serde_json::Value>, Box<dyn Error>> {
-    let url = format!("{}/raft/metrics", addr.trim_end_matches('/'));
-    let res = reqwest::Client::new().post(url).send().await?;
-    handle(res).await
-}
-
-pub async fn raft_change_membership(
-    addr: &str,
-    change: ChangeMembers,
-) -> Result<ApiResponse<serde_json::Value>, Box<dyn Error>> {
-    let url = format!("{}/raft/change-membership", addr.trim_end_matches('/'));
-    let res = reqwest::Client::new()
-        .post(url)
-        .json(&change)
-        .send()
-        .await?;
-    handle(res).await
-}
-
 async fn post_auth<B: Serialize, T: DeserializeOwned>(
     addr: &str,
     path: &str,
@@ -415,4 +396,23 @@ pub async fn osl_backends_list(addr: &str, token: &str) -> Result<Resp, Box<dyn 
         &serde_json::Map::new(),
     )
     .await
+}
+
+pub async fn raft_metrics(addr: &str) -> Result<ApiResponse<serde_json::Value>, Box<dyn Error>> {
+    let url = format!("{}/raft/metrics", addr.trim_end_matches('/'));
+    let res = reqwest::Client::new().post(url).send().await?;
+    handle(res).await
+}
+
+pub async fn raft_change_membership(
+    addr: &str,
+    change: ChangeMembers,
+) -> Result<ApiResponse<serde_json::Value>, Box<dyn Error>> {
+    let url = format!("{}/raft/change-membership", addr.trim_end_matches('/'));
+    let res = reqwest::Client::new()
+        .post(url)
+        .json(&change)
+        .send()
+        .await?;
+    handle(res).await
 }

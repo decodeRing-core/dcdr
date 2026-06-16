@@ -1,6 +1,5 @@
 use clap::{Parser, Subcommand};
-use std::error::Error;
-use std::io::Write;
+use std::process::ExitCode;
 
 use crate::app::AppCommand;
 use crate::aws_sig::generate_aws_sig;
@@ -14,9 +13,11 @@ mod app;
 mod aws_sig;
 mod osl;
 mod output;
+mod progress;
 mod prompt;
 mod raft;
 mod schema;
+mod session;
 mod source;
 mod state;
 mod system;
@@ -51,18 +52,23 @@ enum Command {
         region: String,
     },
 
+    /// Initialize, unlock, and manage the system lifecycle
     #[command(subcommand)]
     System(SystemCommand),
 
+    /// Initialize and operate the raft cluster
     #[command(subcommand)]
     Raft(RaftCommand),
 
+    /// Manage apps, users, and their credentials
     #[command(subcommand)]
     App(AppCommand),
 
+    /// Read and manage secrets via the OSL API
     #[command(subcommand)]
     Osl(OslCommand),
 
+    /// Generate TPM parameters
     #[cfg(feature = "tpm")]
     TpmParams {
         /// Emit progress messages to stderr
@@ -72,25 +78,28 @@ enum Command {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let args = Args::parse();
+async fn main() -> ExitCode {
+    let Args { addr, command } = Args::parse();
 
-    let result = match args.command {
-        Command::GenerateSchema => generate_schema(),
-        Command::AwsSig { region } => generate_aws_sig(&region).await,
-        #[cfg(feature = "tpm")]
-        Command::TpmParams { debug } => todo!(),
-        Command::Osl(cmd) => osl::run(cmd, &args.addr).await,
-        Command::System(cmd) => system::run(cmd, &args.addr).await,
-        Command::Raft(cmd) => raft::run(cmd, &args.addr).await,
-        Command::App(cmd) => app::run(cmd, &args.addr).await,
-    };
+    let dispatch = Box::pin(async move {
+        match command {
+            Command::GenerateSchema => generate_schema(),
+            Command::AwsSig { region } => generate_aws_sig(&region).await,
+            Command::System(cmd) => system::run(cmd, &addr).await,
+            Command::Raft(cmd) => raft::run(cmd, &addr).await,
+            Command::App(cmd) => app::run(cmd, &addr).await,
+            Command::Osl(cmd) => osl::run(cmd, &addr).await,
+            #[cfg(feature = "tpm")]
+            Command::TpmParams { debug } => tpm_params::run(debug),
+        }
+    });
+
+    let result = session::frame("decodering", dispatch).await;
     token_store::release();
 
-    if let Err(e) = result {
-        let _ = writeln!(std::io::stderr(), "Error: {e}");
-        std::process::exit(1);
+    if result.is_ok() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
     }
-
-    Ok(())
 }

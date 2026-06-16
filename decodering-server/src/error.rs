@@ -60,6 +60,7 @@ pub enum ErrorReason {
     RaftNotLeader,
     RaftNotInitialized,
     RaftNotAvailable,
+    RaftAlreadyInitialized,
     Raft,
 }
 
@@ -80,6 +81,7 @@ impl std::fmt::Display for ErrorReason {
             Self::SecretAlreadyExists => f.write_str("Secret already exists."),
             Self::RaftNotLeader => f.write_str("Node is not the leader."),
             Self::RaftNotInitialized => f.write_str("Node is not initialized."),
+            Self::RaftAlreadyInitialized => f.write_str("Raft already initialized."),
             Self::AlreadyInitialized => f.write_str("System already initialized."),
             Self::Plugin => f.write_str("Plugin error."),
             Self::InvalidShamirKeys => f.write_str("Invalid shamir keys."),
@@ -118,6 +120,7 @@ impl ErrorReason {
             | Self::PrincipalNotFound
             | Self::SecretAlreadyExists
             | Self::AlreadyInitialized
+            | Self::RaftAlreadyInitialized
             | Self::Plugin
             | Self::ChallengeMismatch
             | Self::UnsupportedOrInvalidRoleArn

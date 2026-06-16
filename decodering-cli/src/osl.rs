@@ -138,8 +138,8 @@ fn get_req(input: GetInput) -> Result<api::GetSecretRequest, Box<dyn Error>> {
         Some(src) => Ok(serde_json::from_str(&src.read()?)?),
         None => Ok(api::GetSecretRequest {
             app_id: prompt_app_id()?,
-            secret_name: prompt::required("Secret name: ")?,
-            version: prompt::or_default(prompt::line("Version [0]: ")?, "0"),
+            secret_name: prompt::required("Secret name")?,
+            version: prompt::with_default("Version", "0")?,
         }),
     }
 }
@@ -156,22 +156,16 @@ fn put_req(input: PutInput) -> Result<api::PutRequest, Box<dyn Error>> {
             },
             data: prompt_secret_data()?,
             options: api::PutOptions {
-                create_only: prompt_bool("Create only? [y/N]: ")?,
+                create_only: prompt::confirm("Create only?")?,
             },
         }),
     }
 }
 
 fn prompt_app_id() -> Result<String, Box<dyn Error>> {
-    let last = state::last_app();
-    let label = last
-        .as_ref()
-        .map_or_else(|| "App id: ".to_owned(), |id| format!("App id [{id}]: "));
-    let input = prompt::line(&label)?;
-    let id = if input.is_empty() {
-        last.ok_or("app id is required")?
-    } else {
-        input
+    let id = match state::last_app() {
+        Some(prev) => prompt::with_default("App id", &prev)?,
+        None => prompt::required("App id")?,
     };
     state::set_last_app(&id)?;
     Ok(id)
@@ -180,23 +174,15 @@ fn prompt_app_id() -> Result<String, Box<dyn Error>> {
 fn prompt_secret_data() -> Result<serde_json::Map<String, serde_json::Value>, Box<dyn Error>> {
     let mut data = serde_json::Map::new();
     loop {
-        let key = prompt::line("Data key (empty to finish): ")?;
+        let key = prompt::line("Data key (empty to finish)")?;
         if key.is_empty() {
             break;
         }
-        let value = rpassword::prompt_password("  value: ")?.trim().to_owned();
+        let value = prompt::password("Value")?;
         data.insert(key, serde_json::Value::String(value));
     }
     if data.is_empty() {
         return Err("at least one data entry is required".into());
     }
     Ok(data)
-}
-
-fn prompt_bool(label: &str) -> Result<bool, Box<dyn Error>> {
-    let value = prompt::line(label)?;
-    Ok(matches!(
-        value.to_lowercase().as_str(),
-        "y" | "yes" | "true"
-    ))
 }

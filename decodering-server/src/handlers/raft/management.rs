@@ -22,7 +22,7 @@ pub async fn init_raft<D: Database + 'static>(
     let is_initialized = raft_bits.raft.is_initialized().await;
     if matches!(is_initialized, Ok(true)) {
         return ApiResponse::error(ErrorStatus::OperationFailed(
-            ErrorReason::AlreadyInitialized,
+            ErrorReason::RaftAlreadyInitialized,
         ));
     }
 
