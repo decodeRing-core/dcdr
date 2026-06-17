@@ -94,7 +94,7 @@ async fn main() -> ExitCode {
         }
     });
 
-    let result = session::frame("decodering", dispatch).await;
+    let result = session::frame("decodering CLI", dispatch).await;
     token_store::release();
 
     if result.is_ok() {

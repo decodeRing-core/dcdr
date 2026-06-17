@@ -29,7 +29,7 @@ pub fn store(secret: &str) -> Result<StoredIn, Box<dyn Error>> {
 }
 
 pub fn load() -> Result<Option<String>, Box<dyn Error>> {
-    if let Ok(token) = std::env::var("DECODERING_TOKEN") {
+    if let Ok(token) = std::env::var("DCDR_TOKEN") {
         return Ok(Some(token));
     }
     load_value(ROOT)

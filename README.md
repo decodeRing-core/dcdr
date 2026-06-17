@@ -23,6 +23,7 @@
   - [Running Nodes](#running-nodes)
   - [Build Errors](#build-errors)
 - [API Reference](#api-reference)
+- [CLI](#cli)
 - [Implementation Status](#implementation-status)
 - [Plugin Development](#plugin-development)
 - [Contributing](#contributing)
@@ -276,8 +277,9 @@ curl -X POST 'http://127.0.0.1:21001/system/init' \
   }'
 ```
 
-Because `/system/init` can only be run once, use `/system/plugin/config` to add
-or rotate credentials afterward.
+Because `/system/init` can only be run once, use `/system/plugin/config` to
+update credentials afterward; it replaces the full credential set configured at
+init.
 
 See [API Reference](#api-reference) for more detailed information about the available endpoints.
 
@@ -326,6 +328,238 @@ Once a node is running, it serves a work-in-progress OpenAPI specification and a
 - Swagger UI: `http://<host>:<port>/swagger-ui/`
 
 For example, a node started with `--addr 127.0.0.1:21001` serves the spec at `http://127.0.0.1:21001/api-docs/openapi.json`. The specification is still being completed, so some endpoints may be missing or incomplete. For the operations currently supported, see [Implementation Status](#implementation-status).
+
+## CLI
+
+`decodering-cli` is the command-line client for a node's HTTP API. Commands are grouped into four areas — `system`, `raft`, `app`, and `osl` — and share a consistent interface for input, authentication, and output.
+
+```
+decodering-cli --addr http://192.168.64.1:21001 <command> [subcommand] [options]
+```
+
+Build it from the workspace (the binary lands at `target/release/decodering-cli`):
+
+```shell
+cargo build --release --bin decodering-cli
+```
+
+During development you can run it directly with `cargo run --bin decodering-cli -- <args>`. The examples below assume `decodering-cli` is on your `PATH`.
+
+### Global options
+
+| Option                | Description                                                                     |
+| --------------------- | ------------------------------------------------------------------------------- |
+| `--addr <URL>`        | Node address. Defaults to `http://127.0.0.1:21001`; also read from `DCDR_ADDR`. |
+| `--help`, `--version` | Standard clap help/version.                                                     |
+
+### Providing input
+
+Every command that needs a request body accepts it three ways:
+
+- **Inline JSON** — `--params '{"key":"value"}'`
+- **From a file** — `--params @path/to/body.json`
+- **Interactively** — omit `--params` and the CLI prompts for each field.
+
+The `@file` / inline value is the _raw request body_ for that command — no envelope, no wrapper, and must be strict JSON (no trailing commas, no comments). Inline and file forms are interchangeable: `--params @body.json` is equivalent to `--params "$(cat body.json)"`.
+
+Secrets (unseal shards, API keys, credential values) are entered hidden when prompted. Plugin credentials are never accepted as an inline argument — only a file (`@path`), stdin (`-`), or the interactive builder — so they never appear in your shell history or process list.
+
+### Authentication
+
+Privileged commands send a bearer token, resolved in this order:
+
+1. `DCDR_TOKEN` environment variable
+2. OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service)
+3. `~/.decodering-cli/` file fallback (`0600` permissions)
+   `system init` issues and stores the **root token**. `app user auth` exchanges a user credential for a short-lived **session token** (with an expiry). The `osl` commands use the session token while it is valid and fall back to the root token otherwise; `app` management commands use the root token. `app user auth` itself is unauthenticated.
+
+### system
+
+| Command                | Description                                                     |
+| ---------------------- | --------------------------------------------------------------- |
+| `system init`          | Initialize the system: generate Shamir shards and a root token. |
+| `system unlock`        | Unlock the system with a threshold of shards.                   |
+| `system status`        | Report system status.                                           |
+| `system plugin-config` | Update plugin credentials.                                      |
+
+```bash
+# Interactive: prompts for shares/threshold and (optionally) plugin credentials
+decodering-cli system init
+
+# Non-interactive; also bootstrap raft first
+decodering-cli system init --with-raft \
+  --params '{"total_shares":5,"threshold":2}' \
+  --plugins-credentials @creds.json
+
+# Credentials piped on stdin (must pair with --params)
+echo '{"openbao-rs":{"vault_token":"s.xx"}}' \
+  | decodering-cli system init --with-raft \
+      --params '{"total_shares":5,"threshold":2}' \
+      --plugins-credentials -
+
+# Unlock — prompts for each shard (hidden) when --params is omitted
+decodering-cli system unlock
+decodering-cli system unlock --params '{"shards":["BKR/zSaZ…","BRbBFgW2…"]}'
+
+decodering-cli system status
+```
+
+`system init` options:
+
+- `--params` — `{"total_shares": N, "threshold": M}` (credentials are supplied separately).
+- `--plugins-credentials <FILE|->` — plugin credentials map, supplied as a file (`@path`) or on stdin (`-`). When reading from stdin, also pass `--params` (stdin is consumed by the credentials, so the shares/threshold can't be prompted). Omit the flag entirely in an interactive run to build the credentials through hidden prompts.
+- `--with-raft` — run `raft init` before initializing the system.
+
+Plugin credentials file format:
+
+```json
+{
+  "openbao-rs": { "vault_token": "s.xxx" },
+  "aws-rs": {
+    "aws_access_key_id": "AKIA…",
+    "aws_secret_access_key": "…"
+  }
+}
+```
+
+The shards and root token are shown once on init — distribute the shards to separate operators; the root token is stored automatically.
+
+#### system plugin-config
+
+Updates the stored plugin credentials, replacing the set configured at init. Requires the root token. Credentials are supplied the same way as on init — a file (`@path`), stdin (`-`), or interactive entry (values entered hidden) — and never as an inline argument.
+
+```bash
+decodering-cli system plugin-config --plugins-credentials @creds.json
+
+# Interactive: prompts for plugin ref, then each field with a hidden value
+decodering-cli system plugin-config
+
+# Piped on stdin
+echo '{"openbao-rs":{"vault_token":"s.xx"}}' \
+  | decodering-cli system plugin-config --plugins-credentials -
+```
+
+The body is the same `plugins_credentials` map shape shown in the init credentials file format above.
+
+### raft
+
+| Command                       | Description                            |
+| ----------------------------- | -------------------------------------- |
+| `raft init`                   | Initialize the raft cluster.           |
+| `raft shutdown`               | Shut down the raft node.               |
+| `raft add-learner`            | Add a learner node.                    |
+| `raft metrics`                | Show node metrics.                     |
+| `raft change-membership <op>` | Apply a membership change (see below). |
+
+```bash
+decodering-cli raft init
+decodering-cli raft shutdown
+decodering-cli raft metrics
+
+# add-learner prompts for "Learner Node id" / "Learner Node Address"
+decodering-cli raft add-learner
+decodering-cli raft add-learner --params '[2,"192.168.64.1:21002"]'
+```
+
+`change-membership` has one subcommand per operation; each accepts `--params` (the operation's inner value) or prompts interactively:
+
+| Subcommand           | `--params` shape                           |
+| -------------------- | ------------------------------------------ |
+| `add-voter-ids`      | `[1,2]`                                    |
+| `add-voters`         | `{"1":{"addr":"host:port"}}`               |
+| `remove-voters`      | `[3]`                                      |
+| `replace-all-voters` | `[1,2]`                                    |
+| `add-nodes`          | `{"3":{"addr":"host:port"}}`               |
+| `set-nodes`          | `{"3":{"addr":"host:port"}}`               |
+| `remove-nodes`       | `[3]`                                      |
+| `replace-all-nodes`  | `{"1":{"addr":"host:port"}}`               |
+| `batch`              | `[{"AddVoters":{…}},{"RemoveVoters":[3]}]` |
+
+```bash
+decodering-cli raft change-membership add-voters \
+  --params '{"1":{"addr":"192.168.64.1:21001"},"2":{"addr":"192.168.64.1:21002"}}'
+
+decodering-cli raft change-membership remove-voters --params '[3]'
+
+decodering-cli raft change-membership batch \
+  --params '[{"AddVoters":{"4":{"addr":"192.168.64.1:21004"}}},{"RemoveVoters":[3]}]'
+```
+
+Note: subcommand `--params` is the _inner_ value only (`{"1":{…}}`), not the externally-tagged `{"AddVoters":{…}}` wrapper — the subcommand selects the variant. `batch` is the exception: each element is a fully-tagged change.
+
+### app
+
+App management commands require the root token. `app user auth` is unauthenticated and caches a session token.
+
+| Command           | Description                                                         |
+| ----------------- | ------------------------------------------------------------------- |
+| `app create`      | Create an app.                                                      |
+| `app user create` | Create a user and issue a credential.                               |
+| `app user auth`   | Authenticate with a credential; returns and caches a session token. |
+| `app user grant`  | Grant a user access to apps.                                        |
+| `app user revoke` | Revoke a user's access to an app.                                   |
+| `app user list`   | List the apps a user can access.                                    |
+
+```bash
+decodering-cli app create --params '{"app_name":"my-app"}'
+
+decodering-cli app user create \
+  --params '{"name":"my-user","kind":"human","credential_kind":"apiKey"}'
+
+# auth prompts for the credential kind and the API key (hidden)
+decodering-cli app user auth
+
+decodering-cli app user grant \
+  --params '{"principal_id":"019e…","apps":["019e…"]}'
+
+decodering-cli app user revoke --params '{"principal_id":"019e…","app_id":"019e…"}'
+decodering-cli app user list   --params '{"principal_id":"019e…"}'
+```
+
+The most recently used `principal_id` is remembered and offered as the default in subsequent prompts.
+
+### osl
+
+OSL commands use the session token (falling back to the root token).
+
+| Command                                        | `--params` shape                                                                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `osl secrets put`                              | `{app_id, secret_name, store:{backend_ref, store_path}, data:{…}, options:{create_only}}` |
+| `osl secrets get`                              | `{app_id, secret_name, version}`                                                          |
+| `osl secrets list`                             | `{app_id}`                                                                                |
+| `osl secrets describe`                         | `{app_id, secret_name}`                                                                   |
+| `osl secrets taint` / `untaint` / `is-tainted` | `{app_id, secret_name}`                                                                   |
+| `osl secrets restore` / `destroy` / `delete`   | `{app_id, secret_name}`                                                                   |
+| `osl capabilities get`                         | — (no body)                                                                               |
+| `osl apps list`                                | — (no body)                                                                               |
+| `osl backends list`                            | — (no body)                                                                               |
+
+```bash
+# Interactive put — prompts for fields; secret values are entered hidden
+decodering-cli osl secrets put
+
+decodering-cli osl secrets put --params '{
+  "app_id": "019e…",
+  "secret_name": "my-database-credentials",
+  "store": { "backend_ref": "openbao-rs", "store_path": "prod/my-db" },
+  "data": { "username": "db_user", "password": "…" },
+  "options": { "create_only": false }
+}'
+
+decodering-cli osl secrets get  --params '{"app_id":"019e…","secret_name":"my-db","version":"0"}'
+decodering-cli osl secrets list --params '{"app_id":"019e…"}'
+decodering-cli osl secrets taint --params '{"app_id":"019e…","secret_name":"my-db"}'
+
+decodering-cli osl capabilities get
+decodering-cli osl apps list
+decodering-cli osl backends list
+```
+
+The most recently used `app_id` is remembered and offered as the default in subsequent prompts.
+
+### Output
+
+Each invocation is rendered as a single framed block: prompts, the server's status message (green on success, red on failure), and the response body shown as a structured key/value tree. Long-running requests show a spinner. Set `NO_COLOR=1` to disable styling, or pipe the output to strip it automatically.
 
 ## Implementation Status
 

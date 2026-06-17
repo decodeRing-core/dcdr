@@ -16,6 +16,15 @@ pub enum SystemCommand {
     Unlock(UnlockInput),
     /// Report system status
     Status,
+    /// Update plugin credentials
+    PluginConfig(PluginConfigInput),
+}
+
+#[derive(Args)]
+pub struct PluginConfigInput {
+    /// Plugin credentials from a file (`@path`) or stdin (`-`). Omit for interactive entry.
+    #[arg(long, value_name = "FILE|-")]
+    plugins_credentials: Option<SecretSource>,
 }
 
 #[derive(Args)]
@@ -51,7 +60,28 @@ pub async fn run(cmd: SystemCommand, addr: &str) -> Result<(), Box<dyn Error>> {
         SystemCommand::Init(input) => init(input, addr).await,
         SystemCommand::Unlock(input) => unlock(input, addr).await,
         SystemCommand::Status => status(addr).await,
+        SystemCommand::PluginConfig(input) => plugin_config(input, addr).await,
     }
+}
+
+async fn plugin_config(input: PluginConfigInput, addr: &str) -> Result<(), Box<dyn Error>> {
+    let plugins_credentials: PluginsCredentials = match &input.plugins_credentials {
+        Some(src) => serde_json::from_str(&src.read()?)?,
+        None => build_plugin_credentials()?,
+    };
+
+    let token = token_store::load()?.ok_or("no root token found; run `system init` first")?;
+
+    let resp = api::system_plugin_config(
+        addr,
+        &token,
+        api::PluginConfigRequest {
+            plugins_credentials,
+        },
+    )
+    .await?;
+    output::report(&resp);
+    Ok(())
 }
 
 async fn unlock(input: UnlockInput, addr: &str) -> Result<(), Box<dyn Error>> {
@@ -62,18 +92,20 @@ async fn unlock(input: UnlockInput, addr: &str) -> Result<(), Box<dyn Error>> {
     if shards.is_empty() {
         return Err("at least one shard is required".into());
     }
-    let resp = api::unlock(addr, api::UnlockRequest { shards }).await?;
+    let resp = api::system_unlock(addr, api::UnlockRequest { shards }).await?;
     output::report(&resp);
     Ok(())
 }
 
 async fn status(addr: &str) -> Result<(), Box<dyn Error>> {
-    let resp = api::status(addr).await?;
+    let resp = api::system_status(addr).await?;
     output::report(&resp);
     Ok(())
 }
 
 async fn init(input: InitInput, addr: &str) -> Result<(), Box<dyn Error>> {
+    let interactive = input.params.is_none();
+
     let params: InitParams = match &input.params {
         Some(src) => serde_json::from_str(&src.read()?)?,
         None => prompt_init_params()?,
@@ -84,6 +116,7 @@ async fn init(input: InitInput, addr: &str) -> Result<(), Box<dyn Error>> {
 
     let plugins_credentials: PluginsCredentials = match &input.plugins_credentials {
         Some(src) => serde_json::from_str(&src.read()?)?,
+        None if interactive => prompt_plugins_credentials()?,
         None => PluginsCredentials::new(),
     };
 
@@ -92,7 +125,7 @@ async fn init(input: InitInput, addr: &str) -> Result<(), Box<dyn Error>> {
         output::report(&resp);
     }
 
-    let res = api::init(
+    let res = api::system_init(
         addr,
         api::InitRequest {
             total_shares: params.total_shares,
@@ -128,6 +161,34 @@ async fn init(input: InitInput, addr: &str) -> Result<(), Box<dyn Error>> {
         }
     }
     Ok(())
+}
+
+fn prompt_plugins_credentials() -> Result<PluginsCredentials, Box<dyn Error>> {
+    if !prompt::confirm("Add plugin credentials?")? {
+        return Ok(PluginsCredentials::new());
+    }
+    build_plugin_credentials()
+}
+
+fn build_plugin_credentials() -> Result<PluginsCredentials, Box<dyn Error>> {
+    let mut creds = PluginsCredentials::new();
+    loop {
+        let backend = prompt::required("Plugin ref (e.g. openbao-rs)")?;
+        let mut fields = serde_json::Map::new();
+        loop {
+            let key = prompt::line("Credential field (empty to finish)")?;
+            if key.is_empty() {
+                break;
+            }
+            let value = prompt::password("Value")?;
+            fields.insert(key, serde_json::Value::String(value));
+        }
+        creds.insert(backend, serde_json::Value::Object(fields));
+        if !prompt::confirm("Add another plugin?")? {
+            break;
+        }
+    }
+    Ok(creds)
 }
 
 fn prompt_init_params() -> Result<InitParams, Box<dyn Error>> {

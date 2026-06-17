@@ -699,7 +699,7 @@ pub async fn api_delete_secret<D: Database + 'static>(
     let credentials = match get_plugin_config_credentials_for_backend(
         &mut db,
         &app,
-        &secret_mapping_data.mount_path,
+        &secret_mapping_data.backend,
     )
     .await
     {
@@ -782,7 +782,7 @@ pub async fn api_restore_secret<D: Database + 'static>(
     let credentials = match get_plugin_config_credentials_for_backend(
         &mut db,
         &app,
-        &secret_mapping_data.mount_path,
+        &secret_mapping_data.backend,
     )
     .await
     {
@@ -893,7 +893,7 @@ pub async fn api_describe_secret<D: Database + 'static>(
     let credentials = match get_plugin_config_credentials_for_backend(
         &mut db,
         &app,
-        &secret_mapping_data.mount_path,
+        &secret_mapping_data.backend,
     )
     .await
     {

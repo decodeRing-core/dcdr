@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use chrono::{DateTime, Local};
 use console::style;
 use serde_json::Value;
 
@@ -14,7 +15,16 @@ pub fn report(resp: &ApiResponse<Value>) {
         match data {
             Value::Object(_) | Value::Array(_) => {
                 let _ = writeln!(out, "{}", style("Data").cyan().bold());
-                render_tree(data, 1, &mut out);
+
+                let mut body = String::new();
+                render_tree(data, 1, &mut body);
+                let body = body.trim_end();
+
+                if body.is_empty() {
+                    let _ = writeln!(out, "  {}", style("Empty").dim());
+                } else {
+                    out.push_str(body);
+                }
             }
             scalar_value => render_tree(scalar_value, 0, &mut out),
         }
@@ -42,7 +52,7 @@ fn render_tree(value: &Value, indent: usize, out: &mut String) {
             for (k, v) in map {
                 if is_inline(v) {
                     let key = style(format!("{k:<key_w$}")).dim();
-                    let _ = writeln!(out, "{pad}{key}  {}", inline(v));
+                    let _ = writeln!(out, "{pad}{key}  {}", value_display(k, v));
                 } else {
                     let _ = writeln!(out, "{pad}{}", style(k).cyan().bold());
                     render_tree(v, indent + 1, out);
@@ -109,4 +119,24 @@ fn scalar(value: &Value) -> String {
         Value::Number(n) => format!("{}", style(n).yellow()),
         container => inline(container),
     }
+}
+
+fn value_display(key: &str, value: &Value) -> String {
+    let base = inline(value);
+    match human_time(key, value) {
+        Some(human) => format!("{base}  {}", style(format!("({human})")).dim()),
+        None => base,
+    }
+}
+
+fn human_time(key: &str, value: &Value) -> Option<String> {
+    if !key.ends_with("_at") {
+        return None;
+    }
+    let secs = value.as_i64()?;
+    if !(1_000_000_000..=9_999_999_999).contains(&secs) {
+        return None;
+    }
+    let local = DateTime::from_timestamp(secs, 0)?.with_timezone(&Local);
+    Some(local.format("%Y-%m-%d %H:%M:%S %Z").to_string())
 }
