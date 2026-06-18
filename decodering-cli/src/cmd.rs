@@ -1,4 +1,9 @@
 pub mod app;
+#[cfg(feature = "aws")]
+pub mod aws_sig;
 pub mod osl;
 pub mod raft;
+pub mod schema;
 pub mod system;
+#[cfg(feature = "tpm")]
+pub mod tpm_params;

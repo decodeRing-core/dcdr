@@ -15,7 +15,7 @@ use schemars::schema_for;
 use std::io::Write;
 use std::{error::Error, fs, path::Path};
 
-pub fn generate_schema() -> Result<(), Box<dyn Error>> {
+pub fn run() -> Result<(), Box<dyn Error>> {
     let out = Path::new("schema");
     if out.exists() {
         fs::remove_dir_all(out)?;

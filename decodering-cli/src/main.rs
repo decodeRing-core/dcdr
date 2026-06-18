@@ -1,20 +1,16 @@
 use clap::{Parser, Subcommand};
 use std::process::ExitCode;
 
-use crate::aws_sig::generate_aws_sig;
 use crate::cmd::app::AppCommand;
 use crate::cmd::osl::OslCommand;
 use crate::cmd::raft::RaftCommand;
 use crate::cmd::system::SystemCommand;
-use crate::schema::generate_schema;
 
 mod api;
-mod aws_sig;
 mod cmd;
 mod output;
 mod progress;
 mod prompt;
-mod schema;
 mod session;
 mod source;
 mod state;
@@ -42,6 +38,7 @@ enum Command {
     /// Generate the JSON schema
     GenerateSchema,
 
+    #[cfg(feature = "aws")]
     /// Generate a signed AWS STS `GetCallerIdentity` request and print it as JSON
     AwsSig {
         /// AWS region to sign for
@@ -80,8 +77,9 @@ async fn main() -> ExitCode {
 
     let dispatch = Box::pin(async move {
         match command {
-            Command::GenerateSchema => generate_schema(),
-            Command::AwsSig { region } => generate_aws_sig(&region).await,
+            Command::GenerateSchema => cmd::schema::run(),
+            #[cfg(feature = "aws")]
+            Command::AwsSig { region } => cmd::aws_sig::run(&region).await,
             Command::System(cmd) => cmd::system::run(cmd, &addr).await,
             Command::Raft(cmd) => cmd::raft::run(cmd, &addr).await,
             Command::App(cmd) => cmd::app::run(cmd, &addr).await,
@@ -91,7 +89,7 @@ async fn main() -> ExitCode {
         }
     });
 
-    let result = session::frame("decodering CLI", dispatch).await;
+    let result = session::frame("decodering CLI v0.1", dispatch).await;
     token_store::release();
 
     if result.is_ok() {

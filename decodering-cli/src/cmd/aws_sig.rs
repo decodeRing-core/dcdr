@@ -1,14 +1,10 @@
-use aws_config::BehaviorVersion;
-use aws_credential_types::provider::ProvideCredentials;
-use aws_sigv4::http_request::{SignableBody, SignableRequest, SigningSettings, sign};
-use aws_sigv4::sign::v4;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io::Write;
 use std::time::SystemTime;
 
-pub async fn generate_aws_sig(region: &str) -> Result<(), Box<dyn Error>> {
-    let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+pub async fn run(region: &str) -> Result<(), Box<dyn Error>> {
+    let config = load_defaults(BehaviorVersion::latest()).await;
     let creds = config
         .credentials_provider()
         .ok_or("no credentials provider")?
