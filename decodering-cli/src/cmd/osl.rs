@@ -2,7 +2,30 @@ use std::error::Error;
 
 use clap::{Args, Subcommand};
 
-use crate::{api, output, prompt, source::ValueSource, state, token_store};
+use crate::api::osl::AppRef;
+use crate::api::osl::GetSecretRequest;
+use crate::api::osl::PutOptions;
+use crate::api::osl::PutRequest;
+use crate::api::osl::SecretRef;
+use crate::api::osl::SecretStore;
+use crate::api::osl::osl_apps_list;
+use crate::api::osl::osl_backends_list;
+use crate::api::osl::osl_capabilities_get;
+use crate::api::osl::osl_secrets_delete;
+use crate::api::osl::osl_secrets_describe;
+use crate::api::osl::osl_secrets_destroy;
+use crate::api::osl::osl_secrets_get;
+use crate::api::osl::osl_secrets_is_tainted;
+use crate::api::osl::osl_secrets_list;
+use crate::api::osl::osl_secrets_put;
+use crate::api::osl::osl_secrets_restore;
+use crate::api::osl::osl_secrets_taint;
+use crate::api::osl::osl_secrets_untaint;
+use crate::output;
+use crate::prompt;
+use crate::source::ValueSource;
+use crate::state;
+use crate::token_store;
 
 #[derive(Subcommand)]
 pub enum OslCommand {
@@ -87,10 +110,10 @@ pub async fn run(cmd: OslCommand, addr: &str) -> Result<(), Box<dyn Error>> {
     let resp = match cmd {
         OslCommand::Secrets(c) => return secrets(c, addr, &token).await,
         OslCommand::Capabilities(CapabilitiesCommand::Get) => {
-            api::osl_capabilities_get(addr, &token).await?
+            osl_capabilities_get(addr, &token).await?
         }
-        OslCommand::Apps(AppsCommand::List) => api::osl_apps_list(addr, &token).await?,
-        OslCommand::Backends(BackendsCommand::List) => api::osl_backends_list(addr, &token).await?,
+        OslCommand::Apps(AppsCommand::List) => osl_apps_list(addr, &token).await?,
+        OslCommand::Backends(BackendsCommand::List) => osl_backends_list(addr, &token).await?,
     };
     output::report(&resp);
     Ok(())
@@ -99,44 +122,44 @@ pub async fn run(cmd: OslCommand, addr: &str) -> Result<(), Box<dyn Error>> {
 async fn secrets(cmd: SecretsCommand, addr: &str, token: &str) -> Result<(), Box<dyn Error>> {
     use SecretsCommand as S;
     let resp = match cmd {
-        S::Put(i) => api::osl_secrets_put(addr, token, put_req(i)?).await?,
-        S::Get(i) => api::osl_secrets_get(addr, token, get_req(i)?).await?,
-        S::List(i) => api::osl_secrets_list(addr, token, app_ref_req(i)?).await?,
-        S::Taint(i) => api::osl_secrets_taint(addr, token, secret_ref_req(i)?).await?,
-        S::Untaint(i) => api::osl_secrets_untaint(addr, token, secret_ref_req(i)?).await?,
-        S::IsTainted(i) => api::osl_secrets_is_tainted(addr, token, secret_ref_req(i)?).await?,
-        S::Describe(i) => api::osl_secrets_describe(addr, token, secret_ref_req(i)?).await?,
-        S::Restore(i) => api::osl_secrets_restore(addr, token, secret_ref_req(i)?).await?,
-        S::Destroy(i) => api::osl_secrets_destroy(addr, token, secret_ref_req(i)?).await?,
-        S::Delete(i) => api::osl_secrets_delete(addr, token, secret_ref_req(i)?).await?,
+        S::Put(i) => osl_secrets_put(addr, token, put_req(i)?).await?,
+        S::Get(i) => osl_secrets_get(addr, token, get_req(i)?).await?,
+        S::List(i) => osl_secrets_list(addr, token, app_ref_req(i)?).await?,
+        S::Taint(i) => osl_secrets_taint(addr, token, secret_ref_req(i)?).await?,
+        S::Untaint(i) => osl_secrets_untaint(addr, token, secret_ref_req(i)?).await?,
+        S::IsTainted(i) => osl_secrets_is_tainted(addr, token, secret_ref_req(i)?).await?,
+        S::Describe(i) => osl_secrets_describe(addr, token, secret_ref_req(i)?).await?,
+        S::Restore(i) => osl_secrets_restore(addr, token, secret_ref_req(i)?).await?,
+        S::Destroy(i) => osl_secrets_destroy(addr, token, secret_ref_req(i)?).await?,
+        S::Delete(i) => osl_secrets_delete(addr, token, secret_ref_req(i)?).await?,
     };
     output::report(&resp);
     Ok(())
 }
 
-fn secret_ref_req(input: SecretRefInput) -> Result<api::SecretRef, Box<dyn Error>> {
+fn secret_ref_req(input: SecretRefInput) -> Result<SecretRef, Box<dyn Error>> {
     match input.params {
         Some(src) => Ok(serde_json::from_str(&src.read()?)?),
-        None => Ok(api::SecretRef {
+        None => Ok(SecretRef {
             app_id: prompt_app_id()?,
             secret_name: prompt::required("Secret name: ")?,
         }),
     }
 }
 
-fn app_ref_req(input: AppRefInput) -> Result<api::AppRef, Box<dyn Error>> {
+fn app_ref_req(input: AppRefInput) -> Result<AppRef, Box<dyn Error>> {
     match input.params {
         Some(src) => Ok(serde_json::from_str(&src.read()?)?),
-        None => Ok(api::AppRef {
+        None => Ok(AppRef {
             app_id: prompt_app_id()?,
         }),
     }
 }
 
-fn get_req(input: GetInput) -> Result<api::GetSecretRequest, Box<dyn Error>> {
+fn get_req(input: GetInput) -> Result<GetSecretRequest, Box<dyn Error>> {
     match input.params {
         Some(src) => Ok(serde_json::from_str(&src.read()?)?),
-        None => Ok(api::GetSecretRequest {
+        None => Ok(GetSecretRequest {
             app_id: prompt_app_id()?,
             secret_name: prompt::required("Secret name")?,
             version: prompt::with_default("Version", "0")?,
@@ -144,18 +167,18 @@ fn get_req(input: GetInput) -> Result<api::GetSecretRequest, Box<dyn Error>> {
     }
 }
 
-fn put_req(input: PutInput) -> Result<api::PutRequest, Box<dyn Error>> {
+fn put_req(input: PutInput) -> Result<PutRequest, Box<dyn Error>> {
     match input.params {
         Some(src) => Ok(serde_json::from_str(&src.read()?)?),
-        None => Ok(api::PutRequest {
+        None => Ok(PutRequest {
             app_id: prompt_app_id()?,
             secret_name: prompt::required("Secret name: ")?,
-            store: api::SecretStore {
+            store: SecretStore {
                 backend_ref: prompt::required("Backend ref: ")?,
                 store_path: prompt::required("Store path: ")?,
             },
             data: prompt_secret_data()?,
-            options: api::PutOptions {
+            options: PutOptions {
                 create_only: prompt::confirm("Create only?")?,
             },
         }),

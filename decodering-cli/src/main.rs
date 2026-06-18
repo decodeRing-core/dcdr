@@ -1,26 +1,23 @@
 use clap::{Parser, Subcommand};
 use std::process::ExitCode;
 
-use crate::app::AppCommand;
 use crate::aws_sig::generate_aws_sig;
-use crate::osl::OslCommand;
-use crate::raft::RaftCommand;
+use crate::cmd::app::AppCommand;
+use crate::cmd::osl::OslCommand;
+use crate::cmd::raft::RaftCommand;
+use crate::cmd::system::SystemCommand;
 use crate::schema::generate_schema;
-use crate::system::SystemCommand;
 
 mod api;
-mod app;
 mod aws_sig;
-mod osl;
+mod cmd;
 mod output;
 mod progress;
 mod prompt;
-mod raft;
 mod schema;
 mod session;
 mod source;
 mod state;
-mod system;
 mod token_store;
 #[cfg(feature = "tpm")]
 mod tpm_params;
@@ -85,10 +82,10 @@ async fn main() -> ExitCode {
         match command {
             Command::GenerateSchema => generate_schema(),
             Command::AwsSig { region } => generate_aws_sig(&region).await,
-            Command::System(cmd) => system::run(cmd, &addr).await,
-            Command::Raft(cmd) => raft::run(cmd, &addr).await,
-            Command::App(cmd) => app::run(cmd, &addr).await,
-            Command::Osl(cmd) => osl::run(cmd, &addr).await,
+            Command::System(cmd) => cmd::system::run(cmd, &addr).await,
+            Command::Raft(cmd) => cmd::raft::run(cmd, &addr).await,
+            Command::App(cmd) => cmd::app::run(cmd, &addr).await,
+            Command::Osl(cmd) => cmd::osl::run(cmd, &addr).await,
             #[cfg(feature = "tpm")]
             Command::TpmParams { debug } => tpm_params::run(debug),
         }

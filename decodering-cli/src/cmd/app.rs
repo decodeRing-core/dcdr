@@ -2,7 +2,22 @@ use std::error::Error;
 
 use clap::{Args, Subcommand};
 
-use crate::{api, output, prompt, source::ValueSource, state, token_store};
+use crate::api::app::AuthRequest;
+use crate::api::app::GrantRequest;
+use crate::api::app::ListUsersRequest;
+use crate::api::app::RevokeRequest;
+use crate::api::app::app_create;
+use crate::api::app::app_user_auth;
+use crate::api::app::app_user_create;
+use crate::api::app::app_user_grant;
+use crate::api::app::app_user_list;
+use crate::api::app::app_user_revoke;
+use crate::api::app::{CreateAppRequest, CreateUserRequest};
+use crate::output;
+use crate::prompt;
+use crate::source::ValueSource;
+use crate::state;
+use crate::token_store;
 
 #[derive(Subcommand)]
 pub enum AppCommand {
@@ -91,13 +106,13 @@ fn token() -> Result<String, Box<dyn Error>> {
 }
 
 async fn create(input: CreateInput, addr: &str, token: &str) -> Result<(), Box<dyn Error>> {
-    let req: api::CreateAppRequest = match &input.params {
+    let req: CreateAppRequest = match &input.params {
         Some(src) => serde_json::from_str(&src.read()?)?,
-        None => api::CreateAppRequest {
+        None => CreateAppRequest {
             app_name: required("App name: ")?,
         },
     };
-    let resp = api::app_create(addr, token, req).await?;
+    let resp = app_create(addr, token, req).await?;
     output::report(&resp);
     Ok(())
 }
@@ -107,15 +122,15 @@ async fn user_create(
     addr: &str,
     token: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let req: api::CreateUserRequest = match &input.params {
+    let req: CreateUserRequest = match &input.params {
         Some(src) => serde_json::from_str(&src.read()?)?,
-        None => api::CreateUserRequest {
+        None => CreateUserRequest {
             name: prompt::required("Name")?,
             kind: prompt::with_default("Kind", "human")?,
             credential_kind: prompt::with_default("Credential kind", "apiKey")?,
         },
     };
-    let resp = api::app_user_create(addr, token, req).await?;
+    let resp = app_user_create(addr, token, req).await?;
 
     if let Some(id) = resp
         .data
@@ -130,39 +145,39 @@ async fn user_create(
 }
 
 async fn user_grant(input: GrantInput, addr: &str, token: &str) -> Result<(), Box<dyn Error>> {
-    let req: api::GrantRequest = match &input.params {
+    let req: GrantRequest = match &input.params {
         Some(src) => serde_json::from_str(&src.read()?)?,
-        None => api::GrantRequest {
+        None => GrantRequest {
             principal_id: prompt_principal()?,
             apps: prompt_list("App id")?,
         },
     };
-    let resp = api::app_user_grant(addr, token, req).await?;
+    let resp = app_user_grant(addr, token, req).await?;
     output::report(&resp);
     Ok(())
 }
 
 async fn user_revoke(input: RevokeInput, addr: &str, token: &str) -> Result<(), Box<dyn Error>> {
-    let req: api::RevokeRequest = match &input.params {
+    let req: RevokeRequest = match &input.params {
         Some(src) => serde_json::from_str(&src.read()?)?,
-        None => api::RevokeRequest {
+        None => RevokeRequest {
             principal_id: prompt_principal()?,
             app_id: required("App id: ")?,
         },
     };
-    let resp = api::app_user_revoke(addr, token, req).await?;
+    let resp = app_user_revoke(addr, token, req).await?;
     output::report(&resp);
     Ok(())
 }
 
 async fn user_list(input: ListInput, addr: &str, token: &str) -> Result<(), Box<dyn Error>> {
-    let req: api::ListUsersRequest = match &input.params {
+    let req: ListUsersRequest = match &input.params {
         Some(src) => serde_json::from_str(&src.read()?)?,
-        None => api::ListUsersRequest {
+        None => ListUsersRequest {
             principal_id: prompt_principal()?,
         },
     };
-    let resp = api::app_user_list(addr, token, req).await?;
+    let resp = app_user_list(addr, token, req).await?;
     output::report(&resp);
     Ok(())
 }
@@ -198,7 +213,7 @@ fn prompt_list(label: &str) -> Result<Vec<String>, Box<dyn Error>> {
 }
 
 async fn user_auth(input: AuthInput, addr: &str) -> Result<(), Box<dyn Error>> {
-    let req: api::AuthRequest = if let Some(src) = &input.params {
+    let req: AuthRequest = if let Some(src) = &input.params {
         serde_json::from_str(&src.read()?)?
     } else {
         let credential_kind = or_default(prompt::line("Credential kind [apiKey]: ")?, "apiKey");
@@ -217,13 +232,13 @@ async fn user_auth(input: AuthInput, addr: &str) -> Result<(), Box<dyn Error>> {
                 .into());
             }
         };
-        api::AuthRequest {
+        AuthRequest {
             credential_kind,
             proof,
         }
     };
 
-    let resp = api::app_user_auth(addr, req).await?;
+    let resp = app_user_auth(addr, req).await?;
 
     if let Some(data) = &resp.data
         && let (Some(token), Some(expires_at)) = (

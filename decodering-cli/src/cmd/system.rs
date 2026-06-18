@@ -1,9 +1,12 @@
-#![allow(clippy::print_stdout)]
 use clap::{Args, Subcommand};
 use serde::Deserialize;
 use std::error::Error;
 
-use crate::api::{self, PluginsCredentials};
+use crate::api::raft::{RaftInitRequest, raft_init};
+use crate::api::system::PluginsCredentials;
+use crate::api::system::UnlockRequest;
+use crate::api::system::{InitRequest, PluginConfigRequest};
+use crate::api::system::{system_init, system_plugin_config, system_status, system_unlock};
 use crate::source::{SecretSource, ValueSource};
 use crate::token_store::{self};
 use crate::{output, prompt};
@@ -72,10 +75,10 @@ async fn plugin_config(input: PluginConfigInput, addr: &str) -> Result<(), Box<d
 
     let token = token_store::load()?.ok_or("no root token found; run `system init` first")?;
 
-    let resp = api::system_plugin_config(
+    let resp = system_plugin_config(
         addr,
         &token,
-        api::PluginConfigRequest {
+        PluginConfigRequest {
             plugins_credentials,
         },
     )
@@ -86,19 +89,19 @@ async fn plugin_config(input: PluginConfigInput, addr: &str) -> Result<(), Box<d
 
 async fn unlock(input: UnlockInput, addr: &str) -> Result<(), Box<dyn Error>> {
     let shards = match &input.params {
-        Some(src) => serde_json::from_str::<api::UnlockRequest>(&src.read()?)?.shards,
+        Some(src) => serde_json::from_str::<UnlockRequest>(&src.read()?)?.shards,
         None => prompt_shards()?,
     };
     if shards.is_empty() {
         return Err("at least one shard is required".into());
     }
-    let resp = api::system_unlock(addr, api::UnlockRequest { shards }).await?;
+    let resp = system_unlock(addr, UnlockRequest { shards }).await?;
     output::report(&resp);
     Ok(())
 }
 
 async fn status(addr: &str) -> Result<(), Box<dyn Error>> {
-    let resp = api::system_status(addr).await?;
+    let resp = system_status(addr).await?;
     output::report(&resp);
     Ok(())
 }
@@ -121,13 +124,13 @@ async fn init(input: InitInput, addr: &str) -> Result<(), Box<dyn Error>> {
     };
 
     if input.with_raft {
-        let resp = api::raft_init(addr, api::RaftInitRequest { raft_init: vec![] }).await?;
+        let resp = raft_init(addr, RaftInitRequest { raft_init: vec![] }).await?;
         output::report(&resp);
     }
 
-    let res = api::system_init(
+    let res = system_init(
         addr,
-        api::InitRequest {
+        InitRequest {
             total_shares: params.total_shares,
             threshold: params.threshold,
             plugins_credentials,
