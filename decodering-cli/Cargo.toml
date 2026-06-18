@@ -44,7 +44,10 @@ apple-native-keyring-store = { version = "1", features = ["keychain"] }
 windows-native-keyring-store = "1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-zbus-secret-service-keyring-store = "1"
+zbus-secret-service-keyring-store = { version = "1", features = [
+    "rt-tokio-crypto-rust",
+] }
+
 
 [lints]
 workspace = true
