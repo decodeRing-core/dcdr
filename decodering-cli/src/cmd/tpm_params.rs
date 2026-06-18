@@ -162,7 +162,10 @@ pub fn generate_tpm_params(debug: bool) -> Result<()> {
     let (ek_public, _, _) = ctx
         .read_public(ek_handle)
         .context("tpm2_readpublic on EK failed")?;
-    let ek_pubkey_pem = rsa_public_to_pem(&ek_public).context("EK -> PEM conversion failed")?;
+
+    let ek_pubkey_pem = rsa_public_to_pem(&ek_public)
+        .map_err(|e| std::io::Error::other(e.to_string()))
+        .context("EK -> PEM conversion failed")?;
 
     // EK certificate: present on a physical TPM, absent on a vTPM.
     let ek_cert_pem = match ek::retrieve_ek_pubcert(&mut ctx, AsymmetricAlgorithm::Rsa) {
