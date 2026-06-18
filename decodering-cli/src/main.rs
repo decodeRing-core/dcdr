@@ -15,8 +15,6 @@ mod session;
 mod source;
 mod state;
 mod token_store;
-#[cfg(feature = "tpm")]
-mod tpm_params;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
