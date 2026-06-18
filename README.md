@@ -39,6 +39,8 @@ This allows developers to focus on coding instead of learning how to interact wi
 
 [Back to top](#top)
 
+![decodering CLI demo](docs/demo.gif)
+
 ## Support & Community
 
 - [GitHub Issues](https://github.com/decodeRing-core/dcdr/issues) - report issues and make suggestions.
