@@ -83,7 +83,7 @@ async fn main() -> ExitCode {
             Command::App(cmd) => cmd::app::run(cmd, &addr).await,
             Command::Osl(cmd) => cmd::osl::run(cmd, &addr).await,
             #[cfg(feature = "tpm")]
-            Command::TpmParams { debug } => tpm_params::run(debug),
+            Command::TpmParams { debug } => cmd::tpm_params::run(debug),
         }
     });
 
