@@ -144,7 +144,7 @@ struct TpmParams {
     require_ek_cert: bool,
 }
 
-pub fn generate_tpm_params(debug: bool) -> Result<()> {
+pub fn run(debug: bool) -> Result<()> {
     if debug {
         DEBUG.store(true, Ordering::Relaxed);
     }
