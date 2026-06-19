@@ -10,11 +10,13 @@ pub struct CreateAppRequest {
     pub app_name: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CreateUserRequest {
     pub name: String,
     pub kind: String,
     pub credential_kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -128,6 +128,7 @@ async fn user_create(
             name: prompt::required("Name")?,
             kind: prompt::with_default("Kind", "human")?,
             credential_kind: prompt::with_default("Credential kind", "apiKey")?,
+            data: None,
         },
     };
     let resp = app_user_create(addr, token, req).await?;
