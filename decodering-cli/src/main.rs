@@ -60,7 +60,7 @@ enum Command {
     #[command(subcommand)]
     Osl(OslCommand),
 
-    /// Generate TPM parameters
+    /// Generate TPM 2.0 attestation parameters for enrolling this machine
     #[cfg(feature = "tpm")]
     TpmParams {
         /// Emit progress messages to stderr
