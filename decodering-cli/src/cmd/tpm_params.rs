@@ -143,7 +143,7 @@ struct TpmParams {
 }
 
 #[allow(clippy::print_stdout)] // the JSON params block is this command's stdout contract
-pub fn run(debug: bool) -> Result<()> {
+pub fn run(out: &Path, debug: bool) -> Result<()> {
     if debug {
         DEBUG.store(true, Ordering::Relaxed);
     }
@@ -212,9 +212,10 @@ pub fn run(debug: bool) -> Result<()> {
             require_ek_cert,
         },
     };
-    let value = serde_json::to_value(&output)?;
-    success("TPM parameters");
-    data(&value);
+    let json = serde_json::to_string_pretty(&output)?;
+    std::fs::write(out, json).with_context(|| format!("failed to write {}", out.display()))?;
+
+    let _ = cliclack::log::success(format!("Data (written to {})", out.display()));
     Ok(())
 }
 

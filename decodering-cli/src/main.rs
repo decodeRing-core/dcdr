@@ -66,6 +66,8 @@ enum Command {
         /// Emit progress messages to stderr
         #[arg(long, short = 'd')]
         debug: bool,
+        #[arg(long, short = 'o', value_name = "FILE")]
+        out: PathBuf,
     },
 }
 
@@ -83,7 +85,7 @@ async fn main() -> ExitCode {
             Command::App(cmd) => cmd::app::run(cmd, &addr).await,
             Command::Osl(cmd) => cmd::osl::run(cmd, &addr).await,
             #[cfg(feature = "tpm")]
-            Command::TpmParams { debug } => cmd::tpm_params::run(debug),
+            Command::TpmParams { out, debug } => cmd::tpm_params::run(&out, debug),
         }
     });
 
