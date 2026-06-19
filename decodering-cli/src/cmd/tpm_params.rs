@@ -105,19 +105,6 @@ where
     }
 }
 
-impl<T> ErrCtx<T> for Result<T> {
-    fn context<S: fmt::Display>(self, msg: S) -> Result<T> {
-        self.map_err(|e| -> Box<dyn Error> { format!("{msg}: {e}").into() })
-    }
-    fn with_context<S, F>(self, f: F) -> Result<T>
-    where
-        S: fmt::Display,
-        F: FnOnce() -> S,
-    {
-        self.map_err(|e| -> Box<dyn Error> { format!("{}: {e}", f()).into() })
-    }
-}
-
 /// Whether to emit progress messages (off unless `--debug`/`-d`).
 static DEBUG: AtomicBool = AtomicBool::new(false);
 
@@ -174,7 +161,8 @@ pub fn run(debug: bool) -> Result<()> {
         .read_public(ek_handle)
         .context("tpm2_readpublic on EK failed")?;
 
-    let ek_pubkey_pem = rsa_public_to_pem(&ek_public).context("EK -> PEM conversion failed")?;
+    let ek_pubkey_pem = rsa_public_to_pem(&ek_public)
+        .map_err(|e| -> Box<dyn Error> { format!("EK -> PEM conversion failed: {e}").into() })?;
 
     // EK certificate: present on a physical TPM, absent on a vTPM.
     let ek_cert_pem = match ek::retrieve_ek_pubcert(&mut ctx, AsymmetricAlgorithm::Rsa) {
