@@ -76,7 +76,7 @@ use tss_esapi::tcti_ldr::DeviceConfig;
 use tss_esapi::traits::Marshall;
 use tss_esapi::{Context, TctiNameConf};
 
-/// Local result alias so signatures stay short (replaces `anyhow::Result`).
+/// Local result alias so signatures stay short.
 type Result<T> = core::result::Result<T, Box<dyn Error>>;
 
 /// Adds `.context()` / `.with_context()` to `Result`, mirroring anyhow's
@@ -105,16 +105,13 @@ where
     }
 }
 
-/// Whether to emit progress messages to stderr (off unless `--debug`/`-d`).
+/// Whether to emit progress messages (off unless `--debug`/`-d`).
 static DEBUG: AtomicBool = AtomicBool::new(false);
 
-/// eprintln! that only fires when --debug is set. Keeps stdout JSON-only.
-macro_rules! dlog {
-    ($($arg:tt)*) => {
-        if DEBUG.load(Ordering::Relaxed) {
-            eprintln!($($arg)*);
-        }
-    };
+fn step(msg: impl fmt::Display) {
+    if DEBUG.load(Ordering::Relaxed) {
+        let _ = cliclack::log::info(msg);
+    }
 }
 
 // PCRs read: sha256 bank, indices 0..=7.
@@ -144,6 +141,7 @@ struct TpmParams {
     require_ek_cert: bool,
 }
 
+#[allow(clippy::print_stdout)] // the JSON params block is this command's stdout contract
 pub fn run(debug: bool) -> Result<()> {
     if debug {
         DEBUG.store(true, Ordering::Relaxed);
@@ -154,8 +152,8 @@ pub fn run(debug: bool) -> Result<()> {
 
     let mut ctx = Context::new(tcti()?).context("failed to open TPM context")?;
 
-    // 1. EK: reuse if already persisted, else create + persist.
-    dlog!("[*] Creating EK and extracting public key...");
+    // EK: reuse if already persisted, else create + persist.
+    step("Creating EK and extracting public key");
     let ek_persistent = PersistentTpmHandle::new(ek_handle_raw)?;
     let ek_handle = get_or_create_ek(&mut ctx, ek_persistent)?;
 
@@ -163,9 +161,7 @@ pub fn run(debug: bool) -> Result<()> {
         .read_public(ek_handle)
         .context("tpm2_readpublic on EK failed")?;
 
-    let ek_pubkey_pem = rsa_public_to_pem(&ek_public)
-        .map_err(|e| std::io::Error::other(e.to_string()))
-        .context("EK -> PEM conversion failed")?;
+    let ek_pubkey_pem = rsa_public_to_pem(&ek_public).context("EK -> PEM conversion failed")?;
 
     // EK certificate: present on a physical TPM, absent on a vTPM.
     let ek_cert_pem = match ek::retrieve_ek_pubcert(&mut ctx, AsymmetricAlgorithm::Rsa) {
@@ -174,11 +170,10 @@ pub fn run(debug: bool) -> Result<()> {
     };
     let require_ek_cert = ek_cert_pem.is_some();
 
-    // 2. AK under EK, persisted at AK_HANDLE.
-    dlog!(
-        "[*] Creating AK under EK and persisting at {:#010x}...",
-        ak_handle_raw
-    );
+    // AK under EK, persisted at AK_HANDLE.
+    step(format!(
+        "Creating AK under EK and persisting at {ak_handle_raw:#010x}"
+    ));
     let ak = ak::create_ak(
         &mut ctx,
         ek_handle,
@@ -197,16 +192,15 @@ pub fn run(debug: bool) -> Result<()> {
         .out_public
         .marshall()
         .context("marshal AK public failed")?;
-    let mut tpm2b = (tpmt.len() as u16).to_be_bytes().to_vec();
+    let len = u16::try_from(tpmt.len()).context("AK public exceeds u16 length")?;
+    let mut tpm2b = len.to_be_bytes().to_vec();
     tpm2b.extend_from_slice(&tpmt);
     let ak_public_tpm2b_b64 = B64.encode(&tpm2b);
 
-    // 3. Expected PCRs.
-    dlog!("[*] Reading PCRs (sha256:0,1,2,3,4,5,6,7)...");
+    step("Reading PCRs (sha256:0..=7)");
     let expected_pcrs = read_pcrs(&mut ctx)?;
 
-    // 4. Assemble JSON and write it to stdout (and nothing else).
-    dlog!("[*] Building JSON output...");
+    step("Building JSON output");
     let output = Output {
         tpm: TpmParams {
             ek_pubkey_pem,
@@ -216,7 +210,8 @@ pub fn run(debug: bool) -> Result<()> {
             require_ek_cert,
         },
     };
-    println!("{}", serde_json::to_string_pretty(&output)?);
+    let json = serde_json::to_string_pretty(&output)?;
+    console::Term::stdout().write_line(&json)?;
     Ok(())
 }
 
@@ -230,11 +225,11 @@ fn tcti() -> Result<TctiNameConf> {
             return Ok(TctiNameConf::Device(DeviceConfig::from_str(dev)?));
         }
     }
-    Err(format!(
+    Err(
         "no TPM device (/dev/tpm0, /dev/tpmrm0) and TPM2TOOLS_TCTI unset.\n\
          Map a host TPM in (--device /dev/tpmrm0) or point TPM2TOOLS_TCTI at a simulator."
+            .into(),
     )
-    .into())
 }
 
 fn parse_handle(var: &str, default: u32) -> Result<u32> {
@@ -255,7 +250,7 @@ fn parse_handle(var: &str, default: u32) -> Result<u32> {
 /// fresh EK and evict it to that persistent handle.
 fn get_or_create_ek(ctx: &mut Context, handle: PersistentTpmHandle) -> Result<KeyHandle> {
     if let Some(existing) = lookup_persistent(ctx, handle) {
-        dlog!("    EK already present at {handle:?}, reusing.");
+        step("EK already present, reusing");
         return Ok(KeyHandle::from(existing));
     }
 
@@ -300,7 +295,7 @@ fn persist_ak(
             SymmetricDefinition::AES_128_CFB,
             HashingAlgorithm::Sha256,
         )?
-        .ok_or_else(|| "TPM returned empty policy session handle".to_string())?;
+        .ok_or("TPM returned empty policy session handle")?;
     let policy_session = PolicySession::try_from(session)?;
 
     ctx.execute_with_nullauth_session(|ctx| {
@@ -342,7 +337,7 @@ fn rsa_public_to_pem(public: &Public) -> Result<String> {
         Public::Rsa {
             unique, parameters, ..
         } => (unique.value(), parameters.exponent().value()),
-        _ => return Err("EK is not an RSA key".to_string().into()),
+        _ => return Err("EK is not an RSA key".into()),
     };
 
     let n = BigUint::from_bytes_be(modulus);
@@ -362,7 +357,7 @@ fn der_cert_to_pem(der: &[u8]) -> Result<String> {
     let body = b64
         .as_bytes()
         .chunks(64)
-        .map(|c| std::str::from_utf8(c).unwrap())
+        .map(|c| String::from_utf8_lossy(c).into_owned())
         .collect::<Vec<_>>()
         .join("\n");
     Ok(format!(
