@@ -19,7 +19,7 @@ pub fn success(message: &str) {
     }
 }
 
-pub fn data(value: &Value) {
+fn data(value: &Value) {
     let mut out = String::new();
     match value {
         Value::Object(_) | Value::Array(_) => {

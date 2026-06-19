@@ -60,7 +60,6 @@ use rsa::{BigUint, RsaPublicKey};
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-use crate::output::{data, success};
 use tss_esapi::abstraction::{ak, ek};
 use tss_esapi::constants::SessionType;
 use tss_esapi::handles::{AuthHandle, KeyHandle, ObjectHandle, PersistentTpmHandle, TpmHandle};
