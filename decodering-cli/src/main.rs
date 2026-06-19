@@ -1,4 +1,6 @@
 use clap::{Parser, Subcommand};
+#[cfg(feature = "tpm")]
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use crate::cmd::app::AppCommand;
