@@ -7,31 +7,37 @@ use serde_json::Value;
 use crate::api::ApiResponse;
 
 pub fn report(resp: &ApiResponse<Value>) {
-    if !resp.message.is_empty() {
-        let _ = cliclack::log::success(&resp.message);
+    success(&resp.message);
+    if let Some(d) = &resp.data {
+        data(d);
     }
-    if let Some(data) = &resp.data {
-        let mut out = String::new();
-        match data {
-            Value::Object(_) | Value::Array(_) => {
-                let _ = writeln!(out, "{}", style("Data").cyan().bold());
+}
 
-                let mut body = String::new();
-                render_tree(data, 1, &mut body);
-                let body = body.trim_end();
+pub fn success(message: &str) {
+    if !message.is_empty() {
+        let _ = cliclack::log::success(message);
+    }
+}
 
-                if body.is_empty() {
-                    let _ = writeln!(out, "  {}", style("Empty").dim());
-                } else {
-                    out.push_str(body);
-                }
+pub fn data(value: &Value) {
+    let mut out = String::new();
+    match value {
+        Value::Object(_) | Value::Array(_) => {
+            let _ = writeln!(out, "{}", style("Data").cyan().bold());
+            let mut body = String::new();
+            render_tree(value, 1, &mut body);
+            let body = body.trim_end();
+            if body.is_empty() {
+                let _ = writeln!(out, "  {}", style("Empty").dim());
+            } else {
+                out.push_str(body);
             }
-            scalar_value => render_tree(scalar_value, 0, &mut out),
         }
-        let tree = out.trim_end();
-        if !tree.is_empty() {
-            let _ = cliclack::log::info(tree);
-        }
+        scalar => render_tree(scalar, 0, &mut out),
+    }
+    let tree = out.trim_end();
+    if !tree.is_empty() {
+        let _ = cliclack::log::info(tree);
     }
 }
 
@@ -114,11 +120,17 @@ fn inline(value: &Value) -> String {
 fn scalar(value: &Value) -> String {
     match value {
         Value::Null => format!("{}", style("null").dim()),
-        Value::String(s) => format!("{}", style(s).green()),
+        Value::String(s) => format!("{}", style(escape_inline(s)).green()),
         Value::Bool(b) => format!("{}", style(b).yellow()),
         Value::Number(n) => format!("{}", style(n).yellow()),
         container => inline(container),
     }
+}
+
+fn escape_inline(s: &str) -> String {
+    s.replace('\n', "\\n")
+        .replace('\r', "\\r")
+        .replace('\t', "\\t")
 }
 
 fn value_display(key: &str, value: &Value) -> String {

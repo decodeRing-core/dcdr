@@ -60,6 +60,7 @@ use rsa::{BigUint, RsaPublicKey};
 use serde::Serialize;
 use serde_json::{Map, Value};
 
+use crate::output::{data, success};
 use tss_esapi::abstraction::{ak, ek};
 use tss_esapi::constants::SessionType;
 use tss_esapi::handles::{AuthHandle, KeyHandle, ObjectHandle, PersistentTpmHandle, TpmHandle};
@@ -201,7 +202,7 @@ pub fn run(debug: bool) -> Result<()> {
     step("Reading PCRs (sha256:0..=7)");
     let expected_pcrs = read_pcrs(&mut ctx)?;
 
-    step("Building JSON output");
+    step("Building output");
     let output = Output {
         tpm: TpmParams {
             ek_pubkey_pem,
@@ -211,8 +212,9 @@ pub fn run(debug: bool) -> Result<()> {
             require_ek_cert,
         },
     };
-    let json = serde_json::to_string_pretty(&output)?;
-    console::Term::stdout().write_line(&json)?;
+    let value = serde_json::to_value(&output)?;
+    success("TPM parameters");
+    data(&value);
     Ok(())
 }
 
