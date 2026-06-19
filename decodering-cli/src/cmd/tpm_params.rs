@@ -105,6 +105,19 @@ where
     }
 }
 
+impl<T> ErrCtx<T> for Result<T> {
+    fn context<S: fmt::Display>(self, msg: S) -> Result<T> {
+        self.map_err(|e| -> Box<dyn Error> { format!("{msg}: {e}").into() })
+    }
+    fn with_context<S, F>(self, f: F) -> Result<T>
+    where
+        S: fmt::Display,
+        F: FnOnce() -> S,
+    {
+        self.map_err(|e| -> Box<dyn Error> { format!("{}: {e}", f()).into() })
+    }
+}
+
 /// Whether to emit progress messages (off unless `--debug`/`-d`).
 static DEBUG: AtomicBool = AtomicBool::new(false);
 
