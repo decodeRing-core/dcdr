@@ -1,9 +1,15 @@
 use std::collections::HashMap;
 use std::error::Error;
-use std::io::Write;
+use std::path::Path;
 use std::time::SystemTime;
 
-pub async fn run(region: &str) -> Result<(), Box<dyn Error>> {
+use aws_config::BehaviorVersion;
+use aws_config::load_defaults;
+use aws_sigv4::http_request::sign;
+use aws_sigv4::http_request::{SignableBody, SignableRequest, SigningSettings};
+use aws_sigv4::sign::v4;
+
+pub async fn run(out: &Path, region: &str) -> Result<(), Box<dyn Error>> {
     let config = load_defaults(BehaviorVersion::latest()).await;
     let creds = config
         .credentials_provider()
@@ -28,7 +34,6 @@ pub async fn run(region: &str) -> Result<(), Box<dyn Error>> {
         ("host", "sts.amazonaws.com"),
         ("content-type", "application/x-www-form-urlencoded"),
     ];
-
     let signable = SignableRequest::new(
         "POST",
         url,
@@ -53,7 +58,11 @@ pub async fn run(region: &str) -> Result<(), Box<dyn Error>> {
         "headers": all_headers,
     });
 
-    let mut stdout = std::io::stdout().lock();
-    writeln!(stdout, "{payload:#}")?;
+    let json = serde_json::to_string_pretty(&payload)?;
+    std::fs::write(out, json).map_err(|e| -> Box<dyn Error> {
+        format!("failed to write {}: {e}", out.display()).into()
+    })?;
+
+    let _ = cliclack::log::success(format!("Data (written to {})", out.display()));
     Ok(())
 }
