@@ -1,4 +1,6 @@
 use clap::{Parser, Subcommand};
+#[cfg(feature = "aws")]
+use std::path::PathBuf;
 #[cfg(feature = "tpm")]
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -44,6 +46,8 @@ enum Command {
         /// AWS region to sign for
         #[arg(long, default_value = "us-east-1")]
         region: String,
+        #[arg(long, short = 'o', value_name = "FILE")]
+        out: PathBuf,
     },
 
     /// Initialize, unlock, and manage the system lifecycle
@@ -81,7 +85,7 @@ async fn main() -> ExitCode {
         match command {
             Command::GenerateSchema => cmd::schema::run(),
             #[cfg(feature = "aws")]
-            Command::AwsSig { region } => cmd::aws_sig::run(&region).await,
+            Command::AwsSig { out, region } => cmd::aws_sig::run(&out, &region).await,
             Command::System(cmd) => cmd::system::run(cmd, &addr).await,
             Command::Raft(cmd) => cmd::raft::run(cmd, &addr).await,
             Command::App(cmd) => cmd::app::run(cmd, &addr).await,

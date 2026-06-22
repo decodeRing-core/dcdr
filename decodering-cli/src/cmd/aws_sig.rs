@@ -5,6 +5,7 @@ use std::time::SystemTime;
 
 use aws_config::BehaviorVersion;
 use aws_config::load_defaults;
+use aws_credential_types::provider::ProvideCredentials;
 use aws_sigv4::http_request::sign;
 use aws_sigv4::http_request::{SignableBody, SignableRequest, SigningSettings};
 use aws_sigv4::sign::v4;
