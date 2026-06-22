@@ -6,7 +6,7 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-default = ["aws"]
+default = []
 tpm = ["dep:tss-esapi"]
 aws = ["dep:aws-sigv4", "dep:aws-config", "dep:aws-credential-types"]
 
