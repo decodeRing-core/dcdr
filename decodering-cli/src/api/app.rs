@@ -50,6 +50,11 @@ pub struct ActivateRequest {
     pub proof: serde_json::Value,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ChallengeRequest {
+    pub credential_kind: String,
+}
+
 pub async fn app_user_auth_activate(
     addr: &str,
     req: ActivateRequest,
@@ -104,6 +109,15 @@ pub async fn app_user_auth(
     req: AuthRequest,
 ) -> Result<ApiResponse<serde_json::Value>, Box<dyn Error>> {
     let url = format!("{}/app/user/auth", addr.trim_end_matches('/'));
+    let res = reqwest::Client::new().post(url).json(&req).send().await?;
+    handle(res).await
+}
+
+pub async fn app_user_auth_challenge(
+    addr: &str,
+    req: ChallengeRequest,
+) -> Result<ApiResponse<serde_json::Value>, Box<dyn Error>> {
+    let url = format!("{}/app/user/auth/challenge", addr.trim_end_matches('/'));
     let res = reqwest::Client::new().post(url).json(&req).send().await?;
     handle(res).await
 }

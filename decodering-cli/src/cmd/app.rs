@@ -4,12 +4,14 @@ use clap::{Args, Subcommand};
 
 use crate::api::app::ActivateRequest;
 use crate::api::app::AuthRequest;
+use crate::api::app::ChallengeRequest;
 use crate::api::app::GrantRequest;
 use crate::api::app::ListUsersRequest;
 use crate::api::app::RevokeRequest;
 use crate::api::app::app_create;
 use crate::api::app::app_user_auth;
 use crate::api::app::app_user_auth_activate;
+use crate::api::app::app_user_auth_challenge;
 use crate::api::app::app_user_create;
 use crate::api::app::app_user_grant;
 use crate::api::app::app_user_list;
@@ -44,6 +46,8 @@ pub enum UserCommand {
     Auth(AuthInput),
     /// Activate credential
     Activate(ActivateInput),
+    /// Request an authentication challenge for a credential kind
+    Challenge(ChallengeInput),
 }
 
 #[derive(Args)]
@@ -89,6 +93,14 @@ pub struct ListInput {
 }
 
 #[derive(Args)]
+pub struct ChallengeInput {
+    #[arg(long, value_name = "SOURCE")]
+    params: Option<ValueSource>,
+    #[arg(long)]
+    credential_kind: Option<String>,
+}
+
+#[derive(Args)]
 pub struct ActivateInput {
     /// Whole request as JSON (inline or `@file`); skips prompts and proof generation.
     #[arg(long, value_name = "SOURCE")]
@@ -113,6 +125,7 @@ pub async fn run(cmd: AppCommand, addr: &str) -> Result<(), Box<dyn Error>> {
         AppCommand::User(UserCommand::Revoke(i)) => user_revoke(i, addr, &token()?).await,
         AppCommand::User(UserCommand::List(i)) => user_list(i, addr, &token()?).await,
         AppCommand::User(UserCommand::Activate(i)) => user_activate(i, addr).await,
+        AppCommand::User(UserCommand::Challenge(i)) => user_challenge(i, addr).await,
     }
 }
 
@@ -411,4 +424,19 @@ fn build_proof(
         )
         .into()),
     }
+}
+
+async fn user_challenge(input: ChallengeInput, addr: &str) -> Result<(), Box<dyn Error>> {
+    let req: ChallengeRequest = if let Some(src) = &input.params {
+        serde_json::from_str(&src.read()?)?
+    } else {
+        let credential_kind = match input.credential_kind.clone() {
+            Some(k) => k,
+            None => or_default(prompt::line("Credential kind [apiKey]: ")?, "apiKey"),
+        };
+        ChallengeRequest { credential_kind }
+    };
+    let resp = app_user_auth_challenge(addr, req).await?;
+    output::report(&resp);
+    Ok(())
 }
