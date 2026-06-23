@@ -83,6 +83,8 @@ enum Command {
         credential_blob: String,
         #[arg(long)]
         secret: String,
+        #[arg(long, short = 'd')]
+        debug: bool,
     },
 }
 
@@ -102,7 +104,11 @@ async fn main() -> ExitCode {
             #[cfg(feature = "tpm")]
             Command::TpmParams { out, debug } => cmd::tpm_params::run(&out, debug),
             #[cfg(feature = "tpm")]
-            Command::Activate(i) => cmd::tpm_activate::run(&i.credential_blob, &i.secret, debug),
+            Command::TpmActivateInput {
+                credential_blob,
+                secret,
+                debug,
+            } => cmd::tpm_activate::run(&credential_blob, &secret, debug),
         }
     });
 

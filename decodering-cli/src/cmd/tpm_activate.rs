@@ -31,6 +31,7 @@ use std::env;
 use std::error::Error;
 use std::fmt;
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use base64::Engine as _;
