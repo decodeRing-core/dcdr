@@ -78,7 +78,7 @@ enum Command {
 
     /// Recover the activation secret from a TPM 2.0 makecredential challenge
     #[cfg(feature = "tpm")]
-    TpmActivateInput {
+    TpmActivate {
         #[arg(long)]
         credential_blob: String,
         #[arg(long)]
@@ -104,7 +104,7 @@ async fn main() -> ExitCode {
             #[cfg(feature = "tpm")]
             Command::TpmParams { out, debug } => cmd::tpm_params::run(&out, debug),
             #[cfg(feature = "tpm")]
-            Command::TpmActivateInput {
+            Command::TpmActivate {
                 credential_blob,
                 secret,
                 debug,
