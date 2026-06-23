@@ -43,7 +43,6 @@ use tss_esapi::interface_types::algorithm::HashingAlgorithm;
 use tss_esapi::interface_types::session_handles::{AuthSession, PolicySession};
 use tss_esapi::structures::{Digest, EncryptedSecret, IdObject, Nonce, SymmetricDefinition};
 use tss_esapi::tcti_ldr::DeviceConfig;
-use tss_esapi::traits::UnMarshall;
 use tss_esapi::{Context, TctiNameConf};
 
 type Result<T> = core::result::Result<T, Box<dyn Error>>;
@@ -95,10 +94,10 @@ pub fn recover(credential_blob_b64: &str, secret_b64: &str) -> Result<String> {
     let ak_handle_raw = parse_handle("AK_HANDLE", 0x8101_0002)?;
 
     let credential_blob =
-        IdObject::unmarshall(&decode_b64(credential_blob_b64).context("bad credential_blob")?)
-            .context("unmarshal credential_blob (TPM2B_ID_OBJECT) failed")?;
-    let secret = EncryptedSecret::unmarshall(&decode_b64(secret_b64).context("bad secret")?)
-        .context("unmarshal secret (TPM2B_ENCRYPTED_SECRET) failed")?;
+        IdObject::try_from(decode_b64(credential_blob_b64).context("bad credential_blob")?)
+            .context("credential_blob is not a valid TPM2B_ID_OBJECT")?;
+    let secret = EncryptedSecret::try_from(decode_b64(secret_b64).context("bad secret")?)
+        .context("secret is not a valid TPM2B_ENCRYPTED_SECRET")?;
 
     let mut ctx = Context::new(tcti()?).context("failed to open TPM context")?;
 
@@ -142,9 +141,9 @@ pub fn recover(credential_blob_b64: &str, secret_b64: &str) -> Result<String> {
     Ok(B64.encode(recovered.value()))
 }
 
-fn decode_b64(s: &str) -> Result<Vec<u8>> {
+fn decode_b64(s: &str) -> core::result::Result<Vec<u8>, base64::DecodeError> {
     let cleaned: String = s.chars().filter(|c| !c.is_whitespace()).collect();
-    Ok(B64.decode(cleaned)?)
+    B64.decode(cleaned)
 }
 
 fn load_key(ctx: &mut Context, raw: u32, label: &str) -> Result<KeyHandle> {
