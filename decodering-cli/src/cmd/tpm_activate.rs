@@ -93,11 +93,14 @@ pub fn recover(credential_blob_b64: &str, secret_b64: &str) -> Result<String> {
     let ek_handle_raw = parse_handle("EK_HANDLE", 0x8101_0001)?;
     let ak_handle_raw = parse_handle("AK_HANDLE", 0x8101_0002)?;
 
-    let credential_blob =
-        IdObject::try_from(decode_b64(credential_blob_b64).context("bad credential_blob")?)
-            .context("credential_blob is not a valid TPM2B_ID_OBJECT")?;
-    let secret = EncryptedSecret::try_from(decode_b64(secret_b64).context("bad secret")?)
-        .context("secret is not a valid TPM2B_ENCRYPTED_SECRET")?;
+    let credential_blob = IdObject::try_from(strip_tpm2b(
+        decode_b64(credential_blob_b64).context("bad credential_blob")?,
+    )?)
+    .context("credential_blob is not a valid TPM2B_ID_OBJECT")?;
+
+    let secret =
+        EncryptedSecret::try_from(strip_tpm2b(decode_b64(secret_b64).context("bad secret")?)?)
+            .context("secret is not a valid TPM2B_ENCRYPTED_SECRET")?;
 
     let mut ctx = Context::new(tcti()?).context("failed to open TPM context")?;
 
@@ -187,4 +190,11 @@ fn parse_handle(var: &str, default: u32) -> Result<u32> {
         }
         Err(_) => Ok(default),
     }
+}
+
+fn strip_tpm2b(buf: Vec<u8>) -> Result<Vec<u8>> {
+    let len = buf.get(..2).ok_or("TPM2B too short")?;
+    let n = u16::from_be_bytes([len[0], len[1]]) as usize;
+    let body = buf.get(2..2 + n).ok_or("TPM2B length exceeds buffer")?;
+    Ok(body.to_vec())
 }
