@@ -2,12 +2,14 @@ use std::error::Error;
 
 use clap::{Args, Subcommand};
 
+use crate::api::app::ActivateRequest;
 use crate::api::app::AuthRequest;
 use crate::api::app::GrantRequest;
 use crate::api::app::ListUsersRequest;
 use crate::api::app::RevokeRequest;
 use crate::api::app::app_create;
 use crate::api::app::app_user_auth;
+use crate::api::app::app_user_auth_activate;
 use crate::api::app::app_user_create;
 use crate::api::app::app_user_grant;
 use crate::api::app::app_user_list;
@@ -40,6 +42,8 @@ pub enum UserCommand {
     List(ListInput),
     /// Authenticate with a credential and obtain a session token
     Auth(AuthInput),
+    /// Activate credential
+    Activate(ActivateInput),
 }
 
 #[derive(Args)]
@@ -84,6 +88,22 @@ pub struct ListInput {
     params: Option<ValueSource>,
 }
 
+#[derive(Args)]
+pub struct ActivateInput {
+    /// Whole request as JSON (inline or `@file`); skips prompts and proof generation.
+    #[arg(long, value_name = "SOURCE")]
+    params: Option<ValueSource>,
+    /// Proof as JSON (inline or `@file`); use when you already have it.
+    #[arg(long, value_name = "SOURCE")]
+    proof: Option<ValueSource>,
+    #[arg(long)]
+    credential_kind: Option<String>,
+    #[arg(long)]
+    principal_id: Option<String>,
+    #[arg(long)]
+    credential_id: Option<String>,
+}
+
 pub async fn run(cmd: AppCommand, addr: &str) -> Result<(), Box<dyn Error>> {
     match cmd {
         AppCommand::Create(i) => create(i, addr, &token()?).await,
@@ -92,6 +112,7 @@ pub async fn run(cmd: AppCommand, addr: &str) -> Result<(), Box<dyn Error>> {
         AppCommand::User(UserCommand::Grant(i)) => user_grant(i, addr, &token()?).await,
         AppCommand::User(UserCommand::Revoke(i)) => user_revoke(i, addr, &token()?).await,
         AppCommand::User(UserCommand::List(i)) => user_list(i, addr, &token()?).await,
+        AppCommand::User(UserCommand::Activate(i)) => user_activate(i, addr).await,
     }
 }
 
@@ -340,4 +361,54 @@ async fn user_auth(input: AuthInput, addr: &str) -> Result<(), Box<dyn Error>> {
 
     output::report(&resp);
     Ok(())
+}
+
+async fn user_activate(input: ActivateInput, addr: &str) -> Result<(), Box<dyn Error>> {
+    let req: ActivateRequest = match &input.params {
+        Some(src) => serde_json::from_str(&src.read()?)?,
+        None => {
+            let credential_kind = match &input.credential_kind {
+                Some(k) => k.clone(),
+                None => or_default(prompt::line("Credential kind [apiKey]: ")?, "apiKey"),
+            };
+            let principal_id = match &input.principal_id {
+                Some(p) => p.clone(),
+                None => required("Principal id: ")?,
+            };
+            let credential_id = match &input.credential_id {
+                Some(c) => c.clone(),
+                None => required("Credential id: ")?,
+            };
+            let proof = build_proof(&credential_kind, input.proof.as_ref())?;
+            ActivateRequest {
+                credential_kind,
+                principal_id,
+                credential_id,
+                proof,
+            }
+        }
+    };
+    let resp = app_user_auth_activate(addr, req).await?;
+    output::report(&resp);
+    Ok(())
+}
+
+fn build_proof(
+    credential_kind: &str,
+    proof_src: Option<&ValueSource>,
+) -> Result<serde_json::Value, Box<dyn Error>> {
+    if let Some(src) = proof_src {
+        return Ok(serde_json::from_str(&src.read()?)?);
+    }
+    match credential_kind {
+        "trustedPlatformModule" => {
+            let recovered_secret = required("Recovered secret: ")?;
+            Ok(serde_json::json!({ "recovered_secret": recovered_secret }))
+        }
+        other => Err(format!(
+            "no proof builder for credential kind `{other}`; \
+             supply it directly with --proof @proof.json"
+        )
+        .into()),
+    }
 }

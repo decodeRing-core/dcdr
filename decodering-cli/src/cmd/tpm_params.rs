@@ -141,7 +141,6 @@ struct TpmParams {
     require_ek_cert: bool,
 }
 
-#[allow(clippy::print_stdout)] // the JSON params block is this command's stdout contract
 pub fn run(out: &Path, debug: bool) -> Result<()> {
     if debug {
         DEBUG.store(true, Ordering::Relaxed);

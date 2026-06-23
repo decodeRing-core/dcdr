@@ -75,6 +75,15 @@ enum Command {
         #[arg(long, short = 'o', value_name = "FILE")]
         out: PathBuf,
     },
+
+    /// Recover the activation secret from a TPM 2.0 makecredential challenge
+    #[cfg(feature = "tpm")]
+    TpmActivateInput {
+        #[arg(long)]
+        credential_blob: String,
+        #[arg(long)]
+        secret: String,
+    },
 }
 
 #[tokio::main]
@@ -92,6 +101,8 @@ async fn main() -> ExitCode {
             Command::Osl(cmd) => cmd::osl::run(cmd, &addr).await,
             #[cfg(feature = "tpm")]
             Command::TpmParams { out, debug } => cmd::tpm_params::run(&out, debug),
+            #[cfg(feature = "tpm")]
+            Command::Activate(i) => cmd::tpm_activate::run(&i.credential_blob, &i.secret, debug),
         }
     });
 

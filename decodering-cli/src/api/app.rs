@@ -42,6 +42,23 @@ pub struct AuthRequest {
     pub proof: serde_json::Value,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ActivateRequest {
+    pub credential_kind: String,
+    pub principal_id: String,
+    pub credential_id: String,
+    pub proof: serde_json::Value,
+}
+
+pub async fn app_user_auth_activate(
+    addr: &str,
+    req: ActivateRequest,
+) -> Result<ApiResponse<serde_json::Value>, Box<dyn Error>> {
+    let url = format!("{}/app/user/auth/activate", addr.trim_end_matches('/'));
+    let res = reqwest::Client::new().post(url).json(&req).send().await?;
+    handle(res).await
+}
+
 pub async fn app_create(
     addr: &str,
     token: &str,

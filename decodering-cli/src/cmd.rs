@@ -6,4 +6,6 @@ pub mod raft;
 pub mod schema;
 pub mod system;
 #[cfg(feature = "tpm")]
+pub mod tpm_activate;
+#[cfg(feature = "tpm")]
 pub mod tpm_params;

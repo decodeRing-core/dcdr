@@ -105,6 +105,7 @@ missing_panics_doc = "allow"
 multiple_crate_versions = "allow"
 implicit_hasher = "allow"
 future_not_send = "allow"
+single_match_else = "allow"
 
 print_stdout = "warn"       # use logging instead
 print_stderr = "warn"
