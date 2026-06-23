@@ -60,6 +60,10 @@ pub struct CreateInput {
 pub struct UserCreateInput {
     #[arg(long, value_name = "SOURCE")]
     params: Option<ValueSource>,
+    /// Credential data as JSON (inline or `@file`, e.g. `@tpm.json`).
+    /// When omitted for a non-apiKey kind, you'll be prompted field by field.
+    #[arg(long, value_name = "SOURCE")]
+    data: Option<ValueSource>,
 }
 
 #[derive(Args)]
@@ -122,14 +126,19 @@ async fn user_create(
     addr: &str,
     token: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let req: CreateUserRequest = match &input.params {
-        Some(src) => serde_json::from_str(&src.read()?)?,
-        None => CreateUserRequest {
-            name: prompt::required("Name")?,
-            kind: prompt::with_default("Kind", "human")?,
-            credential_kind: prompt::with_default("Credential kind", "apiKey")?,
-            data: None,
-        },
+    let req: CreateUserRequest = if let Some(src) = &input.params {
+        serde_json::from_str(&src.read()?)?
+    } else {
+        let name = prompt::required("Name")?;
+        let kind = prompt::with_default("Kind", "human")?;
+        let credential_kind = prompt::with_default("Credential kind", "apiKey")?;
+        let data = credential_data(&credential_kind, input.data.as_ref())?;
+        CreateUserRequest {
+            name,
+            kind,
+            credential_kind,
+            data,
+        }
     };
     let resp = app_user_create(addr, token, req).await?;
 
@@ -143,6 +152,82 @@ async fn user_create(
     }
     output::report(&resp);
     Ok(())
+}
+
+fn normalize_pem_fields(mut v: serde_json::Value) -> serde_json::Value {
+    if let Some(obj) = v.as_object_mut() {
+        for key in ["ek_pubkey_pem", "ek_cert_pem"] {
+            if let Some(serde_json::Value::String(s)) = obj.get_mut(key)
+                && s.contains("\\n")
+            {
+                *s = s.replace("\\n", "\n");
+            }
+        }
+    }
+    v
+}
+
+fn credential_data(
+    credential_kind: &str,
+    data_src: Option<&ValueSource>,
+) -> Result<Option<serde_json::Value>, Box<dyn Error>> {
+    if let Some(src) = data_src {
+        let value: serde_json::Value = serde_json::from_str(&src.read()?)?;
+        return Ok(Some(normalize_pem_fields(unwrap_tpm(value))));
+    }
+    match credential_kind {
+        "apiKey" => Ok(None),
+        "trustedPlatformModule" => Ok(Some(prompt_tpm_data()?)),
+        "awsIdentity" => Ok(Some(prompt_aws_data()?)),
+        other => Err(format!("unknown credential kind: {other}").into()),
+    }
+}
+
+fn unwrap_tpm(v: serde_json::Value) -> serde_json::Value {
+    match &v {
+        serde_json::Value::Object(m) if m.len() == 1 && m.contains_key("tpm") => {
+            m.get("tpm").cloned().unwrap_or(v)
+        }
+        _ => v,
+    }
+}
+
+fn unescape_pem(s: &str) -> String {
+    s.replace("\\r\\n", "\n")
+        .replace("\\n", "\n")
+        .replace("\\r", "\n")
+}
+
+fn prompt_tpm_data() -> Result<serde_json::Value, Box<dyn Error>> {
+    let ek_pubkey_pem = unescape_pem(&required("EK public key PEM: ")?);
+    let ek_cert = prompt::line("EK cert PEM [none]: ")?;
+    let ek_cert_pem = if ek_cert.trim().is_empty() {
+        serde_json::Value::Null
+    } else {
+        serde_json::Value::String(unescape_pem(&ek_cert))
+    };
+    let ak_public_tpm2b_b64 = required("AK public TPM2B (base64): ")?;
+    let require_ek_cert =
+        or_default(prompt::line("Require EK cert [false]: ")?, "false").trim() == "true";
+
+    let mut pcrs = serde_json::Map::new();
+    for i in 0..=7 {
+        let hex = required(&format!("PCR {i} (sha256 hex): "))?;
+        pcrs.insert(i.to_string(), serde_json::Value::String(hex));
+    }
+
+    Ok(serde_json::json!({
+        "ek_pubkey_pem": ek_pubkey_pem,
+        "ek_cert_pem": ek_cert_pem,
+        "ak_public_tpm2b_b64": ak_public_tpm2b_b64,
+        "expected_pcrs": serde_json::Value::Object(pcrs),
+        "require_ek_cert": require_ek_cert,
+    }))
+}
+
+fn prompt_aws_data() -> Result<serde_json::Value, Box<dyn Error>> {
+    let role_arn = required("Role ARN: ")?;
+    Ok(serde_json::json!({ "role_arn": role_arn }))
 }
 
 async fn user_grant(input: GrantInput, addr: &str, token: &str) -> Result<(), Box<dyn Error>> {

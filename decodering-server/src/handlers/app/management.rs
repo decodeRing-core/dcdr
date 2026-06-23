@@ -94,7 +94,7 @@ pub async fn create_app_user<D: Database + 'static>(
         Ok(resp) => resp,
         Err(e) => {
             tracing::error!("Auth error: {e:?}");
-            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::UnsupportedAuth));
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Unauthorized));
         }
     };
 
