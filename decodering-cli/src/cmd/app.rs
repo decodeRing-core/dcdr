@@ -55,6 +55,10 @@ pub struct AuthInput {
     /// Params as JSON (inline or `@file`). When omitted, you'll be prompted.
     #[arg(long, value_name = "SOURCE")]
     params: Option<ValueSource>,
+    /// Proof as JSON (inline or `@file`, e.g. `@auth.json`). When omitted for a
+    /// non-apiKey kind, you'll be prompted field by field.
+    #[arg(long, value_name = "SOURCE")]
+    proof: Option<ValueSource>,
 }
 
 #[derive(Args)]
@@ -211,9 +215,11 @@ fn credential_data(
     }
     match credential_kind {
         "apiKey" => Ok(None),
-        "trustedPlatformModule" => Ok(Some(prompt_tpm_data()?)),
         "awsIdentity" => Ok(Some(prompt_aws_data()?)),
-        other => Err(format!("unknown credential kind: {other}").into()),
+        other => Err(format!(
+            "interactive auth has no builder for `{other}`; supply it with --proof @credential.json"
+        )
+        .into()),
     }
 }
 
@@ -224,39 +230,6 @@ fn unwrap_tpm(v: serde_json::Value) -> serde_json::Value {
         }
         _ => v,
     }
-}
-
-fn unescape_pem(s: &str) -> String {
-    s.replace("\\r\\n", "\n")
-        .replace("\\n", "\n")
-        .replace("\\r", "\n")
-}
-
-fn prompt_tpm_data() -> Result<serde_json::Value, Box<dyn Error>> {
-    let ek_pubkey_pem = unescape_pem(&required("EK public key PEM: ")?);
-    let ek_cert = prompt::line("EK cert PEM [none]: ")?;
-    let ek_cert_pem = if ek_cert.trim().is_empty() {
-        serde_json::Value::Null
-    } else {
-        serde_json::Value::String(unescape_pem(&ek_cert))
-    };
-    let ak_public_tpm2b_b64 = required("AK public TPM2B (base64): ")?;
-    let require_ek_cert =
-        or_default(prompt::line("Require EK cert [false]: ")?, "false").trim() == "true";
-
-    let mut pcrs = serde_json::Map::new();
-    for i in 0..=7 {
-        let hex = required(&format!("PCR {i} (sha256 hex): "))?;
-        pcrs.insert(i.to_string(), serde_json::Value::String(hex));
-    }
-
-    Ok(serde_json::json!({
-        "ek_pubkey_pem": ek_pubkey_pem,
-        "ek_cert_pem": ek_cert_pem,
-        "ak_public_tpm2b_b64": ak_public_tpm2b_b64,
-        "expected_pcrs": serde_json::Value::Object(pcrs),
-        "require_ek_cert": require_ek_cert,
-    }))
 }
 
 fn prompt_aws_data() -> Result<serde_json::Value, Box<dyn Error>> {
@@ -337,29 +310,13 @@ async fn user_auth(input: AuthInput, addr: &str) -> Result<(), Box<dyn Error>> {
         serde_json::from_str(&src.read()?)?
     } else {
         let credential_kind = or_default(prompt::line("Credential kind [apiKey]: ")?, "apiKey");
-        let proof = match credential_kind.as_str() {
-            "apiKey" => {
-                let key = prompt::password("API key")?;
-                if key.is_empty() {
-                    return Err("api key is required".into());
-                }
-                serde_json::json!({ "key": key })
-            }
-            other => {
-                return Err(format!(
-                    "interactive auth supports apiKey only; use --params for `{other}`"
-                )
-                .into());
-            }
-        };
+        let proof = auth_proof(&credential_kind, input.proof.as_ref())?;
         AuthRequest {
             credential_kind,
             proof,
         }
     };
-
     let resp = app_user_auth(addr, req).await?;
-
     if let Some(data) = &resp.data
         && let (Some(token), Some(expires_at)) = (
             data.get("token").and_then(|v| v.as_str()),
@@ -371,9 +328,44 @@ async fn user_auth(input: AuthInput, addr: &str) -> Result<(), Box<dyn Error>> {
             expires_at,
         });
     }
-
     output::report(&resp);
     Ok(())
+}
+
+fn auth_proof(
+    credential_kind: &str,
+    proof_src: Option<&ValueSource>,
+) -> Result<serde_json::Value, Box<dyn Error>> {
+    if let Some(src) = proof_src {
+        let value: serde_json::Value = serde_json::from_str(&src.read()?)?;
+        return Ok(normalize_proof_pem(value));
+    }
+    match credential_kind {
+        "apiKey" => {
+            let key = prompt::password("API key")?;
+            if key.is_empty() {
+                return Err("api key is required".into());
+            }
+            Ok(serde_json::json!({ "key": key }))
+        }
+        other => Err(format!(
+            "interactive auth has no builder for `{other}`; supply it with --proof @auth.json"
+        )
+        .into()),
+    }
+}
+
+fn normalize_proof_pem(mut v: serde_json::Value) -> serde_json::Value {
+    if let Some(obj) = v.as_object_mut() {
+        for key in ["ek_pubkey_pem", "ak_pubkey_pem"] {
+            if let Some(serde_json::Value::String(s)) = obj.get_mut(key)
+                && s.contains("\\n")
+            {
+                *s = s.replace("\\n", "\n");
+            }
+        }
+    }
+    v
 }
 
 async fn user_activate(input: ActivateInput, addr: &str) -> Result<(), Box<dyn Error>> {
