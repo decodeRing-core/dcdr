@@ -180,24 +180,8 @@ fn generate(nonce: &str, challenge_id: &str) -> Result<AuthPayload> {
     })
 }
 
-/// Normalize the nonce: hex -> decoded bytes, otherwise raw UTF-8. Bounded to
-/// 64 bytes, the limit for a SHA-256 quote's qualifying data.
 fn normalize_nonce(nonce: &str) -> Result<Vec<u8>> {
-    let is_hex =
-        !nonce.is_empty() && nonce.len() % 2 == 0 && nonce.chars().all(|c| c.is_ascii_hexdigit());
-    let bytes = if is_hex {
-        step(format!(
-            "Nonce looks like hex ({} chars), decoding",
-            nonce.len()
-        ));
-        hex::decode(nonce).context("nonce hex decode failed")?
-    } else {
-        step(format!(
-            "Nonce treated as raw string ({} bytes)",
-            nonce.len()
-        ));
-        nonce.as_bytes().to_vec()
-    };
+    let bytes = nonce.as_bytes().to_vec();
     if bytes.len() > 64 {
         return Err(format!("nonce is {} bytes; max 64 for SHA-256 quotes", bytes.len()).into());
     }
