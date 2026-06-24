@@ -125,7 +125,7 @@ pub fn run(nonce: &str, challenge_id: &str, out: &Path, debug: bool) -> Result<(
 
 /// Build the attestation payload: read EK/AK pubkeys, quote PCRs with the nonce
 /// as qualifying data, and read the raw PCR values.
-pub fn generate(nonce: &str, challenge_id: &str) -> Result<AuthPayload> {
+fn generate(nonce: &str, challenge_id: &str) -> Result<AuthPayload> {
     let ek_handle_raw = parse_handle("EK_HANDLE", 0x8101_0001)?;
     let ak_handle_raw = parse_handle("AK_HANDLE", 0x8101_0002)?;
 
