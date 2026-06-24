@@ -86,6 +86,19 @@ enum Command {
         #[arg(long, short = 'd')]
         debug: bool,
     },
+
+    /// Generate a TPM 2.0 quote attestation payload for a challenge nonce
+    #[cfg(feature = "tpm")]
+    TpmAuth {
+        #[arg(long)]
+        nonce: String,
+        #[arg(long)]
+        challenge_id: String,
+        #[arg(long, short = 'o', value_name = "FILE")]
+        out: PathBuf,
+        #[arg(long, short = 'd')]
+        debug: bool,
+    },
 }
 
 #[tokio::main]
@@ -109,6 +122,13 @@ async fn main() -> ExitCode {
                 secret,
                 debug,
             } => cmd::tpm_activate::run(&credential_blob, &secret, debug),
+            #[cfg(feature = "tpm")]
+            Command::TpmAuth {
+                nonce,
+                challenge_id,
+                out,
+                debug,
+            } => cmd::tpm_auth::run(&nonce, &challenge_id, &out, debug),
         }
     });
 
