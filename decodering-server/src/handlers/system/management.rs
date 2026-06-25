@@ -142,8 +142,8 @@ pub async fn system_init<D: Database + 'static>(
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to initialize system");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "initialize system".into(),
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                    "Failed to initialize system".into(),
                 )))
             }
             other_api_response => {
@@ -152,8 +152,19 @@ pub async fn system_init<D: Database + 'static>(
             }
         },
         Err(e) => {
-            tracing::error!(%e, "Failed to initialize system");
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+            tracing::error!(?e);
+            match e {
+                Action(action_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        action_error.to_string().into(),
+                    )));
+                }
+                Raft(raft_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        raft_error.to_string().into(),
+                    )));
+                }
+            }
         }
     }
 }
@@ -223,8 +234,8 @@ pub async fn system_unlock<D: Database + 'static>(
             unlock_audit_errored::<D>(ip, db, err.to_string()).await;
             tracing::error!(e=%err, "Failed to unlock system");
             attempt.denied();
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                "unlock system".into(),
+            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                "Failed to unlock system".into(),
             )))
         }
     }
@@ -267,8 +278,8 @@ pub async fn system_plugin_config<D: Database + 'static>(
                     ),
                     AppResponse::Error(e) => {
                         tracing::error!(%e, "Failed to initialize system");
-                        ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                            "initialize system".into(),
+                        ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                            "Failed to initialize system".into(),
                         )))
                     }
                     other_api_response => {
@@ -278,7 +289,18 @@ pub async fn system_plugin_config<D: Database + 'static>(
                 },
                 Err(e) => {
                     tracing::error!(%e, "Failed to initialize system");
-                    ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+                    match e {
+                        Action(action_error) => {
+                            return ApiResponse::error(ErrorStatus::OperationFailed(
+                                ErrorReason::Message(action_error.to_string().into()),
+                            ));
+                        }
+                        Raft(raft_error) => {
+                            return ApiResponse::error(ErrorStatus::OperationFailed(
+                                ErrorReason::Message(raft_error.to_string().into()),
+                            ));
+                        }
+                    }
                 }
             };
         }

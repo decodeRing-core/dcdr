@@ -34,7 +34,7 @@ serde_json = { version = "1.0.150", features = ["preserve_order"] }
 extism = "1.30.0"
 serde_norway = "0.9.42"
 dotenvy = "0.15.7"
-actix-web = "4.13.0"
+actix-web = "4.14.0"
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = [
@@ -43,7 +43,7 @@ tracing-subscriber = { version = "0.3.23", features = [
     "env-filter",
     "std",
 ] }
-tracing-actix-web = "0.7.21"
+tracing-actix-web = "0.7.22"
 actix-cors = "0.7.1"
 futures-util = "0.3.32"
 openraft = { version = "0.10.0-alpha.20", features = ["serde", "type-alias"] }
@@ -71,7 +71,7 @@ rustls-pki-types = "1.14"
 rsa = "0.9.10"
 p256 = { version = "0.13", features = ["ecdsa"] }
 schemars = "1.2.1"
-actix-http = "3.12.1"
+actix-http = "3.13.1"
 aes-gcm = "0.10"
 hmac = "~0.12.1"
 cfb-mode = "0.9.1"

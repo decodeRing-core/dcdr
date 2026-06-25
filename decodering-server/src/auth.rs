@@ -10,6 +10,8 @@ use decodering_core::tx::Database;
 use decodering_core::tx::Tx;
 
 use crate::app_data::AppData;
+use crate::error::AppError::Action;
+use crate::error::AppError::Raft;
 use crate::error::ErrorReason;
 use crate::extractor::AuthOSLMiddleware;
 use crate::handlers::response::ErrorStatus;
@@ -42,8 +44,8 @@ pub async fn require_app_grant_for_principal<D: Database>(
                         }
                         AppResponse::Error(e) => {
                             tracing::error!(%e, "Failed to update credential last used timestamp");
-                            return Err(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                                "update credential".into(),
+                            return Err(ErrorStatus::OperationFailed(ErrorReason::Message(
+                                "Failed to update credential".into(),
                             )));
                         }
                         other_api_response => {
@@ -53,7 +55,18 @@ pub async fn require_app_grant_for_principal<D: Database>(
                     },
                     Err(e) => {
                         tracing::error!(?e);
-                        return Err(ErrorStatus::OperationFailed(ErrorReason::Internal));
+                        match e {
+                            Action(action_error) => {
+                                return Err(ErrorStatus::OperationFailed(ErrorReason::Message(
+                                    action_error.to_string().into(),
+                                )));
+                            }
+                            Raft(raft_error) => {
+                                return Err(ErrorStatus::OperationFailed(ErrorReason::Message(
+                                    raft_error.to_string().into(),
+                                )));
+                            }
+                        }
                     }
                 }
             }

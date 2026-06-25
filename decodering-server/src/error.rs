@@ -31,7 +31,7 @@ impl From<ActionError> for AppError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorReason {
     Unexpected,
-    GenericFail(Cow<'static, str>),
+    Message(Cow<'static, str>),
     Database,
     MissingData(&'static str),
     CertVerification,
@@ -69,7 +69,7 @@ impl std::fmt::Display for ErrorReason {
         match self {
             Self::Unexpected => f.write_str("Unexpected response."),
             Self::Internal => f.write_str("Internal error."),
-            Self::GenericFail(text) => write!(f, "Failed to {text}."),
+            Self::Message(text) => write!(f, "{text}."),
             Self::Database => f.write_str("Database error."),
             Self::CertVerification => f.write_str("Certification verification failed."),
             Self::TrustStore => f.write_str("Failed to load trust store."),
@@ -107,7 +107,7 @@ impl ErrorReason {
     pub fn http_status(&self) -> StatusCode {
         match self {
             Self::Unexpected
-            | Self::GenericFail(_)
+            | Self::Message(_)
             | Self::Database
             | Self::Internal
             | Self::TrustStore

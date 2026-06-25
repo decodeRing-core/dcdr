@@ -168,8 +168,8 @@ pub async fn api_put_secret<D: Database + 'static>(
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to put secret");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "put secret".into(),
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                    "Failed to put secret".into(),
                 )))
             }
             other_api_response => {
@@ -179,7 +179,18 @@ pub async fn api_put_secret<D: Database + 'static>(
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+            match e {
+                Action(action_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        action_error.to_string().into(),
+                    )));
+                }
+                Raft(raft_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        raft_error.to_string().into(),
+                    )));
+                }
+            }
         }
     }
 }
@@ -384,8 +395,8 @@ pub async fn api_destroy_secret<D: Database + 'static>(
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to destroy secret");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "destroy secret".into(),
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                    "Failed to destroy secret".into(),
                 )))
             }
             other_api_response => {
@@ -395,7 +406,18 @@ pub async fn api_destroy_secret<D: Database + 'static>(
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+            match e {
+                Action(action_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        action_error.to_string().into(),
+                    )));
+                }
+                Raft(raft_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        raft_error.to_string().into(),
+                    )));
+                }
+            }
         }
     }
 }
@@ -506,8 +528,8 @@ pub async fn api_taint_secret<D: Database + 'static>(
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to taint secret");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "taint secret".into(),
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                    "Failed to taint secret".into(),
                 )))
             }
             other_api_response => {
@@ -517,7 +539,18 @@ pub async fn api_taint_secret<D: Database + 'static>(
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+            match e {
+                Action(action_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        action_error.to_string().into(),
+                    )));
+                }
+                Raft(raft_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        raft_error.to_string().into(),
+                    )));
+                }
+            }
         }
     }
 }
@@ -576,8 +609,8 @@ pub async fn api_untaint_secret<D: Database + 'static>(
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to untaint secret");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "untaint secret".into(),
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                    "Failed to untaint secret".into(),
                 )))
             }
             other_api_response => {
@@ -587,7 +620,18 @@ pub async fn api_untaint_secret<D: Database + 'static>(
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+            match e {
+                Action(action_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        action_error.to_string().into(),
+                    )));
+                }
+                Raft(raft_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        raft_error.to_string().into(),
+                    )));
+                }
+            }
         }
     }
 }

@@ -139,8 +139,8 @@ pub async fn create_app_user<D: Database + 'static>(
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app user");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "create app user".into(),
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                    "Failed to create app user".into(),
                 )))
             }
             other_api_response => {
@@ -150,7 +150,18 @@ pub async fn create_app_user<D: Database + 'static>(
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+            match e {
+                Action(action_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        action_error.to_string().into(),
+                    )));
+                }
+                Raft(raft_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        raft_error.to_string().into(),
+                    )));
+                }
+            }
         }
     }
 }
@@ -192,8 +203,8 @@ pub async fn create_app<D: Database + 'static>(
             AppResponse::CreateApp(a) => ApiCreateAppResponse::new(a.app_id, a.app_name),
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "create app".into(),
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                    "Failed to create app".into(),
                 )))
             }
             other_api_response => {
@@ -203,7 +214,18 @@ pub async fn create_app<D: Database + 'static>(
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+            match e {
+                Action(action_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        action_error.to_string().into(),
+                    )));
+                }
+                Raft(raft_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        raft_error.to_string().into(),
+                    )));
+                }
+            }
         }
     }
 }
@@ -303,9 +325,9 @@ pub async fn auth_app_user<D: Database + 'static>(
                 AppResponse::Error(e) => {
                     attempt.denied();
                     tracing::error!(%e, "Failed to consume tpm challenge");
-                    return ApiResponse::error(ErrorStatus::OperationFailed(
-                        ErrorReason::GenericFail("consume tpm challenge".into()),
-                    ));
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        "Failed to consume tpm challenge".into(),
+                    )));
                 }
                 other_api_response => {
                     tracing::error!(?other_api_response, "unexpected AppResponse variant");
@@ -316,7 +338,18 @@ pub async fn auth_app_user<D: Database + 'static>(
             },
             Err(e) => {
                 tracing::error!(?e);
-                return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+                match e {
+                    Action(action_error) => {
+                        return ApiResponse::error(ErrorStatus::OperationFailed(
+                            ErrorReason::Message(action_error.to_string().into()),
+                        ));
+                    }
+                    Raft(raft_error) => {
+                        return ApiResponse::error(ErrorStatus::OperationFailed(
+                            ErrorReason::Message(raft_error.to_string().into()),
+                        ));
+                    }
+                }
             }
         }
     } else {
@@ -393,8 +426,8 @@ pub async fn auth_app_user<D: Database + 'static>(
             AppResponse::Error(e) => {
                 attempt.denied();
                 tracing::error!(%e, "Failed to authenticate app user");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "authenticate app user".into(),
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                    "Failed to authenticate app user".into(),
                 )))
             }
             other_api_response => {
@@ -404,7 +437,18 @@ pub async fn auth_app_user<D: Database + 'static>(
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+            match e {
+                Action(action_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        action_error.to_string().into(),
+                    )));
+                }
+                Raft(raft_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        raft_error.to_string().into(),
+                    )));
+                }
+            }
         }
     }
 }
@@ -463,8 +507,8 @@ pub async fn auth_challenge_app_user<D: Database + 'static>(
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to generate auth challenge");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "generate auth challenge".into(),
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                    "Failed to generate auth challenge".into(),
                 )))
             }
             other_api_response => {
@@ -474,7 +518,18 @@ pub async fn auth_challenge_app_user<D: Database + 'static>(
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database))
+            match e {
+                Action(action_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        action_error.to_string().into(),
+                    )));
+                }
+                Raft(raft_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        raft_error.to_string().into(),
+                    )));
+                }
+            }
         }
     }
 }
@@ -572,8 +627,8 @@ pub async fn auth_activate_app_user<D: Database + 'static>(
             }
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to update credential status");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "update credential".into(),
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                    "Failed to update credential".into(),
                 )))
             }
             other_api_response => {
@@ -583,7 +638,18 @@ pub async fn auth_activate_app_user<D: Database + 'static>(
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+            match e {
+                Action(action_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        action_error.to_string().into(),
+                    )));
+                }
+                Raft(raft_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        raft_error.to_string().into(),
+                    )));
+                }
+            }
         }
     }
 }
@@ -638,8 +704,8 @@ pub async fn grant_app_access_user<D: Database + 'static>(
             AppResponse::CreatePrincipalAppGrants(_) => ApiCreateAppGrantResponse::new(),
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to create app grants");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "create app grant".into(),
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                    "Failed to create app grant".into(),
                 )))
             }
             other_api_response => {
@@ -649,7 +715,18 @@ pub async fn grant_app_access_user<D: Database + 'static>(
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+            match e {
+                Action(action_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        action_error.to_string().into(),
+                    )));
+                }
+                Raft(raft_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        raft_error.to_string().into(),
+                    )));
+                }
+            }
         }
     }
 }
@@ -698,8 +775,8 @@ pub async fn revoke_app_access_user<D: Database + 'static>(
             AppResponse::DeletePrincipalAppGrant(_) => ApiDeleteAppGrantResponse::new(),
             AppResponse::Error(e) => {
                 tracing::error!(%e, "Failed to revoke app grant");
-                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::GenericFail(
-                    "revoke app grant".into(),
+                ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                    "Failed to revoke app grant".into(),
                 )))
             }
             other_api_response => {
@@ -709,7 +786,18 @@ pub async fn revoke_app_access_user<D: Database + 'static>(
         },
         Err(e) => {
             tracing::error!(?e);
-            ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Internal))
+            match e {
+                Action(action_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        action_error.to_string().into(),
+                    )));
+                }
+                Raft(raft_error) => {
+                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
+                        raft_error.to_string().into(),
+                    )));
+                }
+            }
         }
     }
 }
