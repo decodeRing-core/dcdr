@@ -40,6 +40,7 @@ use uuid::Uuid;
 
 use crate::app_data::AppData;
 use crate::config::Config;
+use crate::error::AppError::{Action, Raft};
 use crate::error::ErrorReason;
 use crate::extractor::AuthAdminMiddleware;
 use crate::handlers::app::payload::CreateAppUserData;
@@ -151,16 +152,12 @@ pub async fn create_app_user<D: Database + 'static>(
         Err(e) => {
             tracing::error!(?e);
             match e {
-                Action(action_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        action_error.to_string().into(),
-                    )));
-                }
-                Raft(raft_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        raft_error.to_string().into(),
-                    )));
-                }
+                Action(action_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(action_error.to_string().into()),
+                )),
+                Raft(raft_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(raft_error.to_string().into()),
+                )),
             }
         }
     }
@@ -215,16 +212,12 @@ pub async fn create_app<D: Database + 'static>(
         Err(e) => {
             tracing::error!(?e);
             match e {
-                Action(action_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        action_error.to_string().into(),
-                    )));
-                }
-                Raft(raft_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        raft_error.to_string().into(),
-                    )));
-                }
+                Action(action_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(action_error.to_string().into()),
+                )),
+                Raft(raft_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(raft_error.to_string().into()),
+                )),
             }
         }
     }
@@ -438,16 +431,12 @@ pub async fn auth_app_user<D: Database + 'static>(
         Err(e) => {
             tracing::error!(?e);
             match e {
-                Action(action_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        action_error.to_string().into(),
-                    )));
-                }
-                Raft(raft_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        raft_error.to_string().into(),
-                    )));
-                }
+                Action(action_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(action_error.to_string().into()),
+                )),
+                Raft(raft_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(raft_error.to_string().into()),
+                )),
             }
         }
     }
@@ -519,16 +508,12 @@ pub async fn auth_challenge_app_user<D: Database + 'static>(
         Err(e) => {
             tracing::error!(?e);
             match e {
-                Action(action_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        action_error.to_string().into(),
-                    )));
-                }
-                Raft(raft_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        raft_error.to_string().into(),
-                    )));
-                }
+                Action(action_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(action_error.to_string().into()),
+                )),
+                Raft(raft_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(raft_error.to_string().into()),
+                )),
             }
         }
     }
@@ -639,16 +624,12 @@ pub async fn auth_activate_app_user<D: Database + 'static>(
         Err(e) => {
             tracing::error!(?e);
             match e {
-                Action(action_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        action_error.to_string().into(),
-                    )));
-                }
-                Raft(raft_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        raft_error.to_string().into(),
-                    )));
-                }
+                Action(action_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(action_error.to_string().into()),
+                )),
+                Raft(raft_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(raft_error.to_string().into()),
+                )),
             }
         }
     }
@@ -716,16 +697,12 @@ pub async fn grant_app_access_user<D: Database + 'static>(
         Err(e) => {
             tracing::error!(?e);
             match e {
-                Action(action_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        action_error.to_string().into(),
-                    )));
-                }
-                Raft(raft_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        raft_error.to_string().into(),
-                    )));
-                }
+                Action(action_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(action_error.to_string().into()),
+                )),
+                Raft(raft_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(raft_error.to_string().into()),
+                )),
             }
         }
     }
@@ -787,16 +764,12 @@ pub async fn revoke_app_access_user<D: Database + 'static>(
         Err(e) => {
             tracing::error!(?e);
             match e {
-                Action(action_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        action_error.to_string().into(),
-                    )));
-                }
-                Raft(raft_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        raft_error.to_string().into(),
-                    )));
-                }
+                Action(action_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(action_error.to_string().into()),
+                )),
+                Raft(raft_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(raft_error.to_string().into()),
+                )),
             }
         }
     }

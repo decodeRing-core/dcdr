@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::app_data::AppData;
 use crate::audit::{unlock_audit_allowed, unlock_audit_errored};
+use crate::error::AppError::{Action, Raft};
 use crate::error::ErrorReason;
 use crate::extractor::AuthAdminMiddleware;
 use crate::handlers::response::{ApiResponse, ApiStatus, ErrorStatus, SuccessStatus};
@@ -154,16 +155,12 @@ pub async fn system_init<D: Database + 'static>(
         Err(e) => {
             tracing::error!(?e);
             match e {
-                Action(action_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        action_error.to_string().into(),
-                    )));
-                }
-                Raft(raft_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        raft_error.to_string().into(),
-                    )));
-                }
+                Action(action_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(action_error.to_string().into()),
+                )),
+                Raft(raft_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(raft_error.to_string().into()),
+                )),
             }
         }
     }

@@ -25,6 +25,8 @@ use zeroize::Zeroizing;
 
 use crate::app_data::AppData;
 use crate::auth::require_app_grant_for_principal;
+use crate::error::AppError::Action;
+use crate::error::AppError::Raft;
 use crate::error::ErrorReason;
 use crate::extractor::AuthOSLMiddleware;
 use crate::handlers::osl::payload::IsTaintedSecretRequestData;
@@ -621,16 +623,12 @@ pub async fn api_untaint_secret<D: Database + 'static>(
         Err(e) => {
             tracing::error!(?e);
             match e {
-                Action(action_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        action_error.to_string().into(),
-                    )));
-                }
-                Raft(raft_error) => {
-                    return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Message(
-                        raft_error.to_string().into(),
-                    )));
-                }
+                Action(action_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(action_error.to_string().into()),
+                )),
+                Raft(raft_error) => ApiResponse::error(ErrorStatus::OperationFailed(
+                    ErrorReason::Message(raft_error.to_string().into()),
+                )),
             }
         }
     }
