@@ -146,19 +146,27 @@ pub async fn track_http(
 ) -> Result<ServiceResponse<impl MessageBody>, Error> {
     let start = Instant::now();
     let method = req.method().as_str().to_owned();
-    let path = req
-        .match_pattern()
-        .unwrap_or_else(|| "unmatched".to_owned());
+    let matched = req.match_pattern();
+    let path = matched.clone().unwrap_or_else(|| "unmatched".to_owned());
+
+    let raw = if matched.is_none() {
+        Some((req.path().to_owned(), req.query_string().to_owned()))
+    } else {
+        None
+    };
 
     let res = next.call(req).await?;
-
     let status = res.status().as_u16().to_string();
+
+    if let Some((raw_path, query)) = raw {
+        tracing::warn!(method = %method, path = %raw_path, query = %query, status = %status, "unmatched request");
+    }
+
     counter!(HTTP_REQUESTS_TOTAL,
         "method" => method.clone(), "path" => path.clone(), "status" => status)
     .increment(1);
     histogram!(HTTP_REQUEST_DURATION_SECONDS,
         "method" => method, "path" => path)
     .record(start.elapsed().as_secs_f64());
-
     Ok(res)
 }
