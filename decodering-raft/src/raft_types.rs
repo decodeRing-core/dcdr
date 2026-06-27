@@ -36,3 +36,5 @@ pub type SnapshotResponse = openraft::raft::SnapshotResponse<TypeConfig>;
 pub type ClientWriteResponse = openraft::raft::ClientWriteResponse<TypeConfig>;
 pub type ServerState = openraft::ServerState;
 pub type ReadPolicy = openraft::ReadPolicy;
+pub type TokioInstant = openraft::TokioInstant;
+pub use openraft::Instant;

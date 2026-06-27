@@ -16,6 +16,14 @@ pub enum Outcome {
     Denied,
 }
 
+pub enum RaftRole {
+    Leader,
+    Follower,
+    Candidate,
+    Learner,
+    Shutdown,
+}
+
 pub enum Metric<'a> {
     OslOperation {
         op: &'static str,
@@ -41,6 +49,17 @@ pub enum Metric<'a> {
     RaftTerm(u64),
     RaftLearners(usize),
     RaftVoters(usize),
+    RaftState(RaftRole),
+    RaftHasLeader(bool),
+    RaftLastLogIndex(u64),
+    RaftCommittedIndex(u64),
+    RaftAppliedIndex(u64),
+    RaftSnapshotIndex(u64),
+    RaftMillisSinceQuorumAck(u64),
+    RaftReplicationMatched {
+        target: u64,
+        index: u64,
+    },
     DbPool {
         active: u32,
         idle: u32,
