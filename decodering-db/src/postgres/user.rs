@@ -28,6 +28,54 @@ impl UserRepository for PostgresUserRepository<'_> {
         Ok(id)
     }
 
+    async fn get_by_username(&mut self, username: &str) -> Result<Option<User>, DbError> {
+        let user: Option<UserRow> = sqlx::query_as::<_, UserRow>(
+            "SELECT u.id, u.username, u.email, u.password_hash, u.is_admin, u.created_at
+            FROM users u
+            WHERE u.username = $1",
+        )
+        .bind(username)
+        .fetch_optional(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(user.map(Into::into))
+    }
+
+    async fn update(
+        &mut self,
+        id: i64,
+        email: &str,
+        is_admin: bool,
+        password_hash: Option<&str>,
+    ) -> Result<u64, DbError> {
+        let rows = sqlx::query(
+            "UPDATE users SET \
+                email = $1, \
+                is_admin = $2, \
+                password_hash = COALESCE($3, password_hash) \
+             WHERE id = $4",
+        )
+        .bind(email)
+        .bind(is_admin)
+        .bind(password_hash)
+        .bind(id)
+        .execute(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?
+        .rows_affected();
+        Ok(rows)
+    }
+
+    async fn delete(&mut self, id: i64) -> Result<u64, DbError> {
+        let rows = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(id)
+            .execute(&mut **self.tx)
+            .await
+            .map_err(map_sqlx)?
+            .rows_affected();
+        Ok(rows)
+    }
+
     async fn get_by_api_key(&mut self, api_key_hash: &str) -> Result<Option<User>, DbError> {
         let user: Option<UserRow> = sqlx::query_as::<_, UserRow>(
             "SELECT u.id, u.username, u.email, u.password_hash, u.is_admin, u.created_at

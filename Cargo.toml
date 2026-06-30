@@ -72,7 +72,7 @@ rsa = "0.9.10"
 p256 = { version = "0.13", features = ["ecdsa"] }
 schemars = "1.2.1"
 actix-http = "3.13.1"
-aes-gcm = "0.10"
+aes-gcm = "~0.10.3"
 hmac = "~0.12.1"
 cfb-mode = "0.9.1"
 aes = "0.9.1"

@@ -91,7 +91,7 @@ pub struct Config {
 }
 
 #[derive(Debug)]
-pub struct ConfigError(String);
+pub struct ConfigError(pub String);
 
 impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -101,11 +101,11 @@ impl std::fmt::Display for ConfigError {
 
 impl std::error::Error for ConfigError {}
 
-fn env_var(name: &str) -> Result<String, ConfigError> {
+pub fn env_var(name: &str) -> Result<String, ConfigError> {
     std::env::var(name).map_err(|_| ConfigError(format!("{name} must be set")))
 }
 
-fn env_parsed<T: FromStr>(name: &str) -> Result<T, ConfigError>
+pub fn env_parsed<T: FromStr>(name: &str) -> Result<T, ConfigError>
 where
     T::Err: std::fmt::Display,
 {

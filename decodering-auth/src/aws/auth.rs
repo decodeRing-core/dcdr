@@ -128,7 +128,7 @@ mod tests {
         }
     }
 
-    // ---- metadata ----
+    // metadata
 
     #[test]
     fn kind_is_aws_identity() {
@@ -149,7 +149,7 @@ mod tests {
         assert_eq!(AwsMethod.kind(), AwsMethod::new().kind());
     }
 
-    // ---- enroll ----
+    // enroll
 
     #[tokio::test]
     async fn enroll_role_arn_succeeds() {
@@ -234,7 +234,7 @@ mod tests {
         assert!(matches!(err, AuthError::InvalidEnrollmentData(_)));
     }
 
-    // ---- authenticate (non-network branches) ----
+    // authenticate (non-network branches)
 
     #[tokio::test]
     async fn authenticate_rejects_malformed_proof() {
