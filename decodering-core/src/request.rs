@@ -17,12 +17,14 @@ use crate::actions::create_shamir_configuration::CreateShamirConfiguration;
 use crate::actions::create_user::CreateUser;
 use crate::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use crate::actions::delete_secret_mapping::DeleteSecretMapping;
+use crate::actions::delete_user::DeleteUser;
 use crate::actions::system_init::SystemInit;
 use crate::actions::update_auth_challenge_consumed_at::UpdateAuthChallengeConsumedAt;
 use crate::actions::update_plugin_config_credentials::UpdatePluginConfigCredentials;
 use crate::actions::update_principal_credential_last_used::UpdatePrincipalCredentialLastUsed;
 use crate::actions::update_principal_credential_status::UpdatePrincipalCredentialStatus;
 use crate::actions::update_secret_mapping_taint::UpdateSecretMappingTaint;
+use crate::actions::update_user::UpdateUser;
 use crate::audit::AuditDescriptor;
 use crate::error::ActionError;
 use crate::response::AppResponse;
@@ -34,6 +36,8 @@ pub enum AppRequest {
     CreateApiKey(CreateApiKey),
     CreateApp(CreateApp),
     CreateUser(CreateUser),
+    UpdateUser(UpdateUser),
+    DeleteUser(DeleteUser),
     CreateSecretMapping(CreateSecretMapping),
     UpdateSecretMappingTaint(UpdateSecretMappingTaint),
     DeleteSecretMapping(DeleteSecretMapping),
@@ -59,6 +63,8 @@ impl AppRequest {
             Self::CreateApiKey(a) => a.audit_descriptor(),
             Self::CreateApp(a) => a.audit_descriptor(),
             Self::CreateUser(a) => a.audit_descriptor(),
+            Self::UpdateUser(a) => a.audit_descriptor(),
+            Self::DeleteUser(a) => a.audit_descriptor(),
             Self::CreateSecretMapping(a) => a.audit_descriptor(),
             Self::UpdateSecretMappingTaint(a) => a.audit_descriptor(),
             Self::DeleteSecretMapping(a) => a.audit_descriptor(),
@@ -96,6 +102,16 @@ impl fmt::Display for AppRequest {
                     "CreateUser(username={}, email={}, is_admin={})",
                     create_user.username, create_user.email, create_user.is_admin
                 )
+            }
+            Self::UpdateUser(update_user) => {
+                write!(
+                    f,
+                    "UpdateUser(email={}, is_admin={})",
+                    update_user.email, update_user.is_admin
+                )
+            }
+            Self::DeleteUser(deleted_user) => {
+                write!(f, "DeleteUser(user_id={})", deleted_user.user_id)
             }
             Self::CreateApiKey(create_api_key) => {
                 write!(
@@ -216,6 +232,8 @@ impl AppRequest {
         match self {
             Self::CreateApiKey(action) => Ok(run_action_direct(db, action).await?.response),
             Self::CreateUser(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::UpdateUser(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::DeleteUser(action) => Ok(run_action_direct(db, action).await?.response),
             Self::CreateApp(action) => Ok(run_action_direct(db, action).await?.response),
             Self::CreateAppUser(action) => Ok(run_action_direct(db, action).await?.response),
             Self::CreateShamirConfiguration(action) => {

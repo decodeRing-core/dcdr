@@ -28,6 +28,40 @@ impl UserRepository for PostgresUserRepository<'_> {
         Ok(id)
     }
 
+    async fn list(&mut self, limit: i64, offset: i64) -> Result<Vec<User>, DbError> {
+        let rows = sqlx::query_as::<_, UserRow>(
+            "SELECT id, username, email, password_hash, is_admin, created_at \
+             FROM users ORDER BY id LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    async fn get_by_id(&mut self, id: i64) -> Result<Option<User>, DbError> {
+        let user: Option<UserRow> = sqlx::query_as::<_, UserRow>(
+            "SELECT u.id, u.username, u.email, u.password_hash, u.is_admin, u.created_at
+            FROM users u
+            WHERE u.id = $1",
+        )
+        .bind(id)
+        .fetch_optional(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(user.map(Into::into))
+    }
+
+    async fn count(&mut self) -> Result<i64, DbError> {
+        let total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users")
+            .fetch_one(&mut **self.tx)
+            .await
+            .map_err(map_sqlx)?;
+        Ok(total)
+    }
+
     async fn get_by_username(&mut self, username: &str) -> Result<Option<User>, DbError> {
         let user: Option<UserRow> = sqlx::query_as::<_, UserRow>(
             "SELECT u.id, u.username, u.email, u.password_hash, u.is_admin, u.created_at

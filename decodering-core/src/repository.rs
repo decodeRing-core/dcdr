@@ -300,6 +300,15 @@ pub struct UserEntry {
 
 pub trait UserRepository: Send {
     fn insert(&mut self, params: &UserEntry) -> impl Future<Output = Result<i64, DbError>> + Send;
+
+    fn list(
+        &mut self,
+        limit: i64,
+        offset: i64,
+    ) -> impl Future<Output = Result<Vec<User>, DbError>> + Send;
+
+    fn count(&mut self) -> impl Future<Output = Result<i64, DbError>> + Send;
+
     fn get_by_username(
         &mut self,
         username: &str,
@@ -318,6 +327,7 @@ pub trait UserRepository: Send {
         &mut self,
         api_key_hash: &str,
     ) -> impl Future<Output = Result<Option<User>, DbError>> + Send;
+    fn get_by_id(&mut self, id: i64) -> impl Future<Output = Result<Option<User>, DbError>> + Send;
     fn get_admin_by_api_key(
         &mut self,
         api_key_hash: &str,

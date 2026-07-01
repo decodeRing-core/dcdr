@@ -105,6 +105,8 @@ impl Target {
 pub enum ActionKind {
     AppCreate,
     UserCreate,
+    UserUpdate,
+    UserDelete,
     ApiKeyCreate,
     PrincipalCreate,
     PrincipalCredentialCreate,
@@ -131,6 +133,8 @@ impl ActionKind {
         match self {
             Self::AppCreate => "app.create",
             Self::UserCreate => "user.create",
+            Self::UserDelete => "user.delete",
+            Self::UserUpdate => "user.update",
             Self::ApiKeyCreate => "api_key.create",
             Self::PrincipalCreate => "principal.create",
             Self::SecretMappingCreate => "secret_mapping.create",

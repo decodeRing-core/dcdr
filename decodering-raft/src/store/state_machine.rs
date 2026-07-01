@@ -431,6 +431,8 @@ where
     match action {
         AppRequest::CreateApiKey(x) => run_action_raft(tx, index, x).await,
         AppRequest::CreateUser(x) => run_action_raft(tx, index, x).await,
+        AppRequest::UpdateUser(x) => run_action_raft(tx, index, x).await,
+        AppRequest::DeleteUser(x) => run_action_raft(tx, index, x).await,
         AppRequest::CreateApp(x) => run_action_raft(tx, index, x).await,
         AppRequest::CreateShamirConfiguration(x) => run_action_raft(tx, index, x).await,
         AppRequest::CreateSecretMapping(x) => run_action_raft(tx, index, x).await,

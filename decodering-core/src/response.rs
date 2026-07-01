@@ -128,6 +128,8 @@ pub struct CreateAppUserResponse {
 pub enum AppResponse {
     CreateApp(CreateAppResponse),
     CreateUser(CreateUserResponse),
+    UpdateUser(bool),
+    DeleteUser(bool),
     CreateApiKey(CreateApiKeyResponse),
     CreateSecretMapping(CreateSecretMappingResponse),
     DeleteSecretMapping(bool),
@@ -168,6 +170,10 @@ impl fmt::Display for AppResponse {
                     create_user.username, create_user.email, create_user.is_admin
                 )
             }
+            Self::UpdateUser(updated) => {
+                write!(f, "UpdateUser(updated={updated})")
+            }
+            Self::DeleteUser(r) => write!(f, "DeleteUser(deleted={r})"),
             Self::CreateApiKey(create_api_key) => {
                 write!(f, "CreateApiKey(user_id={})", create_api_key.user_id)
             }
