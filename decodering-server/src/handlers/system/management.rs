@@ -255,7 +255,6 @@ pub async fn system_status<D: Database + 'static>(app: Data<AppData<D>>) -> impl
     };
 
     let system_unlocked = app.master_key.get().is_some();
-
     ApiSystemStatusResponse::new(system_initialized, system_unlocked)
 }
 
