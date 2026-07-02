@@ -115,3 +115,138 @@ pub fn decrypt_map(
     let json = decrypt_blob(master_key, blob, aad)?;
     serde_json::from_slice(&json).map_err(|_| CryptoError::Serialize)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use zeroize::Zeroizing;
+
+    use super::{
+        base64_decode, base64_encode, decrypt_blob, decrypt_map, encode_hex, encrypt_blob,
+        encrypt_map, sha256_hex,
+    };
+    use crate::error::CryptoError;
+
+    type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+    const KEY: &[u8] = &[7u8; 32];
+    const AAD: &[u8] = b"vault-backend-1";
+    const PLAINTEXT: &[u8] = b"super-secret-password";
+
+    #[test]
+    fn encrypt_decrypt_roundtrip() -> TestResult {
+        let blob = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
+        let recovered = decrypt_blob(KEY, &blob, AAD).map_err(|_| "decrypt failed")?;
+        assert_eq!(recovered.as_slice(), PLAINTEXT);
+        Ok(())
+    }
+
+    #[test]
+    fn blob_layout_is_nonce_plus_ciphertext_plus_tag() -> TestResult {
+        let blob = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
+        // [12-byte nonce][ciphertext (== plaintext len for GCM) + 16-byte tag]
+        assert_eq!(blob.len(), 12 + PLAINTEXT.len() + 16);
+        Ok(())
+    }
+
+    #[test]
+    fn nonce_is_fresh_per_call() -> TestResult {
+        // Same key + plaintext + aad must still produce different blobs,
+        // because a random nonce is generated on every encryption.
+        let a = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
+        let b = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
+        assert_ne!(a, b);
+        Ok(())
+    }
+
+    #[test]
+    fn decrypt_with_wrong_aad_fails() -> TestResult {
+        // AAD binds the ciphertext to its backend context; a mismatch must fail.
+        let blob = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
+        let result = decrypt_blob(KEY, &blob, b"different-backend");
+        assert!(matches!(result, Err(CryptoError::Decrypt)));
+        Ok(())
+    }
+
+    #[test]
+    fn decrypt_with_wrong_key_fails() -> TestResult {
+        let blob = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
+        let wrong_key: &[u8] = &[9u8; 32];
+        let result = decrypt_blob(wrong_key, &blob, AAD);
+        assert!(matches!(result, Err(CryptoError::Decrypt)));
+        Ok(())
+    }
+
+    #[test]
+    fn tampered_ciphertext_is_rejected() -> TestResult {
+        let mut blob = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
+        // Flip a bit in the trailing GCM tag; authentication must catch it.
+        if let Some(last) = blob.last_mut() {
+            *last ^= 0x01;
+        }
+        let result = decrypt_blob(KEY, &blob, AAD);
+        assert!(matches!(result, Err(CryptoError::Decrypt)));
+        Ok(())
+    }
+
+    #[test]
+    fn wrong_key_length_is_rejected() {
+        let short_key: &[u8] = &[0u8; 16];
+        assert!(matches!(
+            encrypt_blob(short_key, PLAINTEXT, AAD),
+            Err(CryptoError::KeyLength)
+        ));
+        assert!(matches!(
+            decrypt_blob(short_key, &[0u8; 40], AAD),
+            Err(CryptoError::KeyLength)
+        ));
+    }
+
+    #[test]
+    fn blob_shorter_than_nonce_is_rejected() {
+        assert!(matches!(
+            decrypt_blob(KEY, &[0u8; 4], AAD),
+            Err(CryptoError::TooShort)
+        ));
+    }
+
+    #[test]
+    fn map_roundtrip_preserves_entries() -> TestResult {
+        let mut creds: BTreeMap<String, Zeroizing<String>> = BTreeMap::new();
+        creds.insert("username".to_owned(), Zeroizing::new("app_user".to_owned()));
+        creds.insert("password".to_owned(), Zeroizing::new("s3cr3t".to_owned()));
+
+        let blob = encrypt_map(KEY, &creds, AAD).map_err(|_| "encrypt_map failed")?;
+        let recovered = decrypt_map(KEY, &blob, AAD).map_err(|_| "decrypt_map failed")?;
+
+        assert_eq!(recovered.len(), creds.len());
+        for (name, value) in &creds {
+            let got = recovered.get(name).ok_or("missing key after roundtrip")?;
+            assert_eq!(got.as_str(), value.as_str());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn sha256_hex_matches_known_vector() {
+        // SHA-256("abc")
+        assert_eq!(
+            sha256_hex(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    #[test]
+    fn encode_hex_is_lowercase_and_zero_padded() {
+        assert_eq!(encode_hex(&[0x00, 0x0f, 0xff]), "000fff");
+    }
+
+    #[test]
+    fn base64_roundtrip() -> TestResult {
+        let encoded = base64_encode(PLAINTEXT.to_vec());
+        let decoded = base64_decode(&encoded).ok_or("base64 decode failed")?;
+        assert_eq!(decoded.as_slice(), PLAINTEXT);
+        Ok(())
+    }
+}
