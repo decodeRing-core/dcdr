@@ -215,6 +215,33 @@ pub trait MetaRepository: Send {
     fn set(&mut self, key: &str, value: &str) -> impl Future<Output = Result<(), DbError>> + Send;
 }
 
+#[derive(Serialize, Debug, Clone)]
+pub struct Audit {
+    pub id: i64,
+    pub raft_index: Option<i64>,
+    pub timestamp: i64,
+
+    pub user_id: Option<i64>,
+    pub principal_id: Option<String>,
+    pub ip: Option<String>,
+
+    pub action_type: String,
+    pub target_type: Option<String>,
+    pub target_id: Option<String>,
+
+    pub outcome: AuditOutcome,
+    pub reason: Option<String>,
+
+    pub before_state: Option<String>,
+    pub after_state: Option<String>,
+    pub metadata: Option<String>,
+
+    pub revertible: bool,
+    pub undone_by: Option<i64>,
+    pub undoes: Option<i64>,
+    pub actor_username: Option<String>,
+}
+
 #[derive(Debug)]
 pub struct AuditEntry {
     pub raft_index: Option<i64>,
@@ -241,6 +268,12 @@ pub struct AuditEntry {
 
 pub trait AuditRepository: Send {
     fn insert(&mut self, audit: &AuditEntry) -> impl Future<Output = Result<i64, DbError>> + Send;
+    fn list(
+        &mut self,
+        limit: i64,
+        offset: i64,
+    ) -> impl Future<Output = Result<Vec<Audit>, DbError>> + Send;
+    fn count(&mut self) -> impl Future<Output = Result<i64, DbError>> + Send;
 }
 
 #[derive(Debug, Clone)]
@@ -392,6 +425,13 @@ pub trait SecretMappingRespository: Send {
         app_id: &str,
         secret_name: &str,
     ) -> impl Future<Output = Result<u64, DbError>> + Send;
+
+    fn list(
+        &mut self,
+        limit: i64,
+        offset: i64,
+    ) -> impl Future<Output = Result<Vec<SecretMapping>, DbError>> + Send;
+    fn count(&mut self) -> impl Future<Output = Result<i64, DbError>> + Send;
 
     fn get_by_app_id_and_secret_name(
         &mut self,

@@ -123,4 +123,25 @@ impl SecretMappingRespository for SqliteSecretMappingRepository<'_> {
         .map_err(map_sqlx)?;
         Ok(result.rows_affected())
     }
+
+    async fn list(&mut self, limit: i64, offset: i64) -> Result<Vec<SecretMapping>, DbError> {
+        let rows: Vec<SecretMappingRow> = sqlx::query_as::<_, SecretMappingRow>(
+            "SELECT app_id, secret_name, backend, mount_path, tainted, created_at, updated_at \
+             FROM secret_backend_mapping ORDER BY app_id, secret_name LIMIT ? OFFSET ?",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    async fn count(&mut self) -> Result<i64, DbError> {
+        let n = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM secret_backend_mapping")
+            .fetch_one(&mut **self.tx)
+            .await
+            .map_err(map_sqlx)?;
+        Ok(n)
+    }
 }

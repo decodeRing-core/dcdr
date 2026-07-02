@@ -128,7 +128,7 @@ impl PrincipalCredentialKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Debug, Clone)]
 pub enum AuditOutcome {
     Allowed,
     Denied,
@@ -142,5 +142,18 @@ impl AuditOutcome {
             Self::Denied => "denied",
             Self::Error => "error",
         }
+    }
+}
+
+impl FromStr for AuditOutcome {
+    type Err = UnknownPrincipalStatus;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "allowed" => Self::Allowed,
+            "denied" => Self::Denied,
+            "error" => Self::Error,
+            other => return Err(UnknownPrincipalStatus(other.to_owned())),
+        })
     }
 }

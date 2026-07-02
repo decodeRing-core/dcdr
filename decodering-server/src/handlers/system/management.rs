@@ -7,7 +7,7 @@ use crate::error::ErrorReason;
 use crate::extractor::AuthAdminMiddleware;
 use crate::handlers::response::{ApiResponse, ApiStatus, ErrorStatus, SuccessStatus};
 use crate::handlers::system::payloads::{InitSystemData, PluginConfigData, UnlockData};
-use crate::handlers::system::response::ApiInitSystemResponse;
+use crate::handlers::system::response::{ApiInitSystemResponse, ApiSystemStatusResponse};
 use actix_web::Responder;
 use actix_web::dev::ConnectionInfo;
 use actix_web::web::{Data, Json};
@@ -239,10 +239,24 @@ pub async fn system_unlock<D: Database + 'static>(
 }
 
 pub async fn system_status<D: Database + 'static>(app: Data<AppData<D>>) -> impl Responder {
-    if app.master_key.get().is_none() {
-        return ApiResponse::<()>::empty(SuccessStatus::SystemLocked.into());
-    }
-    ApiResponse::<()>::empty(SuccessStatus::SystemUnlocked.into())
+    let db = app.db.begin().await;
+    let Ok(mut db) = db else {
+        tracing::error!("Failed to get a connection to DB");
+        return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+    };
+
+    let system_initialized = match db.shamir().get_first().await {
+        Ok(Some(_)) => true,
+        Ok(None) => false,
+        Err(e) => {
+            tracing::error!(error=%e, "System status error");
+            return ApiResponse::error(ErrorStatus::OperationFailed(ErrorReason::Database));
+        }
+    };
+
+    let system_unlocked = app.master_key.get().is_some();
+
+    ApiSystemStatusResponse::new(system_initialized, system_unlocked)
 }
 
 pub async fn system_plugin_config<D: Database + 'static>(

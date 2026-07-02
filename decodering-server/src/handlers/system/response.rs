@@ -20,3 +20,21 @@ impl ApiInitSystemResponse {
         )
     }
 }
+
+#[derive(Serialize, ToSchema)]
+pub struct ApiSystemStatusResponse {
+    pub(crate) initialized: bool,
+    pub(crate) unlocked: bool,
+}
+
+impl ApiSystemStatusResponse {
+    pub(crate) fn new(initialized: bool, unlocked: bool) -> ApiResponse<Self> {
+        ApiResponse::new(
+            SuccessStatus::SystemStatus.into(),
+            Some(Self {
+                initialized,
+                unlocked,
+            }),
+        )
+    }
+}

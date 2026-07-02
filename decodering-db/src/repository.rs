@@ -1,8 +1,10 @@
 use std::str::FromStr;
 
-use decodering_core::domain::{PrincipalCredentialKind, PrincipalKind, PrincipalStatus};
+use decodering_core::domain::{
+    AuditOutcome, PrincipalCredentialKind, PrincipalKind, PrincipalStatus,
+};
 use decodering_core::repository::{
-    App, AuthChallenge, PluginConfig, Principal, PrincipalAppGrant, PrincipalCredential,
+    App, Audit, AuthChallenge, PluginConfig, Principal, PrincipalAppGrant, PrincipalCredential,
     SecretMapping, Shamir, User,
 };
 
@@ -212,6 +214,58 @@ impl From<PluginConfigRow> for PluginConfig {
             backend_name: r.backend_name,
             secret_blob: r.secret_blob,
             updated_at: r.updated_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct AuditRow {
+    pub id: i64,
+    pub raft_index: Option<i64>,
+    pub timestamp: i64,
+
+    pub user_id: Option<i64>,
+    pub principal_id: Option<String>,
+    pub ip: Option<String>,
+
+    pub action_type: String,
+    pub target_type: Option<String>,
+    pub target_id: Option<String>,
+
+    pub outcome: String,
+    pub reason: Option<String>,
+
+    pub before_state: Option<String>,
+    pub after_state: Option<String>,
+    pub metadata: Option<String>,
+
+    pub revertible: bool,
+    pub undone_by: Option<i64>,
+    pub undoes: Option<i64>,
+    pub actor_username: Option<String>,
+}
+
+impl From<AuditRow> for Audit {
+    fn from(r: AuditRow) -> Self {
+        Self {
+            id: r.id,
+            raft_index: r.raft_index,
+            timestamp: r.timestamp,
+            user_id: r.user_id,
+            principal_id: r.principal_id,
+            ip: r.ip,
+            action_type: r.action_type,
+            target_type: r.target_type,
+            target_id: r.target_id,
+            outcome: AuditOutcome::from_str(&r.outcome).unwrap_or(AuditOutcome::Error),
+            reason: r.reason,
+            before_state: r.before_state,
+            after_state: r.after_state,
+            metadata: r.metadata,
+            revertible: r.revertible,
+            undone_by: r.undone_by,
+            undoes: r.undoes,
+            actor_username: r.actor_username,
         }
     }
 }

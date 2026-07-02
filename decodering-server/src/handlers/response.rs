@@ -23,7 +23,7 @@ pub enum ApiStatus {
 pub enum SuccessStatus {
     SystemInitialized,
     SystemUnlocked,
-    SystemLocked,
+    SystemStatus,
     RaftInitialized,
     RaftMetrics,
     RaftAddLearner,
@@ -36,8 +36,8 @@ impl SuccessStatus {
     fn message(&self) -> &'static str {
         match self {
             Self::SystemInitialized => "System initialized",
+            Self::SystemStatus => "System status",
             Self::SystemUnlocked => "System unlocked",
-            Self::SystemLocked => "System locked",
             Self::RaftInitialized => "Raft initialized",
             Self::RaftMetrics => "Raft node metrics",
             Self::RaftAddLearner => "Raft learner added",
@@ -50,8 +50,8 @@ impl SuccessStatus {
     fn http_status(&self) -> StatusCode {
         match self {
             Self::SystemInitialized
+            | Self::SystemStatus
             | Self::SystemUnlocked
-            | Self::SystemLocked
             | Self::RaftInitialized
             | Self::RaftMetrics
             | Self::RaftAddLearner
