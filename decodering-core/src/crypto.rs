@@ -122,11 +122,15 @@ mod tests {
 
     use zeroize::Zeroizing;
 
-    use super::{
-        base64_decode, base64_encode, decrypt_blob, decrypt_map, encode_hex, encrypt_blob,
-        encrypt_map, sha256_hex,
-    };
-    use crate::error::CryptoError;
+    use super::CryptoError;
+    use super::base64_decode;
+    use super::base64_encode;
+    use super::decrypt_blob;
+    use super::decrypt_map;
+    use super::encode_hex;
+    use super::encrypt_blob;
+    use super::encrypt_map;
+    use super::sha256_hex;
 
     type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
@@ -136,15 +140,15 @@ mod tests {
 
     #[test]
     fn encrypt_decrypt_roundtrip() -> TestResult {
-        let blob = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
-        let recovered = decrypt_blob(KEY, &blob, AAD).map_err(|_| "decrypt failed")?;
+        let blob = encrypt_blob(KEY, PLAINTEXT, AAD)?;
+        let recovered = decrypt_blob(KEY, &blob, AAD)?;
         assert_eq!(recovered.as_slice(), PLAINTEXT);
         Ok(())
     }
 
     #[test]
     fn blob_layout_is_nonce_plus_ciphertext_plus_tag() -> TestResult {
-        let blob = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
+        let blob = encrypt_blob(KEY, PLAINTEXT, AAD)?;
         // [12-byte nonce][ciphertext (== plaintext len for GCM) + 16-byte tag]
         assert_eq!(blob.len(), 12 + PLAINTEXT.len() + 16);
         Ok(())
@@ -154,8 +158,8 @@ mod tests {
     fn nonce_is_fresh_per_call() -> TestResult {
         // Same key + plaintext + aad must still produce different blobs,
         // because a random nonce is generated on every encryption.
-        let a = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
-        let b = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
+        let a = encrypt_blob(KEY, PLAINTEXT, AAD)?;
+        let b = encrypt_blob(KEY, PLAINTEXT, AAD)?;
         assert_ne!(a, b);
         Ok(())
     }
@@ -163,7 +167,7 @@ mod tests {
     #[test]
     fn decrypt_with_wrong_aad_fails() -> TestResult {
         // AAD binds the ciphertext to its backend context; a mismatch must fail.
-        let blob = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
+        let blob = encrypt_blob(KEY, PLAINTEXT, AAD)?;
         let result = decrypt_blob(KEY, &blob, b"different-backend");
         assert!(matches!(result, Err(CryptoError::Decrypt)));
         Ok(())
@@ -171,7 +175,7 @@ mod tests {
 
     #[test]
     fn decrypt_with_wrong_key_fails() -> TestResult {
-        let blob = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
+        let blob = encrypt_blob(KEY, PLAINTEXT, AAD)?;
         let wrong_key: &[u8] = &[9u8; 32];
         let result = decrypt_blob(wrong_key, &blob, AAD);
         assert!(matches!(result, Err(CryptoError::Decrypt)));
@@ -180,7 +184,7 @@ mod tests {
 
     #[test]
     fn tampered_ciphertext_is_rejected() -> TestResult {
-        let mut blob = encrypt_blob(KEY, PLAINTEXT, AAD).map_err(|_| "encrypt failed")?;
+        let mut blob = encrypt_blob(KEY, PLAINTEXT, AAD)?;
         // Flip a bit in the trailing GCM tag; authentication must catch it.
         if let Some(last) = blob.last_mut() {
             *last ^= 0x01;
@@ -217,8 +221,8 @@ mod tests {
         creds.insert("username".to_owned(), Zeroizing::new("app_user".to_owned()));
         creds.insert("password".to_owned(), Zeroizing::new("s3cr3t".to_owned()));
 
-        let blob = encrypt_map(KEY, &creds, AAD).map_err(|_| "encrypt_map failed")?;
-        let recovered = decrypt_map(KEY, &blob, AAD).map_err(|_| "decrypt_map failed")?;
+        let blob = encrypt_map(KEY, &creds, AAD)?;
+        let recovered = decrypt_map(KEY, &blob, AAD)?;
 
         assert_eq!(recovered.len(), creds.len());
         for (name, value) in &creds {

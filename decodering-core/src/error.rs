@@ -135,3 +135,17 @@ pub enum CryptoError {
     KeyLength,
     Serialize,
 }
+
+impl std::fmt::Display for CryptoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Encrypt => write!(f, "encryption failed"),
+            Self::Decrypt => write!(f, "decryption failed"),
+            Self::TooShort => write!(f, "blob shorter than nonce"),
+            Self::KeyLength => write!(f, "invalid key length"),
+            Self::Serialize => write!(f, "serialization failed"),
+        }
+    }
+}
+
+impl std::error::Error for CryptoError {}
