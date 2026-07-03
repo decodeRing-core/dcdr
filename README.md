@@ -1,7 +1,7 @@
 <a name="top"></a>
 [![decodeRing](https://org-web1.decodering.org/images/dcdr_banner.png)](https://decodering.org)
 
-![Rust](https://img.shields.io/badge/built_with-Rust_1.96-orange) ![Rust MSRV](https://img.shields.io/badge/MSRV-1.95-orange) ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
+![Rust](https://img.shields.io/badge/built_with-Rust_1.97-orange) ![Rust MSRV](https://img.shields.io/badge/MSRV-1.95-orange) ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 
 > [!IMPORTANT]
@@ -18,10 +18,10 @@
 - [Quickstart](#quickstart)
 - [Getting Started](#getting-started)
 - [Installation](#installation)
-  - [Compiling Plugins](#compiling-plugins)
-  - [Plugin Configuration](#plugin-configuration)
-  - [Running Nodes](#running-nodes)
-  - [Build Errors](#build-errors)
+    - [Compiling Plugins](#compiling-plugins)
+    - [Plugin Configuration](#plugin-configuration)
+    - [Running Nodes](#running-nodes)
+    - [Build Errors](#build-errors)
 - [API Reference](#api-reference)
 - [CLI](#cli)
 - [Implementation Status](#implementation-status)
@@ -133,8 +133,8 @@ the three identity methods, and OSL put/get), see
 
 1. Install the latest version of [Rust](https://rust-lang.org/tools/install/).
 2. RocksDB and SQLite bindings require a system C toolchain and LLVM/Clang development libraries to build:
-   - **Alpine:** `apk add build-base clang-dev clang-libs llvm-dev`
-   - **Debian/Ubuntu:** `apt install build-essential clang libclang-dev`
+    - **Alpine:** `apk add build-base clang-dev clang-libs llvm-dev`
+    - **Debian/Ubuntu:** `apt install build-essential clang libclang-dev`
 3. Clone the repository.
 4. Create a `.env` file with your configuration and adjust as needed:
 
@@ -192,25 +192,25 @@ OpenBao example:
 
 ```yaml
 wasm:
-  - path: "/home/appleseed/dcdr/plugins/compiled/openbao-rs.wasm"
+    - path: "/home/appleseed/dcdr/plugins/compiled/openbao-rs.wasm"
 allowed_hosts:
-  - "127.0.0.1"
+    - "127.0.0.1"
 config:
-  type: "OpenBao"
-  vault_addr: "http://127.0.0.1:8200"
-  kv_mount: "Your openbao kv mount"
+    type: "OpenBao"
+    vault_addr: "http://127.0.0.1:8200"
+    kv_mount: "Your openbao kv mount"
 ```
 
 AWS Secrets Manager example:
 
 ```yaml
 wasm:
-  - path: "/home/appleseed/dcdr/plugins/compiled/aws-rs.wasm"
+    - path: "/home/appleseed/dcdr/plugins/compiled/aws-rs.wasm"
 allowed_hosts:
-  - "secretsmanager.ap-southeast-2.amazonaws.com"
+    - "secretsmanager.ap-southeast-2.amazonaws.com"
 config:
-  type: "AWS Secrets Manager"
-  region: "ap-southeast-2"
+    type: "AWS Secrets Manager"
+    region: "ap-southeast-2"
 ```
 
 Final layout:
@@ -416,11 +416,11 @@ Plugin credentials file format:
 
 ```json
 {
-  "openbao-rs": { "vault_token": "s.xxx" },
-  "aws-rs": {
-    "aws_access_key_id": "AKIA…",
-    "aws_secret_access_key": "…"
-  }
+    "openbao-rs": { "vault_token": "s.xxx" },
+    "aws-rs": {
+        "aws_access_key_id": "AKIA…",
+        "aws_secret_access_key": "…"
+    }
 }
 ```
 

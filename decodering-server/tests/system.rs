@@ -202,8 +202,10 @@ pub async fn status_system_addr_locked(
 
     let body: serde_json::Value = resp.json().await?;
     assert_eq!(body["osl_version"], "1.0.0");
-    assert_eq!(body["status"], "system-locked");
-    assert_eq!(body["message"], "System locked");
+    assert_eq!(body["status"], "system-status");
+    assert_eq!(body["message"], "System status");
+    assert_eq!(body["data"]["initialized"], true);
+    assert_eq!(body["data"]["unlocked"], false);
 
     Ok(())
 }

@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::{net::TcpListener, time::Duration};
 
 use actix_web::App;
@@ -8,6 +9,8 @@ use decodering_auth::api_key::ApiKeyMethod;
 use decodering_auth::aws::auth::AwsMethod;
 use decodering_auth::tpm::auth::TpmMethod;
 use decodering_core::auth::registry::AuthRegistry;
+use decodering_core::metrics::Metrics;
+use decodering_core::metrics::NoopMetrics;
 use decodering_db::sqlite::SqliteDatabase;
 use decodering_raft::Raft;
 use decodering_server::routes::RouteExtensions;
@@ -51,11 +54,13 @@ pub async fn spawn_node(id: u64) -> Result<Node, Box<dyn std::error::Error + Sen
         .raft
         .clone();
 
+    let metrics: Arc<dyn Metrics> = Arc::new(NoopMetrics);
+
     let config_data = Data::new(config);
     let app_data_wrapper = Data::new(app_data);
     let orchestrator_data = Data::new(orchestrator);
     let auth_registry_data = Data::new(registry);
-
+    let metrics_data = Data::new(metrics);
     let route_exts = RouteExtensions::default();
     let server = HttpServer::new(move || {
         App::new()
@@ -63,6 +68,7 @@ pub async fn spawn_node(id: u64) -> Result<Node, Box<dyn std::error::Error + Sen
             .app_data(app_data_wrapper.clone())
             .app_data(orchestrator_data.clone())
             .app_data(auth_registry_data.clone())
+            .app_data(metrics_data.clone())
             .configure(config_app::<SqliteDatabase>(route_exts.clone()))
     })
     .workers(1)

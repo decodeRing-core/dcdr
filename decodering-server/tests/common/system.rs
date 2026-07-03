@@ -60,7 +60,6 @@ pub async fn unlock_system_addr_success(
     shards: &[String],
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let resp = unlock_system_addr(addr, shards, 200).await?;
-
     let body: serde_json::Value = resp.json().await?;
     assert_eq!(body["osl_version"], "1.0.0");
     assert_eq!(body["status"], "system-unlocked");
@@ -102,8 +101,10 @@ pub async fn status_system_addr_unlocked(
 
     let body: serde_json::Value = resp.json().await?;
     assert_eq!(body["osl_version"], "1.0.0");
-    assert_eq!(body["status"], "system-unlocked");
-    assert_eq!(body["message"], "System unlocked");
+    assert_eq!(body["status"], "system-status");
+    assert_eq!(body["message"], "System status");
+    assert_eq!(body["data"]["initialized"], true);
+    assert_eq!(body["data"]["unlocked"], true);
 
     Ok(())
 }

@@ -1,6 +1,7 @@
 #![allow(clippy::indexing_slicing)]
 #![allow(clippy::future_not_send)]
 #![allow(clippy::expect_used)]
+use std::sync::Arc;
 use std::time::Duration;
 
 use actix_http::Request;
@@ -8,6 +9,7 @@ use actix_web::body::MessageBody;
 use actix_web::dev::{Service, ServiceResponse};
 use actix_web::web::Data;
 use actix_web::{App, test};
+use decodering_core::metrics::{Metrics, NoopMetrics};
 use decodering_db::sqlite::SqliteDatabase;
 use decodering_server::routes::RouteExtensions;
 use decodering_server::routes::config::config_app;
@@ -105,15 +107,20 @@ async fn test_raft_lifecycle() -> Result<(), Box<dyn std::error::Error + Send + 
         return Err("raft not initialized".into());
     };
     let raft = raft_bits.raft.clone();
+
+    let metrics: Arc<dyn Metrics> = Arc::new(NoopMetrics);
+
     let config_data = Data::new(config.clone());
     let app_data_wrapper = Data::new(app_data);
     let orchestrator_data = Data::new(orchestrator);
+    let metrics_data = Data::new(metrics);
     let route_exts = RouteExtensions::default();
     let app = test::init_service(
         App::new()
             .app_data(config_data)
             .app_data(app_data_wrapper)
             .app_data(orchestrator_data)
+            .app_data(metrics_data)
             .configure(config_app::<SqliteDatabase>(route_exts.clone())),
     )
     .await;
