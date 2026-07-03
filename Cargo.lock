@@ -64,7 +64,7 @@ dependencies = [
  "mime",
  "percent-encoding",
  "pin-project-lite",
- "rand 0.10.1",
+ "rand 0.10.2",
  "sha1 0.11.0",
  "smallvec",
  "tokio",
@@ -2093,7 +2093,7 @@ dependencies = [
  "decodering-core",
  "hmac 0.12.1",
  "p256",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rand 0.8.6",
  "rcgen",
  "reqwest",
@@ -2148,7 +2148,7 @@ dependencies = [
  "extism",
  "metrics",
  "pem",
- "rand 0.10.1",
+ "rand 0.10.2",
  "schemars 1.2.1",
  "serde",
  "serde_json",
@@ -2200,7 +2200,7 @@ dependencies = [
  "dotenvy",
  "futures-util",
  "metrics",
- "rand 0.10.1",
+ "rand 0.10.2",
  "reqwest",
  "serde",
  "serde_json",
@@ -4143,7 +4143,7 @@ dependencies = [
  "openraft-rt",
  "openraft-rt-tokio",
  "peel-off",
- "rand 0.10.1",
+ "rand 0.10.2",
  "serde",
  "smallvec",
  "thiserror 2.0.18",
@@ -4174,7 +4174,7 @@ dependencies = [
  "futures-util",
  "openraft-macros",
  "pin-project-lite",
- "rand 0.10.1",
+ "rand 0.10.2",
 ]
 
 [[package]]
@@ -4185,7 +4185,7 @@ checksum = "2a539ef5ef89d4da720c56300aeb702d6ddf2a9fa653b029b79d30e5f8cf68fa"
 dependencies = [
  "futures-util",
  "openraft-rt",
- "rand 0.10.1",
+ "rand 0.10.2",
  "tokio",
 ]
 
@@ -4739,9 +4739,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2e8e8bcc7961af1fdac401278c6a831614941f6164ee3bf4ce61b7edb162207"
+checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
 dependencies = [
  "chacha20",
  "getrandom 0.4.2",
@@ -5267,9 +5267,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.14.0"
+version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be040f8b0a225e40375822a563fa9524378b9d63112f53e19ffff34df5d33fdd"
+checksum = "764899a24af3980067ee14bc143654f297b22eaebfe3c7b6b211920a5a59b046"
 dependencies = [
  "web-time",
  "zeroize",
@@ -5928,7 +5928,7 @@ dependencies = [
  "log",
  "md-5",
  "memchr",
- "rand 0.10.1",
+ "rand 0.10.2",
  "serde",
  "serde_json",
  "sha2 0.11.0",
