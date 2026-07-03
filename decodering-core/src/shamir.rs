@@ -95,3 +95,70 @@ pub fn unlock(
 
     Ok(secret)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{LockError, ShamirInit, initialize_shamir, unlock};
+
+    type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+    // Serialize each dealer `Share` the same way the server does before handing
+    // shards to operators, so `unlock` can parse them back from raw bytes.
+    fn shard_bytes(init: &ShamirInit) -> Vec<Vec<u8>> {
+        init.shards.iter().map(Vec::from).collect()
+    }
+
+    #[test]
+    fn unlock_with_exactly_threshold_shares_recovers_key() -> TestResult {
+        let init = initialize_shamir(5, 3).map_err(|_| "init failed")?;
+        let shards: Vec<Vec<u8>> = shard_bytes(&init).into_iter().take(3).collect();
+        let recovered = unlock(3, &init.hash, &shards).map_err(|_| "unlock failed")?;
+        assert_eq!(recovered, init.master_key);
+        Ok(())
+    }
+
+    #[test]
+    fn unlock_with_more_than_threshold_shares_recovers_key() -> TestResult {
+        let init = initialize_shamir(5, 3).map_err(|_| "init failed")?;
+        let shards: Vec<Vec<u8>> = shard_bytes(&init).into_iter().take(4).collect();
+        let recovered = unlock(3, &init.hash, &shards).map_err(|_| "unlock failed")?;
+        assert_eq!(recovered, init.master_key);
+        Ok(())
+    }
+
+    #[test]
+    fn unlock_with_too_few_shares_is_rejected() -> TestResult {
+        let init = initialize_shamir(5, 3).map_err(|_| "init failed")?;
+        let shards: Vec<Vec<u8>> = shard_bytes(&init).into_iter().take(2).collect();
+        let result = unlock(3, &init.hash, &shards);
+        assert!(matches!(
+            result,
+            Err(LockError::InsufficientShards { got: 2, need: 3 })
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn unlock_with_wrong_hash_is_rejected() -> TestResult {
+        let init = initialize_shamir(5, 3).map_err(|_| "init failed")?;
+        let shards: Vec<Vec<u8>> = shard_bytes(&init).into_iter().take(3).collect();
+        let result = unlock(3, &[0u8; 32], &shards);
+        assert!(matches!(result, Err(LockError::HashMismatch)));
+        Ok(())
+    }
+
+    #[test]
+    fn unlock_with_unparseable_shares_is_rejected() {
+        // Byte slices too short to be valid shares must fail cleanly, not panic.
+        let garbage = vec![Vec::new(), Vec::new()];
+        let result = unlock(2, &[0u8; 32], &garbage);
+        assert!(matches!(result, Err(LockError::RecoveryFailed(_))));
+    }
+
+    #[test]
+    fn initialize_rejects_invalid_parameters() {
+        assert!(initialize_shamir(11, 3).is_err(), "n > 10 must be rejected");
+        assert!(initialize_shamir(5, 1).is_err(), "k < 2 must be rejected");
+        assert!(initialize_shamir(3, 5).is_err(), "k > n must be rejected");
+    }
+}
