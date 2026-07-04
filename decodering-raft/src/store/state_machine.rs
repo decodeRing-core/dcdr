@@ -430,6 +430,9 @@ where
 {
     match action {
         AppRequest::CreateApiKey(x) => run_action_raft(tx, index, x).await,
+        AppRequest::RevokeApiKey(x) => run_action_raft(tx, index, x).await,
+        AppRequest::DeleteApiKey(x) => run_action_raft(tx, index, x).await,
+        AppRequest::UpdateApiKeyExpiry(x) => run_action_raft(tx, index, x).await,
         AppRequest::CreateUser(x) => run_action_raft(tx, index, x).await,
         AppRequest::UpdateUser(x) => run_action_raft(tx, index, x).await,
         AppRequest::DeleteUser(x) => run_action_raft(tx, index, x).await,

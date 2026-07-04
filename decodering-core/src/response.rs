@@ -131,6 +131,9 @@ pub enum AppResponse {
     UpdateUser(bool),
     DeleteUser(bool),
     CreateApiKey(CreateApiKeyResponse),
+    RevokeApiKey(bool),
+    DeleteApiKey(bool),
+    UpdateApiKeyExpiry(bool),
     CreateSecretMapping(CreateSecretMappingResponse),
     DeleteSecretMapping(bool),
     UpdateSecretMappingTaint(bool),
@@ -177,6 +180,9 @@ impl fmt::Display for AppResponse {
             Self::CreateApiKey(create_api_key) => {
                 write!(f, "CreateApiKey(user_id={})", create_api_key.user_id)
             }
+            Self::RevokeApiKey(r) => write!(f, "RevokeApiKey(deleted={r})"),
+            Self::DeleteApiKey(r) => write!(f, "DeleteApiKey(deleted={r})"),
+            Self::UpdateApiKeyExpiry(r) => write!(f, "UpdateApiKeyExpiry(updated={r})"),
             Self::CreateSecretMapping(create_secret_mapping) => {
                 write!(
                     f,

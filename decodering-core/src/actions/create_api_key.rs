@@ -12,6 +12,7 @@ use crate::tx::Tx;
 #[derive(Serialize, Debug, Deserialize)]
 pub struct CreateApiKey {
     pub actor: Actor,
+    pub user_id: i64,
     pub api_key_hash: String,
     pub api_key_prefix: String,
     pub created_at: i64,
@@ -23,7 +24,7 @@ pub struct CreateApiKey {
 impl From<CreateApiKey> for ApiKeyEntry {
     fn from(c: CreateApiKey) -> Self {
         Self {
-            user_id: c.actor.get_user_id(),
+            user_id: c.user_id,
             api_key_hash: c.api_key_hash,
             api_key_prefix: c.api_key_prefix,
             created_at: c.created_at,
@@ -47,12 +48,14 @@ impl From<ApiKeyEntry> for CreateApiKeyResponse {
 impl CreateApiKey {
     pub fn new(
         actor: Actor,
+        user_id: i64,
         api_key_hash: String,
         api_key_prefix: String,
         expires_at: Option<i64>,
     ) -> Self {
         Self {
             actor,
+            user_id,
             created_at: now_ts(),
             expires_at,
             api_key_hash,
@@ -64,12 +67,14 @@ impl CreateApiKey {
 
     pub fn init(
         actor: Actor,
+        user_id: i64,
         api_key_hash: String,
         api_key_prefix: String,
         expires_at: Option<i64>,
     ) -> Self {
         Self {
             actor,
+            user_id,
             created_at: now_ts(),
             expires_at,
             api_key_hash,
@@ -81,11 +86,12 @@ impl CreateApiKey {
 
     pub fn request(
         actor: Actor,
+        user_id: i64,
         api_key_hash: String,
         api_key_prefix: String,
         expires_at: Option<i64>,
     ) -> AppRequest {
-        let api_key = Self::new(actor, api_key_hash, api_key_prefix, expires_at);
+        let api_key = Self::new(actor, user_id, api_key_hash, api_key_prefix, expires_at);
         AppRequest::CreateApiKey(api_key)
     }
 }

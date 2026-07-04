@@ -298,6 +298,18 @@ pub trait ShamirRepository: Send {
     -> impl Future<Output = Result<i64, DbError>> + Send;
 }
 
+#[derive(Debug, Serialize)]
+pub struct ApiKey {
+    pub id: i64,
+    pub user_id: i64,
+    pub api_key_hash: String,
+    pub api_key_prefix: String,
+    pub created_at: i64,
+    pub expires_at: Option<i64>,
+    pub revoked_at: Option<i64>,
+    pub last_used_at: Option<i64>,
+}
+
 pub struct ApiKeyEntry {
     pub user_id: i64,
     pub api_key_hash: String,
@@ -309,8 +321,29 @@ pub struct ApiKeyEntry {
 }
 
 pub trait ApiKeyRepository: Send {
+    fn get_by_id(
+        &mut self,
+        id: i64,
+    ) -> impl Future<Output = Result<Option<ApiKey>, DbError>> + Send;
     fn insert(&mut self, params: &ApiKeyEntry)
     -> impl Future<Output = Result<i64, DbError>> + Send;
+    fn list(
+        &mut self,
+        limit: i64,
+        offset: i64,
+    ) -> impl Future<Output = Result<Vec<ApiKey>, DbError>> + Send;
+    fn count(&mut self) -> impl Future<Output = Result<i64, DbError>> + Send;
+    fn revoke(
+        &mut self,
+        id: i64,
+        revoked_at: i64,
+    ) -> impl Future<Output = Result<u64, DbError>> + Send;
+    fn update_expiry(
+        &mut self,
+        id: i64,
+        expires_at: Option<i64>,
+    ) -> impl Future<Output = Result<u64, DbError>> + Send;
+    fn delete(&mut self, id: i64) -> impl Future<Output = Result<u64, DbError>> + Send;
 }
 
 #[derive(Debug, Serialize)]

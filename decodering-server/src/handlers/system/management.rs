@@ -104,6 +104,7 @@ pub async fn system_init<D: Database + 'static>(
     );
     let api_key = CreateApiKey::init(
         Actor::unauthenticated(ip.clone()),
+        0, // Replaced internally during system init
         token_hash,
         token_prefix,
         None,

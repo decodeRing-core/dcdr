@@ -1,12 +1,20 @@
 use std::str::FromStr;
 
-use decodering_core::domain::{
-    AuditOutcome, PrincipalCredentialKind, PrincipalKind, PrincipalStatus,
-};
-use decodering_core::repository::{
-    App, Audit, AuthChallenge, PluginConfig, Principal, PrincipalAppGrant, PrincipalCredential,
-    SecretMapping, Shamir, User,
-};
+use decodering_core::domain::AuditOutcome;
+use decodering_core::domain::PrincipalCredentialKind;
+use decodering_core::domain::PrincipalKind;
+use decodering_core::domain::PrincipalStatus;
+use decodering_core::repository::ApiKey;
+use decodering_core::repository::App;
+use decodering_core::repository::Audit;
+use decodering_core::repository::AuthChallenge;
+use decodering_core::repository::PluginConfig;
+use decodering_core::repository::Principal;
+use decodering_core::repository::PrincipalAppGrant;
+use decodering_core::repository::PrincipalCredential;
+use decodering_core::repository::SecretMapping;
+use decodering_core::repository::Shamir;
+use decodering_core::repository::User;
 
 #[derive(sqlx::FromRow)]
 pub struct PrincipalAppGrantRow {
@@ -266,6 +274,33 @@ impl From<AuditRow> for Audit {
             undone_by: r.undone_by,
             undoes: r.undoes,
             actor_username: r.actor_username,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct ApiKeyRow {
+    pub id: i64,
+    pub user_id: i64,
+    pub key_hash: String,
+    pub key_prefix: String,
+    pub created_at: i64,
+    pub expires_at: Option<i64>,
+    pub revoked_at: Option<i64>,
+    pub last_used_at: Option<i64>,
+}
+
+impl From<ApiKeyRow> for ApiKey {
+    fn from(r: ApiKeyRow) -> Self {
+        Self {
+            id: r.id,
+            user_id: r.user_id,
+            api_key_hash: r.key_hash,
+            api_key_prefix: r.key_prefix,
+            expires_at: r.expires_at,
+            revoked_at: r.revoked_at,
+            last_used_at: r.last_used_at,
+            created_at: r.created_at,
         }
     }
 }

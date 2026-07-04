@@ -15,10 +15,13 @@ use crate::actions::create_principal_token::CreatePrincipalToken;
 use crate::actions::create_secret_mapping::CreateSecretMapping;
 use crate::actions::create_shamir_configuration::CreateShamirConfiguration;
 use crate::actions::create_user::CreateUser;
+use crate::actions::delete_api_key::DeleteApiKey;
 use crate::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use crate::actions::delete_secret_mapping::DeleteSecretMapping;
 use crate::actions::delete_user::DeleteUser;
+use crate::actions::revoke_api_key::RevokeApiKey;
 use crate::actions::system_init::SystemInit;
+use crate::actions::update_api_key_expiry::UpdateApiKeyExpiry;
 use crate::actions::update_auth_challenge_consumed_at::UpdateAuthChallengeConsumedAt;
 use crate::actions::update_plugin_config_credentials::UpdatePluginConfigCredentials;
 use crate::actions::update_principal_credential_last_used::UpdatePrincipalCredentialLastUsed;
@@ -34,6 +37,9 @@ use crate::tx::Database;
 #[derive(Debug, Serialize, Deserialize)]
 pub enum AppRequest {
     CreateApiKey(CreateApiKey),
+    RevokeApiKey(RevokeApiKey),
+    DeleteApiKey(DeleteApiKey),
+    UpdateApiKeyExpiry(UpdateApiKeyExpiry),
     CreateApp(CreateApp),
     CreateUser(CreateUser),
     UpdateUser(UpdateUser),
@@ -61,6 +67,9 @@ impl AppRequest {
     pub fn audit_descriptor(&self) -> AuditDescriptor {
         match self {
             Self::CreateApiKey(a) => a.audit_descriptor(),
+            Self::RevokeApiKey(a) => a.audit_descriptor(),
+            Self::DeleteApiKey(a) => a.audit_descriptor(),
+            Self::UpdateApiKeyExpiry(a) => a.audit_descriptor(),
             Self::CreateApp(a) => a.audit_descriptor(),
             Self::CreateUser(a) => a.audit_descriptor(),
             Self::UpdateUser(a) => a.audit_descriptor(),
@@ -95,6 +104,19 @@ impl fmt::Display for AppRequest {
                     "CreateApp(app_id={}, app_name={})",
                     create_app.app_id, create_app.app_name
                 )
+            }
+            Self::RevokeApiKey(revoke_api_key) => {
+                write!(
+                    f,
+                    "RevokeApiKey(id={}, revoked_at={})",
+                    revoke_api_key.id, revoke_api_key.revoked_at
+                )
+            }
+            Self::DeleteApiKey(deleted_api_key) => {
+                write!(f, "DeleteApiKey(id={})", deleted_api_key.id)
+            }
+            Self::UpdateApiKeyExpiry(update_api_key_expiry) => {
+                write!(f, "UpdateApiKeyExpiry(id={})", update_api_key_expiry.id)
             }
             Self::CreateUser(create_user) => {
                 write!(
@@ -231,6 +253,9 @@ impl AppRequest {
     {
         match self {
             Self::CreateApiKey(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::RevokeApiKey(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::DeleteApiKey(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::UpdateApiKeyExpiry(action) => Ok(run_action_direct(db, action).await?.response),
             Self::CreateUser(action) => Ok(run_action_direct(db, action).await?.response),
             Self::UpdateUser(action) => Ok(run_action_direct(db, action).await?.response),
             Self::DeleteUser(action) => Ok(run_action_direct(db, action).await?.response),
