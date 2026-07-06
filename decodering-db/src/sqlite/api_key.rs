@@ -2,11 +2,13 @@ use decodering_core::error::DbError;
 use decodering_core::repository::ApiKey;
 use decodering_core::repository::ApiKeyEntry;
 use decodering_core::repository::ApiKeyRepository;
+use decodering_core::repository::ApiKeyUser;
 use sqlx::Sqlite;
 use sqlx::Transaction;
 
 use crate::error::map_sqlx;
 use crate::repository::ApiKeyRow;
+use crate::repository::ApiKeyUserRow;
 
 pub struct SqliteApiKeysRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
@@ -43,10 +45,12 @@ impl ApiKeyRepository for SqliteApiKeysRepository<'_> {
         Ok(id)
     }
 
-    async fn list(&mut self, limit: i64, offset: i64) -> Result<Vec<ApiKey>, DbError> {
-        let rows = sqlx::query_as::<_, ApiKeyRow>(
-            "SELECT id, user_id, key_hash, key_prefix, created_at, expires_at, revoked_at, last_used_at \
-             FROM api_keys ORDER BY id LIMIT ? OFFSET ?",
+    async fn list(&mut self, limit: i64, offset: i64) -> Result<Vec<ApiKeyUser>, DbError> {
+        let rows = sqlx::query_as::<_, ApiKeyUserRow>(
+            "SELECT k.id, k.user_id, u.username, u.email, k.key_prefix, k.created_at, \
+                    k.expires_at, k.revoked_at, k.last_used_at \
+             FROM api_keys k LEFT JOIN users u ON u.id = k.user_id \
+             ORDER BY k.id DESC LIMIT ? OFFSET ?",
         )
         .bind(limit)
         .bind(offset)

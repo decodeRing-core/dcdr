@@ -5,6 +5,7 @@ use decodering_core::domain::PrincipalCredentialKind;
 use decodering_core::domain::PrincipalKind;
 use decodering_core::domain::PrincipalStatus;
 use decodering_core::repository::ApiKey;
+use decodering_core::repository::ApiKeyUser;
 use decodering_core::repository::App;
 use decodering_core::repository::Audit;
 use decodering_core::repository::AuthChallenge;
@@ -301,6 +302,35 @@ impl From<ApiKeyRow> for ApiKey {
             revoked_at: r.revoked_at,
             last_used_at: r.last_used_at,
             created_at: r.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct ApiKeyUserRow {
+    pub id: i64,
+    pub user_id: i64,
+    pub username: Option<String>,
+    pub email: Option<String>,
+    pub key_prefix: String,
+    pub created_at: i64,
+    pub expires_at: Option<i64>,
+    pub revoked_at: Option<i64>,
+    pub last_used_at: Option<i64>,
+}
+
+impl From<ApiKeyUserRow> for ApiKeyUser {
+    fn from(r: ApiKeyUserRow) -> Self {
+        Self {
+            id: r.id,
+            user_id: r.user_id,
+            expires_at: r.expires_at,
+            revoked_at: r.revoked_at,
+            last_used_at: r.last_used_at,
+            created_at: r.created_at,
+            username: r.username,
+            email: r.email,
+            key_prefix: r.key_prefix,
         }
     }
 }

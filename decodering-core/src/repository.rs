@@ -299,6 +299,19 @@ pub trait ShamirRepository: Send {
 }
 
 #[derive(Debug, Serialize)]
+pub struct ApiKeyUser {
+    pub id: i64,
+    pub user_id: i64,
+    pub username: Option<String>,
+    pub email: Option<String>,
+    pub key_prefix: String,
+    pub created_at: i64,
+    pub expires_at: Option<i64>,
+    pub revoked_at: Option<i64>,
+    pub last_used_at: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct ApiKey {
     pub id: i64,
     pub user_id: i64,
@@ -331,7 +344,7 @@ pub trait ApiKeyRepository: Send {
         &mut self,
         limit: i64,
         offset: i64,
-    ) -> impl Future<Output = Result<Vec<ApiKey>, DbError>> + Send;
+    ) -> impl Future<Output = Result<Vec<ApiKeyUser>, DbError>> + Send;
     fn count(&mut self) -> impl Future<Output = Result<i64, DbError>> + Send;
     fn revoke(
         &mut self,
