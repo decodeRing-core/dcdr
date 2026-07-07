@@ -81,4 +81,18 @@ impl AuditRepository for SqliteAuditRepository<'_> {
             .map_err(map_sqlx)?;
         Ok(n)
     }
+
+    async fn count_outcomes_since(&mut self, since: i64) -> Result<(i64, i64), DbError> {
+        let row: (i64, i64) = sqlx::query_as(
+            "SELECT \
+               COALESCE(SUM(CASE WHEN outcome = 'denied' THEN 1 ELSE 0 END), 0), \
+               COALESCE(SUM(CASE WHEN outcome = 'error' THEN 1 ELSE 0 END), 0) \
+             FROM audit_log WHERE timestamp >= ?",
+        )
+        .bind(since)
+        .fetch_one(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(row)
+    }
 }

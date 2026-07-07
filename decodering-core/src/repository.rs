@@ -274,6 +274,10 @@ pub trait AuditRepository: Send {
         offset: i64,
     ) -> impl Future<Output = Result<Vec<Audit>, DbError>> + Send;
     fn count(&mut self) -> impl Future<Output = Result<i64, DbError>> + Send;
+    fn count_outcomes_since(
+        &mut self,
+        since: i64,
+    ) -> impl Future<Output = Result<(i64, i64), DbError>> + Send;
 }
 
 #[derive(Debug, Clone)]
@@ -346,6 +350,10 @@ pub trait ApiKeyRepository: Send {
         offset: i64,
     ) -> impl Future<Output = Result<Vec<ApiKeyUser>, DbError>> + Send;
     fn count(&mut self) -> impl Future<Output = Result<i64, DbError>> + Send;
+    fn count_by_status(
+        &mut self,
+        now: i64,
+    ) -> impl Future<Output = Result<(i64, i64, i64), DbError>> + Send;
     fn revoke(
         &mut self,
         id: i64,

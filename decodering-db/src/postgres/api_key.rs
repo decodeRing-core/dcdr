@@ -68,6 +68,22 @@ impl ApiKeyRepository for PostgresApiKeysRepository<'_> {
         Ok(total)
     }
 
+    async fn count_by_status(&mut self, now: i64) -> Result<(i64, i64, i64), DbError> {
+        let row: (i64, i64, i64) = sqlx::query_as(
+            "SELECT \
+               COALESCE(SUM(CASE WHEN revoked_at IS NULL AND (expires_at IS NULL OR expires_at > $1) THEN 1 ELSE 0 END), 0), \
+               COALESCE(SUM(CASE WHEN revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at <= $2 THEN 1 ELSE 0 END), 0), \
+               COALESCE(SUM(CASE WHEN revoked_at IS NOT NULL THEN 1 ELSE 0 END), 0) \
+             FROM api_keys",
+        )
+        .bind(now)
+        .bind(now)
+        .fetch_one(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(row)
+    }
+
     async fn revoke(&mut self, id: i64, revoked_at: i64) -> Result<u64, DbError> {
         let rows =
             sqlx::query("UPDATE api_keys SET revoked_at = $1 WHERE id = $2 AND revoked_at IS NULL")
