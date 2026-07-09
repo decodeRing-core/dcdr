@@ -48,4 +48,24 @@ impl AppRepository for PostgresAppRepository<'_> {
         .map_err(map_sqlx)?;
         Ok(app.map(Into::into))
     }
+
+    async fn list(&mut self, limit: i64, offset: i64) -> Result<Vec<App>, DbError> {
+        let rows = sqlx::query_as::<_, AppRow>(
+            "SELECT app_id, app_name, created_at, updated_at FROM applications ORDER BY app_name LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    async fn count(&mut self) -> Result<i64, DbError> {
+        let n = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM applications")
+            .fetch_one(&mut **self.tx)
+            .await
+            .map_err(map_sqlx)?;
+        Ok(n)
+    }
 }

@@ -446,6 +446,12 @@ pub trait AppRepository: Send {
         &mut self,
         app_name: &str,
     ) -> impl Future<Output = Result<Option<App>, DbError>> + Send;
+    fn list(
+        &mut self,
+        limit: i64,
+        offset: i64,
+    ) -> impl Future<Output = Result<Vec<App>, DbError>> + Send;
+    fn count(&mut self) -> impl Future<Output = Result<i64, DbError>> + Send;
 }
 
 #[derive(Debug, Clone, Serialize)]
