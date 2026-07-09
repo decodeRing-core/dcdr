@@ -421,6 +421,7 @@ pub trait UserRepository: Send {
     ) -> impl Future<Output = Result<Option<User>, DbError>> + Send;
 }
 
+#[derive(Serialize)]
 pub struct App {
     pub app_id: String,
     pub app_name: String,
