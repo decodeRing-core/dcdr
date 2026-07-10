@@ -104,4 +104,39 @@ impl PrincipalRepository for SqlitePrincipalRepository<'_> {
         .map_err(map_sqlx)?;
         Ok(principal.map(Into::into))
     }
+
+    async fn list(&mut self, limit: i64, offset: i64) -> Result<Vec<Principal>, DbError> {
+        let rows = sqlx::query_as::<_, PrincipalRow>(
+            "SELECT principal_id, name, kind, status, created_at, updated_at, deleted_at \
+             FROM principals WHERE deleted_at IS NULL ORDER BY name LIMIT ? OFFSET ?",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    async fn count(&mut self) -> Result<i64, DbError> {
+        let n = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM principals WHERE deleted_at IS NULL",
+        )
+        .fetch_one(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(n)
+    }
+
+    async fn get_by_id(&mut self, principal_id: &str) -> Result<Option<Principal>, DbError> {
+        let row = sqlx::query_as::<_, PrincipalRow>(
+            "SELECT principal_id, name, kind, status, created_at, updated_at, deleted_at \
+             FROM principals WHERE principal_id = ?",
+        )
+        .bind(principal_id)
+        .fetch_optional(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(row.map(Into::into))
+    }
 }

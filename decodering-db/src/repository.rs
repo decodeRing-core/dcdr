@@ -13,6 +13,7 @@ use decodering_core::repository::PluginConfig;
 use decodering_core::repository::Principal;
 use decodering_core::repository::PrincipalAppGrant;
 use decodering_core::repository::PrincipalCredential;
+use decodering_core::repository::PrincipalToken;
 use decodering_core::repository::SecretMapping;
 use decodering_core::repository::Shamir;
 use decodering_core::repository::User;
@@ -331,6 +332,31 @@ impl From<ApiKeyUserRow> for ApiKeyUser {
             username: r.username,
             email: r.email,
             key_prefix: r.key_prefix,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct PrincipalTokenRow {
+    pub token_id: String,
+    pub token_hash: String,
+    pub principal_id: String,
+    pub credential_id: Option<String>,
+    pub issued_at: i64,
+    pub expires_at: i64,
+    pub revoked_at: Option<i64>,
+}
+
+impl From<PrincipalTokenRow> for PrincipalToken {
+    fn from(r: PrincipalTokenRow) -> Self {
+        Self {
+            token_id: r.token_id,
+            token_hash: r.token_hash,
+            principal_id: r.principal_id,
+            credential_id: r.credential_id,
+            issued_at: r.issued_at,
+            expires_at: r.expires_at,
+            revoked_at: r.revoked_at,
         }
     }
 }

@@ -122,4 +122,35 @@ impl PrincipalAppGrantRepository for PostgresPrincipalAppGrantRepository<'_> {
 
         Ok(rows.into_iter().map(Into::into).collect())
     }
+
+    async fn list_by_principal(
+        &mut self,
+        principal_id: &str,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<PrincipalAppGrant>, DbError> {
+        let rows = sqlx::query_as::<_, PrincipalAppGrantRow>(
+            "SELECT g.principal_id, g.app_id, a.app_name, g.granted_at, g.granted_by, g.revoked_at \
+             FROM principal_app_grants g LEFT JOIN applications a ON a.app_id = g.app_id \
+             WHERE g.principal_id = ? ORDER BY g.granted_at DESC LIMIT $1 OFFSET $2",
+        )
+        .bind(principal_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    async fn count_by_principal(&mut self, principal_id: &str) -> Result<i64, DbError> {
+        let n = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM principal_app_grants WHERE principal_id = $1",
+        )
+        .bind(principal_id)
+        .fetch_one(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(n)
+    }
 }

@@ -48,6 +48,16 @@ pub trait PrincipalAppGrantRepository: Send {
         after_app_id: Option<&str>,
         limit: i64,
     ) -> impl Future<Output = Result<Vec<PrincipalAppGrant>, DbError>> + Send;
+    fn list_by_principal(
+        &mut self,
+        principal_id: &str,
+        limit: i64,
+        offset: i64,
+    ) -> impl Future<Output = Result<Vec<PrincipalAppGrant>, DbError>> + Send;
+    fn count_by_principal(
+        &mut self,
+        principal_id: &str,
+    ) -> impl Future<Output = Result<i64, DbError>> + Send;
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -87,6 +97,17 @@ pub trait AuthChallengeRepository: Send {
     fn delete_expired(&mut self) -> impl Future<Output = Result<u64, DbError>> + Send;
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct PrincipalToken {
+    pub token_id: String,
+    pub token_hash: String,
+    pub principal_id: String,
+    pub credential_id: Option<String>,
+    pub issued_at: i64,
+    pub expires_at: i64,
+    pub revoked_at: Option<i64>,
+}
+
 #[derive(Debug, Clone)]
 pub struct PrincipalTokenEntry {
     pub token_id: String,
@@ -103,6 +124,16 @@ pub trait PrincipalTokenRepository: Send {
         &mut self,
         principal_credential: &PrincipalTokenEntry,
     ) -> impl Future<Output = Result<String, DbError>> + Send;
+    fn list_by_principal(
+        &mut self,
+        principal_id: &str,
+        limit: i64,
+        offset: i64,
+    ) -> impl Future<Output = Result<Vec<PrincipalToken>, DbError>> + Send;
+    fn count_by_principal(
+        &mut self,
+        principal_id: &str,
+    ) -> impl Future<Output = Result<i64, DbError>> + Send;
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -164,6 +195,16 @@ pub trait PrincipalCredentialRepository: Send {
         credential_id: &str,
         status: PrincipalStatus,
     ) -> impl Future<Output = Result<u64, DbError>> + Send;
+    fn list_by_principal(
+        &mut self,
+        principal_id: &str,
+        limit: i64,
+        offset: i64,
+    ) -> impl Future<Output = Result<Vec<PrincipalCredential>, DbError>> + Send;
+    fn count_by_principal(
+        &mut self,
+        principal_id: &str,
+    ) -> impl Future<Output = Result<i64, DbError>> + Send;
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -207,6 +248,16 @@ pub trait PrincipalRepository: Send {
     fn get_active_by_token(
         &mut self,
         token: &str,
+    ) -> impl Future<Output = Result<Option<Principal>, DbError>> + Send;
+    fn list(
+        &mut self,
+        limit: i64,
+        offset: i64,
+    ) -> impl Future<Output = Result<Vec<Principal>, DbError>> + Send;
+    fn count(&mut self) -> impl Future<Output = Result<i64, DbError>> + Send;
+    fn get_by_id(
+        &mut self,
+        principal_id: &str,
     ) -> impl Future<Output = Result<Option<Principal>, DbError>> + Send;
 }
 
