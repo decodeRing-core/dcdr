@@ -1,11 +1,13 @@
 use decodering_core::error::DbError;
 use decodering_core::repository::App;
 use decodering_core::repository::AppEntry;
+use decodering_core::repository::AppInfo;
 use decodering_core::repository::AppRepository;
 use sqlx::Sqlite;
 use sqlx::Transaction;
 
 use crate::error::map_sqlx;
+use crate::repository::AppInfoRow;
 use crate::repository::AppRow;
 
 pub struct SqliteAppRepository<'a> {
@@ -49,9 +51,11 @@ impl AppRepository for SqliteAppRepository<'_> {
         Ok(app.map(Into::into))
     }
 
-    async fn list(&mut self, limit: i64, offset: i64) -> Result<Vec<App>, DbError> {
-        let rows = sqlx::query_as::<_, AppRow>(
-            "SELECT app_id, app_name, created_at, updated_at FROM applications ORDER BY app_name LIMIT ? OFFSET ?",
+    async fn list(&mut self, limit: i64, offset: i64) -> Result<Vec<AppInfo>, DbError> {
+        let rows = sqlx::query_as::<_, AppInfoRow>(
+            "SELECT a.app_id, a.app_name, a.created_at, a.updated_at, \
+                (SELECT COUNT(*) FROM principal_app_grants g WHERE g.app_id = a.app_id AND g.revoked_at IS NULL) AS grant_count \
+             FROM applications a ORDER BY a.app_name LIMIT ? OFFSET ?",
         )
         .bind(limit)
         .bind(offset)

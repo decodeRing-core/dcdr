@@ -7,6 +7,7 @@ use decodering_core::domain::PrincipalStatus;
 use decodering_core::repository::ApiKey;
 use decodering_core::repository::ApiKeyUser;
 use decodering_core::repository::App;
+use decodering_core::repository::AppInfo;
 use decodering_core::repository::Audit;
 use decodering_core::repository::AuthChallenge;
 use decodering_core::repository::PluginConfig;
@@ -153,6 +154,28 @@ impl From<AppRow> for App {
         }
     }
 }
+
+#[derive(sqlx::FromRow)]
+pub struct AppInfoRow {
+    app_id: String,
+    app_name: String,
+    created_at: i64,
+    updated_at: i64,
+    grant_count: i64,
+}
+
+impl From<AppInfoRow> for AppInfo {
+    fn from(a: AppInfoRow) -> Self {
+        Self {
+            app_id: a.app_id,
+            app_name: a.app_name,
+            created_at: a.created_at,
+            updated_at: a.updated_at,
+            grant_count: a.grant_count,
+        }
+    }
+}
+
 #[derive(sqlx::FromRow)]
 pub struct PrincipalRow {
     pub credential_id: String,

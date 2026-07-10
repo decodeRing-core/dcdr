@@ -497,6 +497,16 @@ pub struct App {
     pub updated_at: i64,
 }
 
+#[derive(Serialize)]
+pub struct AppInfo {
+    pub app_id: String,
+    pub app_name: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub grant_count: i64,
+}
+
+#[derive(Serialize)]
 pub struct AppEntry {
     pub app_id: String,
     pub app_name: String,
@@ -519,7 +529,7 @@ pub trait AppRepository: Send {
         &mut self,
         limit: i64,
         offset: i64,
-    ) -> impl Future<Output = Result<Vec<App>, DbError>> + Send;
+    ) -> impl Future<Output = Result<Vec<AppInfo>, DbError>> + Send;
     fn count(&mut self) -> impl Future<Output = Result<i64, DbError>> + Send;
     fn get_by_id(
         &mut self,
