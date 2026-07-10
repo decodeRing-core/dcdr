@@ -68,4 +68,15 @@ impl AppRepository for SqliteAppRepository<'_> {
             .map_err(map_sqlx)?;
         Ok(n)
     }
+
+    async fn get_by_id(&mut self, app_id: &str) -> Result<Option<App>, DbError> {
+        let row = sqlx::query_as::<_, AppRow>(
+            "SELECT app_id, app_name, created_at, updated_at FROM applications WHERE app_id = ?",
+        )
+        .bind(app_id)
+        .fetch_optional(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(row.map(Into::into))
+    }
 }

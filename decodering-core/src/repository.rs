@@ -13,6 +13,16 @@ pub struct PrincipalAppGrant {
     pub revoked_by: Option<i64>,
 }
 
+#[derive(Serialize, Debug, Clone)]
+pub struct PrincipalAppGrantView {
+    pub principal_id: String,
+    pub principal_name: Option<String>,
+    pub app_id: String,
+    pub granted_at: i64,
+    pub granted_by: Option<i64>,
+    pub revoked_at: Option<i64>,
+}
+
 #[derive(Debug, Clone)]
 pub struct PrincipalAppGrantEntry {
     pub principal_id: String,
@@ -58,6 +68,13 @@ pub trait PrincipalAppGrantRepository: Send {
         &mut self,
         principal_id: &str,
     ) -> impl Future<Output = Result<i64, DbError>> + Send;
+    fn list_by_app(
+        &mut self,
+        app_id: &str,
+        limit: i64,
+        offset: i64,
+    ) -> impl Future<Output = Result<Vec<PrincipalAppGrantView>, DbError>> + Send;
+    fn count_by_app(&mut self, app_id: &str) -> impl Future<Output = Result<i64, DbError>> + Send;
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -504,6 +521,10 @@ pub trait AppRepository: Send {
         offset: i64,
     ) -> impl Future<Output = Result<Vec<App>, DbError>> + Send;
     fn count(&mut self) -> impl Future<Output = Result<i64, DbError>> + Send;
+    fn get_by_id(
+        &mut self,
+        app_id: &str,
+    ) -> impl Future<Output = Result<Option<App>, DbError>> + Send;
 }
 
 #[derive(Debug, Clone, Serialize)]

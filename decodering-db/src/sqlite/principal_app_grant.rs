@@ -2,12 +2,14 @@ use decodering_core::error::DbError;
 use decodering_core::repository::PrincipalAppGrant;
 use decodering_core::repository::PrincipalAppGrantEntry;
 use decodering_core::repository::PrincipalAppGrantRepository;
+use decodering_core::repository::PrincipalAppGrantView;
 use sqlx::QueryBuilder;
 use sqlx::Sqlite;
 use sqlx::Transaction;
 
 use crate::error::map_sqlx;
 use crate::repository::PrincipalAppGrantRow;
+use crate::repository::PrincipalAppGrantViewRow;
 
 pub struct SqlitePrincipalAppGrantRepository<'a> {
     pub tx: &'a mut Transaction<'static, Sqlite>,
@@ -151,6 +153,33 @@ impl PrincipalAppGrantRepository for SqlitePrincipalAppGrantRepository<'_> {
             "SELECT COUNT(*) FROM principal_app_grants WHERE principal_id = ?",
         )
         .bind(principal_id)
+        .fetch_one(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(n)
+    }
+
+    async fn list_by_app(
+        &mut self,
+        app_id: &str,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<PrincipalAppGrantView>, DbError> {
+        let rows = sqlx::query_as::<_, PrincipalAppGrantViewRow>(
+            "SELECT g.principal_id, p.name AS principal_name, g.app_id, g.granted_at, g.granted_by, g.revoked_at \
+             FROM principal_app_grants g LEFT JOIN principals p ON p.principal_id = g.principal_id \
+             WHERE g.app_id = ? ORDER BY g.granted_at DESC LIMIT ? OFFSET ?",
+        )
+        .bind(app_id).bind(limit).bind(offset)
+        .fetch_all(&mut **self.tx).await.map_err(map_sqlx)?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    async fn count_by_app(&mut self, app_id: &str) -> Result<i64, DbError> {
+        let n = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM principal_app_grants WHERE app_id = ?",
+        )
+        .bind(app_id)
         .fetch_one(&mut **self.tx)
         .await
         .map_err(map_sqlx)?;

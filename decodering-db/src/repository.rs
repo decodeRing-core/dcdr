@@ -12,11 +12,36 @@ use decodering_core::repository::AuthChallenge;
 use decodering_core::repository::PluginConfig;
 use decodering_core::repository::Principal;
 use decodering_core::repository::PrincipalAppGrant;
+use decodering_core::repository::PrincipalAppGrantView;
 use decodering_core::repository::PrincipalCredential;
 use decodering_core::repository::PrincipalToken;
 use decodering_core::repository::SecretMapping;
 use decodering_core::repository::Shamir;
 use decodering_core::repository::User;
+
+#[derive(sqlx::FromRow)]
+pub struct PrincipalAppGrantViewRow {
+    pub principal_id: String,
+    pub principal_name: Option<String>,
+    pub app_id: String,
+    pub granted_at: i64,
+    pub granted_by: Option<i64>,
+    pub revoked_at: Option<i64>,
+    pub revoked_by: Option<i64>,
+}
+
+impl From<PrincipalAppGrantViewRow> for PrincipalAppGrantView {
+    fn from(r: PrincipalAppGrantViewRow) -> Self {
+        Self {
+            principal_id: r.principal_id,
+            principal_name: r.principal_name,
+            app_id: r.app_id,
+            granted_at: r.granted_at,
+            granted_by: r.granted_by,
+            revoked_at: r.revoked_at,
+        }
+    }
+}
 
 #[derive(sqlx::FromRow)]
 pub struct PrincipalAppGrantRow {
