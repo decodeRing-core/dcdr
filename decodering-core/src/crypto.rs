@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use aes_gcm::Aes256Gcm;
-use aes_gcm::aead::{Aead, AeadCore, KeyInit, OsRng, Payload};
+use aes_gcm::Nonce;
+use aes_gcm::aead::{Aead, Generate, KeyInit, Payload};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use sha2::Digest;
 use sha2::Sha256;
@@ -61,7 +62,7 @@ pub fn encrypt_blob(
     aad: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
     let cipher = Aes256Gcm::new_from_slice(master_key).map_err(|_| CryptoError::KeyLength)?;
-    let nonce = Aes256Gcm::generate_nonce(&mut OsRng); // fresh random nonce every call
+    let nonce = Nonce::generate();
     let ct = cipher
         .encrypt(
             &nonce,
@@ -72,7 +73,7 @@ pub fn encrypt_blob(
         )
         .map_err(|_| CryptoError::Encrypt)?;
     let mut out = Vec::with_capacity(NONCE_LEN + ct.len());
-    out.extend_from_slice(&nonce[..]);
+    out.extend_from_slice(&nonce);
     out.extend_from_slice(&ct);
     Ok(out)
 }
@@ -90,8 +91,9 @@ pub fn decrypt_blob(
     }
     let cipher = Aes256Gcm::new_from_slice(master_key).map_err(|_| CryptoError::KeyLength)?;
     let (nonce_bytes, ct) = blob.split_at(NONCE_LEN);
+    let nonce: &[u8; NONCE_LEN] = nonce_bytes.try_into().map_err(|_| CryptoError::TooShort)?;
     let pt = cipher
-        .decrypt(nonce_bytes.into(), Payload { msg: ct, aad })
+        .decrypt(nonce.into(), Payload { msg: ct, aad })
         .map_err(|_| CryptoError::Decrypt)?;
     Ok(Zeroizing::new(pt))
 }

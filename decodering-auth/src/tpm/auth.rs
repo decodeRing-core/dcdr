@@ -261,7 +261,6 @@ mod tests {
     use decodering_core::crypto::sha256_hex;
     use rsa::pkcs1v15::SigningKey as Pkcs1v15SigningKey;
     use rsa::pkcs8::{EncodePublicKey, LineEnding};
-    use rsa::rand_core::OsRng;
     use rsa::signature::{SignatureEncoding, Signer as _};
     use rsa::{RsaPrivateKey, RsaPublicKey, traits::PublicKeyParts};
     use serde_json::json;
@@ -275,7 +274,7 @@ mod tests {
     const TPM_ALG_RSASSA: u16 = 0x0014;
 
     fn rsa_keypair() -> (RsaPrivateKey, String) {
-        let priv_key = RsaPrivateKey::new(&mut OsRng, 2048).unwrap();
+        let priv_key = RsaPrivateKey::new(&mut rand::rng(), 2048).unwrap();
         let pem = RsaPublicKey::from(&priv_key)
             .to_public_key_pem(LineEnding::LF)
             .unwrap();
@@ -285,7 +284,7 @@ mod tests {
     /// Build a marshaled `TPM2B_PUBLIC` for an RSA key matchin`AkPublic::parse`se's
     /// expected layout. Modulus is taken from `pub_key`.
     fn build_ak_tpm2b(pub_key: &RsaPublicKey) -> Vec<u8> {
-        let modulus = pub_key.n().to_bytes_be();
+        let modulus = pub_key.n().to_be_bytes();
         let mut pa = Vec::new();
         pa.extend_from_slice(&TPM_ALG_RSA.to_be_bytes()); // type
         pa.extend_from_slice(&TPM_ALG_SHA256.to_be_bytes()); // nameAlg

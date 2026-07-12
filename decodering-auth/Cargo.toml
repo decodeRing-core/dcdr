@@ -17,7 +17,6 @@ sha2.workspace = true
 rsa.workspace = true
 p256.workspace = true
 hmac.workspace = true
-rand_08 = { package = "rand", version = "~0.8" }
 cfb-mode.workspace = true
 tracing.workspace = true
 aes.workspace = true

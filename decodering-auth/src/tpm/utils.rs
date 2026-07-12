@@ -2,10 +2,11 @@ use std::collections::HashMap;
 
 use aes::Aes128;
 use aes::cipher::{Array, KeyIvInit};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use p256::ecdsa::{Signature as EcdsaSignature, VerifyingKey as EcdsaVerifyingKey};
-use rand_08::RngCore;
-use rsa::BigUint;
+use rand::{Rng, rng};
+//use rand_08::RngCore;
+use rsa::BoxedUint;
 use rsa::Oaep;
 use rsa::RsaPublicKey;
 use rsa::pkcs1v15;
@@ -131,8 +132,14 @@ impl AkPublic {
         } else {
             exponent_raw
         };
-        let pubkey = RsaPublicKey::new(BigUint::from_bytes_be(modulus), BigUint::from(exponent))
+
+        let n = BoxedUint::from_be_slice(modulus, (modulus.len() * 8) as u32)
             .map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
+        let e = BoxedUint::from(exponent);
+        let pubkey = RsaPublicKey::new(n, e).map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
+
+        // let pubkey = RsaPublicKey::new(BigUint::from_bytes_be(modulus), BigUint::from(exponent))
+        //     .map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
         let pubkey_pem = pubkey
             .to_public_key_pem(LineEnding::LF)
             .map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
@@ -166,12 +173,12 @@ pub fn make_credential_rsa(
     let ek = RsaPublicKey::from_public_key_pem(ek_pubkey_pem)
         .map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
 
-    let mut rng = rand_08::thread_rng();
+    let mut rng = rng();
     // Random seed, digest-sized.
     let mut seed = [0u8; SEED_LEN];
     rng.fill_bytes(&mut seed);
     // secret blob = RSA-OAEP(EK_pub, seed); SHA-256; L = b"IDENTITY\0".
-    let padding = Oaep::new_with_label::<Sha256, _>("IDENTITY\0");
+    let padding = Oaep::<Sha256>::new_with_label(b"IDENTITY\0".to_vec());
     let enc_secret = ek
         .encrypt(&mut rng, padding, &seed)
         .map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
@@ -197,7 +204,7 @@ pub fn make_credential_rsa(
 
     // 6. outerHMAC = HMAC-SHA256(HMACkey, encIdentity || ak_name)
     let mut mac =
-        <HmacSha256 as Mac>::new_from_slice(&hmac_key).map_err(|_| TpmVerifyError::InvalidQuote)?;
+        HmacSha256::new_from_slice(&hmac_key).map_err(|_| TpmVerifyError::InvalidQuote)?;
     mac.update(&enc_identity);
     mac.update(ak_name);
     let outer_hmac = mac.finalize().into_bytes();
@@ -238,15 +245,16 @@ fn kdfa_sha256(
     let mut counter: u32 = 0;
     while out.len() < out_len {
         counter += 1;
-        let mut mac =
-            <HmacSha256 as Mac>::new_from_slice(key).map_err(|_| TpmVerifyError::InvalidQuote)?;
+
+        let mut mac = HmacSha256::new_from_slice(key).map_err(|_| TpmVerifyError::InvalidQuote)?;
         mac.update(&counter.to_be_bytes());
         mac.update(label.as_bytes());
         mac.update(&[0u8]); // label terminator
         mac.update(context_u);
         mac.update(context_v);
         mac.update(&bits.to_be_bytes());
-        out.extend_from_slice(&mac.finalize().into_bytes());
+        let outer_hmac = mac.finalize().into_bytes();
+        out.extend_from_slice(&outer_hmac);
     }
     out.truncate(out_len);
     Ok(out)
@@ -628,7 +636,6 @@ mod tests {
     use rsa::pkcs1v15::SigningKey as Pkcs1v15SigningKey;
     use rsa::pkcs8::{EncodePublicKey, LineEnding};
     use rsa::pss::SigningKey as PssSigningKey;
-    use rsa::rand_core::OsRng;
     use rsa::signature::{RandomizedSigner, SignatureEncoding};
     use rsa::{RsaPrivateKey, RsaPublicKey};
     use sha2::Sha256;
@@ -637,7 +644,7 @@ mod tests {
     use std::collections::HashMap;
 
     fn make_rsa_keypair() -> (RsaPrivateKey, String) {
-        let mut rng = OsRng;
+        let mut rng = rng();
         let priv_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
         let pub_key = RsaPublicKey::from(&priv_key);
         let pem = pub_key.to_public_key_pem(LineEnding::default()).unwrap();
@@ -645,7 +652,8 @@ mod tests {
     }
 
     fn make_ecdsa_keypair() -> (EcdsaSigningKey, String) {
-        let signing_key = EcdsaSigningKey::random(&mut OsRng);
+        let mut rng = rng();
+        let signing_key = EcdsaSigningKey::random(&mut rng);
         let verifying_key = signing_key.verifying_key();
         let pem = verifying_key
             .to_public_key_pem(LineEnding::default())
@@ -878,10 +886,11 @@ mod tests {
 
     #[test]
     fn verify_quote_signature_rsapss_valid() {
+        let mut rng = rng();
         let (priv_key, pem) = make_rsa_keypair();
         let quote = b"test quote for pss";
         let signing_key = PssSigningKey::<Sha256>::new(priv_key);
-        let signature = signing_key.sign_with_rng(&mut OsRng, quote);
+        let signature = signing_key.sign_with_rng(&mut rng, quote);
         let sig_bytes = signature.to_bytes();
         let tpmt_sig = build_rsa_tpmt_sig(TPM_ALG_RSAPSS, TPM_ALG_SHA256, &sig_bytes);
 
@@ -890,9 +899,10 @@ mod tests {
 
     #[test]
     fn verify_quote_signature_rsapss_rejects_tampered() {
+        let mut rng = rng();
         let (priv_key, pem) = make_rsa_keypair();
         let signing_key = PssSigningKey::<Sha256>::new(priv_key);
-        let signature = signing_key.sign_with_rng(&mut OsRng, b"signed");
+        let signature = signing_key.sign_with_rng(&mut rng, b"signed");
         let sig_bytes = signature.to_bytes();
         let tpmt_sig = build_rsa_tpmt_sig(TPM_ALG_RSAPSS, TPM_ALG_SHA256, &sig_bytes);
 
