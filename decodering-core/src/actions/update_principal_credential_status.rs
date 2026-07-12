@@ -15,6 +15,7 @@ pub struct UpdatePrincipalCredentialStatus {
     pub credential_id: String,
     pub principal_id: String,
     pub status: PrincipalStatus,
+    pub revoked_at: Option<i64>,
 }
 
 impl Action for UpdatePrincipalCredentialStatus {
@@ -38,7 +39,7 @@ impl Action for UpdatePrincipalCredentialStatus {
         let before_state = serde_json::json!(principal_credential);
         let _ = tx
             .principal_credential()
-            .update_status(&self.credential_id, self.status)
+            .update_status(&self.credential_id, self.status, self.revoked_at)
             .await?;
         let response = self.status;
         let after = serde_json::json!(response);

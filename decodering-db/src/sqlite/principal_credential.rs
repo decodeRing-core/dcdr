@@ -163,13 +163,15 @@ impl PrincipalCredentialRepository for SqlitePrincipalCredentialRepository<'_> {
         &mut self,
         credential_id: &str,
         status: PrincipalStatus,
+        revoked_at: Option<i64>,
     ) -> Result<u64, DbError> {
         let result = sqlx::query(
-            "UPDATE principal_credentials
-             SET status = ?
+            "UPDATE principal_credentials \
+             SET status = ?, revoked_at = ? \
              WHERE credential_id = ?",
         )
         .bind(status.as_str())
+        .bind(revoked_at)
         .bind(credential_id)
         .execute(&mut **self.tx)
         .await

@@ -163,13 +163,15 @@ impl PrincipalCredentialRepository for PostgresPrincipalCredentialRepository<'_>
         &mut self,
         credential_id: &str,
         status: PrincipalStatus,
+        revoked_at: Option<i64>,
     ) -> Result<u64, DbError> {
         let result = sqlx::query(
-            "UPDATE principal_credentials
-             SET status = $1
-             WHERE credential_id = $2",
+            "UPDATE principal_credentials \
+             SET status = $1, revoked_at = $2 \
+             WHERE credential_id = $3",
         )
         .bind(status.as_str())
+        .bind(revoked_at)
         .bind(credential_id)
         .execute(&mut **self.tx)
         .await

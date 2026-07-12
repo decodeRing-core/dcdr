@@ -595,6 +595,12 @@ pub async fn auth_activate_app_user<D: Database + 'static>(
     }
 
     let ip = conn.peer_addr().map(str::to_owned);
+    let status = PrincipalStatus::Active;
+    let now = now_ts();
+    let revoked_at = match status {
+        PrincipalStatus::Disabled | PrincipalStatus::Deleted => Some(now),
+        PrincipalStatus::Active | PrincipalStatus::Pending => None,
+    };
     let status_update = UpdatePrincipalCredentialStatus {
         actor: Actor::Principal {
             principal_id: credential.principal_id.clone(),
@@ -602,7 +608,8 @@ pub async fn auth_activate_app_user<D: Database + 'static>(
         },
         credential_id: credential.credential_id.clone(),
         principal_id: credential.principal_id.clone(),
-        status: PrincipalStatus::Active,
+        status,
+        revoked_at,
     };
     let request = AppRequest::UpdatePrincipalCredentialStatus(status_update);
     match app.submit(request).await {

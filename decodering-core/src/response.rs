@@ -143,6 +143,7 @@ pub enum AppResponse {
     UpdatePrincipalCredentialLastUsed(i64),
     UpdatePrincipalCredentialStatus(PrincipalStatus),
     CreatePrincipalToken(CreatePrincipalTokenResponse),
+    RevokePrincipalToken(bool),
     CreatePrincipalAppGrant(CreatePrincipalAppGrantResponse),
     CreatePrincipalAppGrants(Vec<CreatePrincipalAppGrantResponse>),
     DeletePrincipalAppGrant(bool),
@@ -180,7 +181,7 @@ impl fmt::Display for AppResponse {
             Self::CreateApiKey(create_api_key) => {
                 write!(f, "CreateApiKey(user_id={})", create_api_key.user_id)
             }
-            Self::RevokeApiKey(r) => write!(f, "RevokeApiKey(deleted={r})"),
+            Self::RevokeApiKey(r) => write!(f, "RevokeApiKey(revoked={r})"),
             Self::DeleteApiKey(r) => write!(f, "DeleteApiKey(deleted={r})"),
             Self::UpdateApiKeyExpiry(r) => write!(f, "UpdateApiKeyExpiry(updated={r})"),
             Self::CreateSecretMapping(create_secret_mapping) => {
@@ -214,6 +215,9 @@ impl fmt::Display for AppResponse {
                     "CreatePrincipalToken(principal_id={})",
                     create_principal_token.principal_id
                 )
+            }
+            Self::RevokePrincipalToken(revoked) => {
+                write!(f, "RevokePrincipalToken(revoked={revoked})")
             }
             Self::CreatePrincipalCredential(create_principal_credential_response) => {
                 write!(

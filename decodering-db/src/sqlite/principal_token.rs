@@ -63,4 +63,16 @@ impl PrincipalTokenRepository for SqlitePrincipalTokenRepository<'_> {
         .map_err(map_sqlx)?;
         Ok(n)
     }
+
+    async fn revoke(&mut self, token_id: &str, revoked_at: i64) -> Result<u64, DbError> {
+        let result = sqlx::query(
+            "UPDATE principal_tokens SET revoked_at = ? WHERE token_id = ? AND revoked_at IS NULL",
+        )
+        .bind(revoked_at)
+        .bind(token_id)
+        .execute(&mut **self.tx)
+        .await
+        .map_err(map_sqlx)?;
+        Ok(result.rows_affected())
+    }
 }

@@ -151,6 +151,11 @@ pub trait PrincipalTokenRepository: Send {
         &mut self,
         principal_id: &str,
     ) -> impl Future<Output = Result<i64, DbError>> + Send;
+    fn revoke(
+        &mut self,
+        token_id: &str,
+        revoked_at: i64,
+    ) -> impl Future<Output = Result<u64, DbError>> + Send;
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -211,6 +216,7 @@ pub trait PrincipalCredentialRepository: Send {
         &mut self,
         credential_id: &str,
         status: PrincipalStatus,
+        revoked_at: Option<i64>,
     ) -> impl Future<Output = Result<u64, DbError>> + Send;
     fn list_by_principal(
         &mut self,

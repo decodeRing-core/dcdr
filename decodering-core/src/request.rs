@@ -20,6 +20,7 @@ use crate::actions::delete_principal_app_grant::DeletePrincipalAppGrant;
 use crate::actions::delete_secret_mapping::DeleteSecretMapping;
 use crate::actions::delete_user::DeleteUser;
 use crate::actions::revoke_api_key::RevokeApiKey;
+use crate::actions::revoke_principal_token::RevokePrincipalToken;
 use crate::actions::system_init::SystemInit;
 use crate::actions::update_api_key_expiry::UpdateApiKeyExpiry;
 use crate::actions::update_auth_challenge_consumed_at::UpdateAuthChallengeConsumedAt;
@@ -51,6 +52,7 @@ pub enum AppRequest {
     CreatePrincipal(CreatePrincipal),
     CreatePrincipalCredential(CreatePrincipalCredential),
     CreatePrincipalToken(CreatePrincipalToken),
+    RevokePrincipalToken(RevokePrincipalToken),
     CreatePrincipalAppGrants(CreatePrincipalAppGrants),
     DeletePrincipalAppGrant(DeletePrincipalAppGrant),
     CreatePluginConfig(CreatePluginConfig),
@@ -81,6 +83,7 @@ impl AppRequest {
             Self::CreatePrincipal(a) => a.audit_descriptor(),
             Self::CreatePrincipalCredential(a) => a.audit_descriptor(),
             Self::CreatePrincipalToken(a) => a.audit_descriptor(),
+            Self::RevokePrincipalToken(a) => a.audit_descriptor(),
             Self::CreatePrincipalAppGrants(a) => a.audit_descriptor(),
             Self::DeletePrincipalAppGrant(a) => a.audit_descriptor(),
             Self::CreatePluginConfig(a) => a.audit_descriptor(),
@@ -228,6 +231,9 @@ impl fmt::Display for AppRequest {
             Self::CreatePrincipalToken(_) => {
                 write!(f, "CreatePrincipalToken()")
             }
+            Self::RevokePrincipalToken(_) => {
+                write!(f, "RevokePrincipalToken()")
+            }
             Self::UpdateConsumedAt(_) => {
                 write!(f, "UpdateConsumedAt()")
             }
@@ -272,6 +278,7 @@ impl AppRequest {
             }
             Self::DeleteSecretMapping(action) => Ok(run_action_direct(db, action).await?.response),
             Self::CreatePrincipalToken(action) => Ok(run_action_direct(db, action).await?.response),
+            Self::RevokePrincipalToken(action) => Ok(run_action_direct(db, action).await?.response),
             Self::CreatePrincipalAppGrants(action) => {
                 Ok(run_action_direct(db, action).await?.response)
             }

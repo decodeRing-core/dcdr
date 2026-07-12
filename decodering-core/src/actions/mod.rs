@@ -15,6 +15,7 @@ pub mod delete_principal_app_grant;
 pub mod delete_secret_mapping;
 pub mod delete_user;
 pub mod revoke_api_key;
+pub mod revoke_principal_token;
 pub mod system_init;
 pub mod update_api_key_expiry;
 pub mod update_auth_challenge_consumed_at;
