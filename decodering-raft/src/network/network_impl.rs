@@ -1,4 +1,5 @@
 use std::future::Future;
+use std::io::Cursor;
 
 use openraft::BasicNode;
 use openraft::OptionalSend;
@@ -112,6 +113,8 @@ impl Connection {
 }
 
 impl RaftNetworkV2<TypeConfig> for Connection {
+    type SnapshotData = Cursor<Vec<u8>>;
+
     #[tracing::instrument(level = "debug", skip_all)]
     async fn append_entries(
         &mut self,

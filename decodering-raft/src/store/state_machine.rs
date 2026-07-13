@@ -121,6 +121,7 @@ impl<D: Database + Clone + 'static> RaftStateMachine<TypeConfig> for StateMachin
 where
     for<'a> D::Tx<'a>: RaftTx,
 {
+    type SnapshotData = Cursor<Vec<u8>>;
     type SnapshotBuilder = Self;
 
     async fn applied_state(&mut self) -> Result<(Option<LogId>, StoredMembership), io::Error> {
@@ -161,6 +162,11 @@ where
             }
         }
         Ok(())
+    }
+
+    async fn try_create_snapshot_builder(&mut self, _force: bool) -> Option<Self::SnapshotBuilder> {
+        self.snapshot_idx += 1;
+        Some(self.clone())
     }
 
     async fn get_snapshot_builder(&mut self) -> Self::SnapshotBuilder {
@@ -277,6 +283,8 @@ where
 }
 
 impl<D: Database + 'static> RaftSnapshotBuilder<TypeConfig> for StateMachineStore<D> {
+    type SnapshotData = Cursor<Vec<u8>>;
+
     async fn build_snapshot(&mut self) -> Result<Snapshot, io::Error> {
         // Produce a consistent copy of the DB using SQLite's online backup API.
         // Steps through pages with sleeps between, staying friendly to concurrent

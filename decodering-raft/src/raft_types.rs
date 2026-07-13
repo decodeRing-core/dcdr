@@ -13,8 +13,12 @@ pub type VoteOf = openraft::type_config::alias::VoteOf<TypeConfig>;
 pub type SnapshotMetaOf = openraft::type_config::alias::SnapshotMetaOf<TypeConfig>;
 
 pub type SnapshotMeta = openraft::alias::SnapshotMetaOf<TypeConfig>;
-pub type Snapshot = openraft::alias::SnapshotOf<TypeConfig>;
-pub type SnapshotData = <TypeConfig as openraft::RaftTypeConfig>::SnapshotData;
+
+pub type SnapshotData = std::io::Cursor<Vec<u8>>;
+pub type Snapshot = openraft::alias::SnapshotOf<TypeConfig, SnapshotData>;
+
+// pub type Snapshot = openraft::alias::SnapshotOf<TypeConfig>;
+// pub type SnapshotData = <TypeConfig as openraft::RaftTypeConfig>::SnapshotData;
 
 pub type Fatal = openraft::errors::Fatal<TypeConfig>;
 pub type RaftError<E = openraft::errors::Infallible> = openraft::errors::RaftError<TypeConfig, E>;

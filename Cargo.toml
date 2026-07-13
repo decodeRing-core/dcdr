@@ -46,7 +46,7 @@ tracing-subscriber = { version = "0.3.23", features = [
 tracing-actix-web = "0.7.22"
 actix-cors = "0.7.1"
 futures-util = "0.3.32"
-openraft = { version = "=0.10.0-alpha.20", features = ["serde", "type-alias"] }
+openraft = { version = "0.10.0-alpha.29", features = [ "serde", "type-alias" ] }
 rocksdb = "0.24.0"
 futures = "0.3.32"
 rand = { version = "0.10.2", features = ["thread_rng"] }

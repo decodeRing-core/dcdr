@@ -133,8 +133,9 @@ impl AkPublic {
             exponent_raw
         };
 
-        let n = BoxedUint::from_be_slice(modulus, (modulus.len() * 8) as u32)
-            .map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
+        let bits = u32::try_from(modulus.len() * 8).map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
+        let n =
+            BoxedUint::from_be_slice(modulus, bits).map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
         let e = BoxedUint::from(exponent);
         let pubkey = RsaPublicKey::new(n, e).map_err(|_| TpmVerifyError::InvalidAkPubkey)?;
 
@@ -633,6 +634,7 @@ mod tests {
     use crate::tpm::error::TpmVerifyError;
     use decodering_core::crypto::{encode_hex, pem_to_der, sha256_hex, sha256_hex_pem};
     use p256::ecdsa::{SigningKey as EcdsaSigningKey, signature::Signer as _};
+    use p256::elliptic_curve::Generate;
     use rsa::pkcs1v15::SigningKey as Pkcs1v15SigningKey;
     use rsa::pkcs8::{EncodePublicKey, LineEnding};
     use rsa::pss::SigningKey as PssSigningKey;
@@ -653,7 +655,7 @@ mod tests {
 
     fn make_ecdsa_keypair() -> (EcdsaSigningKey, String) {
         let mut rng = rng();
-        let signing_key = EcdsaSigningKey::random(&mut rng);
+        let signing_key = EcdsaSigningKey::generate_from_rng(&mut rng);
         let verifying_key = signing_key.verifying_key();
         let pem = verifying_key
             .to_public_key_pem(LineEnding::default())
