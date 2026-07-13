@@ -2,11 +2,13 @@ use decodering_core::domain::PrincipalStatus;
 use decodering_core::error::DbError;
 use decodering_core::repository::Principal;
 use decodering_core::repository::PrincipalEntry;
+use decodering_core::repository::PrincipalItem;
 use decodering_core::repository::PrincipalRepository;
 use sqlx::Postgres;
 use sqlx::Transaction;
 
 use crate::error::map_sqlx;
+use crate::repository::PrincipalItemRow;
 use crate::repository::PrincipalRow;
 
 pub struct PostgresPrincipalRepository<'a> {
@@ -104,8 +106,8 @@ impl PrincipalRepository for PostgresPrincipalRepository<'_> {
         Ok(principal.map(Into::into))
     }
 
-    async fn list(&mut self, limit: i64, offset: i64) -> Result<Vec<Principal>, DbError> {
-        let rows = sqlx::query_as::<_, PrincipalRow>(
+    async fn list(&mut self, limit: i64, offset: i64) -> Result<Vec<PrincipalItem>, DbError> {
+        let rows = sqlx::query_as::<_, PrincipalItemRow>(
             "SELECT principal_id, name, kind, status, created_at, updated_at, deleted_at \
              FROM principals WHERE deleted_at IS NULL ORDER BY name LIMIT $1 OFFSET $2",
         )

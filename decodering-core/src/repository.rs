@@ -232,7 +232,18 @@ pub trait PrincipalCredentialRepository: Send {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct Principal {
-    pub credential_id: String,
+    pub credential_id: Option<String>,
+    pub principal_id: String,
+    pub name: String,
+    pub kind: PrincipalKind,
+    pub status: PrincipalStatus,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub deleted_at: Option<i64>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct PrincipalItem {
     pub principal_id: String,
     pub name: String,
     pub kind: PrincipalKind,
@@ -276,7 +287,7 @@ pub trait PrincipalRepository: Send {
         &mut self,
         limit: i64,
         offset: i64,
-    ) -> impl Future<Output = Result<Vec<Principal>, DbError>> + Send;
+    ) -> impl Future<Output = Result<Vec<PrincipalItem>, DbError>> + Send;
     fn count(&mut self) -> impl Future<Output = Result<i64, DbError>> + Send;
     fn get_by_id(
         &mut self,

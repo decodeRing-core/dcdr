@@ -15,6 +15,7 @@ use decodering_core::repository::Principal;
 use decodering_core::repository::PrincipalAppGrant;
 use decodering_core::repository::PrincipalAppGrantView;
 use decodering_core::repository::PrincipalCredential;
+use decodering_core::repository::PrincipalItem;
 use decodering_core::repository::PrincipalToken;
 use decodering_core::repository::SecretMapping;
 use decodering_core::repository::Shamir;
@@ -178,7 +179,7 @@ impl From<AppInfoRow> for AppInfo {
 
 #[derive(sqlx::FromRow)]
 pub struct PrincipalRow {
-    pub credential_id: String,
+    pub credential_id: Option<String>,
     pub principal_id: String,
     pub name: String,
     pub kind: String,
@@ -192,6 +193,32 @@ impl From<PrincipalRow> for Principal {
     fn from(r: PrincipalRow) -> Self {
         Self {
             credential_id: r.credential_id,
+            principal_id: r.principal_id,
+            name: r.name,
+            kind: PrincipalKind::from_str(r.kind.as_str()).unwrap_or(PrincipalKind::Human),
+            status: PrincipalStatus::from_str(r.status.as_str())
+                .unwrap_or(PrincipalStatus::Disabled),
+            deleted_at: r.deleted_at,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct PrincipalItemRow {
+    pub principal_id: String,
+    pub name: String,
+    pub kind: String,
+    pub status: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub deleted_at: Option<i64>,
+}
+
+impl From<PrincipalItemRow> for PrincipalItem {
+    fn from(r: PrincipalItemRow) -> Self {
+        Self {
             principal_id: r.principal_id,
             name: r.name,
             kind: PrincipalKind::from_str(r.kind.as_str()).unwrap_or(PrincipalKind::Human),

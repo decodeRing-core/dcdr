@@ -32,7 +32,7 @@ pub async fn require_app_grant_for_principal<D: Database>(
             Ok(Some(principal_app_grant)) => {
                 let last_used = UpdatePrincipalCredentialLastUsed {
                     actor: auth.actor(conn),
-                    credential_id: p.credential_id.clone(),
+                    credential_id: p.clone().credential_id.unwrap_or_default(),
                     principal_id: p.principal_id.clone(),
                     last_used_at: now_ts(),
                 };

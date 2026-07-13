@@ -403,7 +403,7 @@ pub async fn auth_app_user<D: Database + 'static>(
         token_id: Uuid::now_v7().to_string(),
         token_hash,
         principal_id: principal.principal_id,
-        credential_id: principal.credential_id,
+        credential_id: principal.credential_id.unwrap_or_default(),
         issued_at: timestamp,
         expires_at: expires,
         revoked_at: None,
