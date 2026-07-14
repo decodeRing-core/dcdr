@@ -13,6 +13,7 @@ use decodering_core::repository::AuthChallenge;
 use decodering_core::repository::PluginConfig;
 use decodering_core::repository::Principal;
 use decodering_core::repository::PrincipalAppGrant;
+use decodering_core::repository::PrincipalAppGrantItem;
 use decodering_core::repository::PrincipalAppGrantView;
 use decodering_core::repository::PrincipalCredential;
 use decodering_core::repository::PrincipalItem;
@@ -60,6 +61,31 @@ impl From<PrincipalAppGrantRow> for PrincipalAppGrant {
         Self {
             principal_id: r.principal_id,
             app_id: r.app_id,
+            granted_at: r.granted_at,
+            granted_by: r.granted_by,
+            revoked_at: r.revoked_at,
+            revoked_by: r.revoked_by,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct PrincipalAppGrantItemRow {
+    pub principal_id: String,
+    pub app_id: String,
+    pub app_name: String,
+    pub granted_at: i64,
+    pub granted_by: Option<i64>,
+    pub revoked_at: Option<i64>,
+    pub revoked_by: Option<i64>,
+}
+
+impl From<PrincipalAppGrantItemRow> for PrincipalAppGrantItem {
+    fn from(r: PrincipalAppGrantItemRow) -> Self {
+        Self {
+            principal_id: r.principal_id,
+            app_id: r.app_id,
+            app_name: r.app_name,
             granted_at: r.granted_at,
             granted_by: r.granted_by,
             revoked_at: r.revoked_at,

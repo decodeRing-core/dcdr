@@ -1,9 +1,11 @@
 use crate::error::map_sqlx;
+use crate::repository::PrincipalAppGrantItemRow;
 use crate::repository::PrincipalAppGrantRow;
 use crate::repository::PrincipalAppGrantViewRow;
 use decodering_core::error::DbError;
 use decodering_core::repository::PrincipalAppGrant;
 use decodering_core::repository::PrincipalAppGrantEntry;
+use decodering_core::repository::PrincipalAppGrantItem;
 use decodering_core::repository::PrincipalAppGrantRepository;
 use decodering_core::repository::PrincipalAppGrantView;
 use sqlx::{Postgres, QueryBuilder, Transaction};
@@ -130,9 +132,9 @@ impl PrincipalAppGrantRepository for PostgresPrincipalAppGrantRepository<'_> {
         principal_id: &str,
         limit: i64,
         offset: i64,
-    ) -> Result<Vec<PrincipalAppGrant>, DbError> {
-        let rows = sqlx::query_as::<_, PrincipalAppGrantRow>(
-            "SELECT g.principal_id, g.app_id, a.app_name, g.granted_at, g.granted_by, g.revoked_at \
+    ) -> Result<Vec<PrincipalAppGrantItem>, DbError> {
+        let rows = sqlx::query_as::<_, PrincipalAppGrantItemRow>(
+            "SELECT g.principal_id, g.app_id, a.app_name, g.granted_at, g.granted_by, g.revoked_at, g.revoked_by \
              FROM principal_app_grants g LEFT JOIN applications a ON a.app_id = g.app_id \
              WHERE g.principal_id = ? ORDER BY g.granted_at DESC LIMIT $1 OFFSET $2",
         )

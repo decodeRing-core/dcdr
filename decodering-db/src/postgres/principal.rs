@@ -129,8 +129,8 @@ impl PrincipalRepository for PostgresPrincipalRepository<'_> {
         Ok(n)
     }
 
-    async fn get_by_id(&mut self, principal_id: &str) -> Result<Option<Principal>, DbError> {
-        let row = sqlx::query_as::<_, PrincipalRow>(
+    async fn get_by_id(&mut self, principal_id: &str) -> Result<Option<PrincipalItem>, DbError> {
+        let row = sqlx::query_as::<_, PrincipalItemRow>(
             "SELECT principal_id, name, kind, status, created_at, updated_at, deleted_at \
              FROM principals WHERE principal_id = $1",
         )

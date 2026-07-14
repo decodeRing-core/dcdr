@@ -186,7 +186,7 @@ impl PrincipalCredentialRepository for SqlitePrincipalCredentialRepository<'_> {
         offset: i64,
     ) -> Result<Vec<PrincipalCredential>, DbError> {
         let rows = sqlx::query_as::<_, PrincipalCredentialRow>(
-            "SELECT credential_id, principal_id, kind, status, expires_at, last_used_at, created_at, revoked_at \
+            "SELECT credential_id, principal_id, kind, lookup_key, secret_material, status, expires_at, last_used_at, created_at, revoked_at \
              FROM principal_credentials WHERE principal_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
         )
         .bind(principal_id).bind(limit).bind(offset)
