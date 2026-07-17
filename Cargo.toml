@@ -28,7 +28,7 @@ serde_with = { version = "3.21.0", features = ["base64", "macros"] }
 # Using backup API to install a new snapshot.
 rusqlite = { version = "~0.39.0", features = ["bundled", "backup"] }
 
-tokio = { version = "1.52.3", features = ["full"] }
+tokio = { version = "1.53.0", features = ["full"] }
 serde = "1.0.228"
 serde_json = { version = "1.0.150", features = ["preserve_order"] }
 extism = "1.30.0"
@@ -46,12 +46,12 @@ tracing-subscriber = { version = "0.3.23", features = [
 tracing-actix-web = "0.7.22"
 actix-cors = "0.7.1"
 futures-util = "0.3.32"
-openraft = { version = "0.10.0-alpha.29", features = [ "serde", "type-alias" ] }
+openraft = { version = "0.10.0-alpha.30", features = [ "serde", "type-alias" ] }
 rocksdb = "0.24.0"
 futures = "0.3.32"
 rand = { version = "0.10.2", features = ["thread_rng"] }
 reqwest = { version = "0.13.4", features = ["json"] }
-clap = { version = "4.6.1", features = ["derive", "env"] }
+clap = { version = "4.6.2", features = ["derive", "env"] }
 sqlx = { version = "0.9.0", features = [
     "runtime-tokio",
     "sqlite",
