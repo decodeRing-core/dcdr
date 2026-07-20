@@ -31,7 +31,7 @@ rusqlite = { version = "~0.39.0", features = ["bundled", "backup"] }
 tokio = { version = "1.53.0", features = ["full"] }
 serde = "1.0.228"
 serde_json = { version = "1.0.150", features = ["preserve_order"] }
-extism = "1.30.0"
+extism = { version = "1.30.0", features = ["default"] }
 serde_norway = "0.9.42"
 dotenvy = "0.15.7"
 actix-web = "4.14.0"
