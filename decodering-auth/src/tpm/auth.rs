@@ -25,9 +25,10 @@ use std::collections::HashMap;
 use crate::tpm::cert::TpmTrustStore;
 use crate::tpm::cert::verify_ek_cert_chain;
 use crate::tpm::utils::AkPublic;
-use crate::tpm::utils::{
-    make_credential_rsa, parse_tpms_attest, verify_pcrs, verify_quote_signature,
-};
+use crate::tpm::utils::make_credential_rsa;
+use crate::tpm::utils::parse_tpms_attest;
+use crate::tpm::utils::verify_pcrs;
+use crate::tpm::utils::verify_quote_signature;
 
 #[derive(Deserialize)]
 struct TpmEnrollData {
