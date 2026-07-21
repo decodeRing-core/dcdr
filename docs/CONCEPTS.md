@@ -91,8 +91,8 @@ memory and cannot decrypt backend credentials. Operators _unseal_ it by
 supplying at least `k` Shamir shares, which reconstructs the master key for
 that process's lifetime.
 
-**Audit log** — An append-only record of every action attempted — allowed,
-denied, or errored — written in the same transaction as the action itself.
+**Audit log** — An append-only record of every action attempted: allowed,
+denied, or errored. Written in the same transaction as the action itself.
 
 **Action** — The internal unit of a state change (e.g. "create app", "revoke
 API key"). Every mutating OSL/management request maps to an action, which is
