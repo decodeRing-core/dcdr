@@ -2,7 +2,7 @@
 
 This document describes how decodeRing protects secrets and what an operator is
 trusting when they run it. It is a design/trust-model document. To **report a
-vulnerability**, follow [SECURITY.md](SECURITY.md) instead — do not open a
+vulnerability**, follow [SECURITY.md](../SECURITY.md) instead — do not open a
 public issue.
 
 > decodeRing is alpha software and has not had a formal security audit. See
