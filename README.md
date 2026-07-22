@@ -333,8 +333,7 @@ Once a node is running, it serves a work-in-progress OpenAPI specification and a
 
 For example, a node started with `--addr 127.0.0.1:21001` serves the spec at `http://127.0.0.1:21001/api-docs/openapi.json`. The specification is still being completed, so some endpoints may be missing or incomplete. For the operations currently supported, see [Implementation Status](#implementation-status).
 
-New to decodeRing? The [Core Concepts](docs/CONCEPTS.md) page defines the
-vocabulary used below — principals, apps, secret mappings, tokens, seal/unseal.
+New to decodeRing? The [Core Concepts](docs/CONCEPTS.md) page defines the vocabulary used below.
 
 ## CLI
 
