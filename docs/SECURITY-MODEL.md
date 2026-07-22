@@ -130,4 +130,4 @@ decodeRing is alpha. Known caveats an evaluator should weigh:
 - **Feature gaps.** Secret versioning, rotation, credential issuance/renewal,
   and sync are not yet implemented;
 
-If you find a security issue, report it privately per [SECURITY.md](SECURITY.md).
+If you find a security issue, report it privately per [SECURITY.md](../SECURITY.md).

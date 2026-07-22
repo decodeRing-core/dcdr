@@ -62,6 +62,8 @@ The project is a Cargo workspace organized into the following crates:
 | [decodering-server](https://github.com/decodeRing-core/dcdr/tree/main/decodering-server)   | Implements the OSL (Open Secrets Language) REST API and handles Raft node management, system initialization, and ongoing operations. | core, db, raft, auth |
 | [decodering-cli](https://github.com/decodeRing-core/dcdr/tree/main/decodering-cli)         | Command-line tool for operators to interact with decodering-server without calling the REST API directly.                            | core                 |
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for more information.
+
 ## Supported Integrations
 
 **Secret vaults**
@@ -330,6 +332,9 @@ Once a node is running, it serves a work-in-progress OpenAPI specification and a
 - Swagger UI: `http://<host>:<port>/swagger-ui/`
 
 For example, a node started with `--addr 127.0.0.1:21001` serves the spec at `http://127.0.0.1:21001/api-docs/openapi.json`. The specification is still being completed, so some endpoints may be missing or incomplete. For the operations currently supported, see [Implementation Status](#implementation-status).
+
+New to decodeRing? The [Core Concepts](docs/CONCEPTS.md) page defines the
+vocabulary used below — principals, apps, secret mappings, tokens, seal/unseal.
 
 ## CLI
 
